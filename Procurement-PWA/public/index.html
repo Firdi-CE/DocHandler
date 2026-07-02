@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Procurement Portal</title>
+    <link rel="manifest" href="/manifest.json">
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; padding: 2rem; display: flex; justify-content: center; }
+        .container { background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: 100%; max-width: 400px; }
+        h2 { color: #333; margin-top: 0; }
+        label { font-weight: bold; display: block; margin-top: 1rem; color: #555; }
+        select, input[type="file"] { width: 100%; padding: 0.5rem; margin-top: 0.5rem; border: 1px solid #ccc; border-radius: 4px; }
+        button { margin-top: 1.5rem; width: 100%; background-color: #0284c7; color: white; border: none; padding: 0.75rem; font-size: 1rem; border-radius: 4px; cursor: pointer; }
+        button:hover { background-color: #026aa7; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h2>PBE Document Portal</h2>
+        <form action="/upload" method="POST" enctype="multipart/form-data">
+            
+            <label for="team">Route to Team:</label>
+            <select name="team" id="team" required>
+                <option value="Engineering">Engineering Team</option>
+                <option value="Site_Managers">Site Managers</option>
+                <option value="Finance">Finance / Cashflow</option>
+                <option value="HSE">HSE Department</option>
+            </select>
+
+            <label for="document">Select PDF:</label>
+            <input type="file" name="document" id="document" accept="application/pdf" required>
+
+            <button type="submit">Upload & Send</button>
+        </form>
+    </div>
+
+    <script>
+        // Register the Service Worker for PWA capabilities
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js')
+                .then(() => console.log('Service Worker Registered'));
+        }
+    </script>
+</body>
+</html>
