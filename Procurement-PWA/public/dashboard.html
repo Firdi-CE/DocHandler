@@ -7,11 +7,10 @@
         body { font-family: sans-serif; padding: 2rem; background: #f4f7f6; }
         .card { background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
         .nav { margin-bottom: 1rem; }
-        .nav button { padding: 0.5rem 1rem; cursor: pointer; }
-        .filter-section { margin-bottom: 1rem; }
         ul { list-style: none; padding: 0; }
         li { padding: 0.75rem; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; }
-        a { text-decoration: none; color: #0284c7; }
+        a { text-decoration: none; color: #0284c7; font-weight: bold; }
+        .badge { background: #e2e8f0; padding: 2px 8px; border-radius: 10px; font-size: 0.8rem; }
     </style>
 </head>
 <body>
@@ -40,11 +39,11 @@
     <script>
         let allFiles = [];
 
-        // Fetch files from the server
+        // Fetch the manifest file
         fetch('/files')
             .then(res => res.json())
-            .then(files => {
-                allFiles = files;
+            .then(data => {
+                allFiles = data;
                 renderFiles();
             });
 
@@ -53,9 +52,16 @@
             const list = document.getElementById('fileList');
             list.innerHTML = '';
 
-            allFiles.filter(file => filter === 'All' || file.includes(filter)).forEach(file => {
+            allFiles.filter(item => filter === 'All' || item.team === filter).forEach(item => {
                 const li = document.createElement('li');
-                li.innerHTML = `<span>${file}</span> <a href="/uploads/${file}" target="_blank">View</a>`;
+                // Construct the correct path: /uploads/TeamName/filename
+                const filePath = `/uploads/${item.team}/${item.filename}`;
+                li.innerHTML = `
+                    <div>
+                        <span class="badge">${item.team}</span> ${item.filename}
+                    </div>
+                    <a href="${filePath}" target="_blank">View PDF</a>
+                `;
                 list.appendChild(li);
             });
         }
