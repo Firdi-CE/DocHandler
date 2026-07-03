@@ -5,29 +5,60 @@
     <title>Document Dashboard</title>
     <style>
         body { font-family: sans-serif; padding: 2rem; background: #f4f7f6; }
-        .card { background: white; padding: 1rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .card { background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .nav { margin-bottom: 1rem; }
+        .nav button { padding: 0.5rem 1rem; cursor: pointer; }
+        .filter-section { margin-bottom: 1rem; }
         ul { list-style: none; padding: 0; }
-        li { padding: 0.5rem; border-bottom: 1px solid #eee; }
-        a { text-decoration: none; color: #0279e2; }
+        li { padding: 0.75rem; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; }
+        a { text-decoration: none; color: #0284c7; }
     </style>
 </head>
 <body>
+
+    <div class="nav">
+        <button onclick="window.location.href='/'">← Back to Upload</button>
+    </div>
+
     <div class="card">
-        <h2>Uploaded Documents</h2>
+        <h2>Document Dashboard</h2>
+        
+        <div class="filter-section">
+            <label>Filter by Team:</label>
+            <select id="teamFilter" onchange="renderFiles()">
+                <option value="All">All Teams</option>
+                <option value="Engineering">Engineering</option>
+                <option value="Site_Managers">Site Managers</option>
+                <option value="Finance">Finance</option>
+                <option value="HSE">HSE</option>
+            </select>
+        </div>
+
         <ul id="fileList"></ul>
     </div>
 
     <script>
+        let allFiles = [];
+
+        // Fetch files from the server
         fetch('/files')
             .then(res => res.json())
             .then(files => {
-                const list = document.getElementById('fileList');
-                files.forEach(file => {
-                    const li = document.createElement('li');
-                    li.innerHTML = `<a href="/uploads/${file}" target="_blank">${file}</a>`;
-                    list.appendChild(li);
-                });
+                allFiles = files;
+                renderFiles();
             });
+
+        function renderFiles() {
+            const filter = document.getElementById('teamFilter').value;
+            const list = document.getElementById('fileList');
+            list.innerHTML = '';
+
+            allFiles.filter(file => filter === 'All' || file.includes(filter)).forEach(file => {
+                const li = document.createElement('li');
+                li.innerHTML = `<span>${file}</span> <a href="/uploads/${file}" target="_blank">View</a>`;
+                list.appendChild(li);
+            });
+        }
     </script>
 </body>
 </html>
