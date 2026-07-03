@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Document Dashboard</title>
+    <style>
+        body { font-family: sans-serif; padding: 2rem; background: #f4f7f6; }
+        .card { background: white; padding: 1rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        ul { list-style: none; padding: 0; }
+        li { padding: 0.5rem; border-bottom: 1px solid #eee; }
+        a { text-decoration: none; color: #0279e2; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h2>Uploaded Documents</h2>
+        <ul id="fileList"></ul>
+    </div>
+
+    <script>
+        fetch('/files')
+            .then(res => res.json())
+            .then(files => {
+                const list = document.getElementById('fileList');
+                files.forEach(file => {
+                    const li = document.createElement('li');
+                    li.innerHTML = `<a href="/uploads/${file}" target="_blank">${file}</a>`;
+                    list.appendChild(li);
+                });
+            });
+    </script>
+</body>
+</html>

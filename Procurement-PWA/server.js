@@ -41,7 +41,16 @@ app.post('/upload', upload.single('document'), (req, res) => {
 
     res.send(`File successfully uploaded and routed to ${targetTeam}!`);
 });
-
+// New Endpoint: Get list of files
+app.get('/files', (req, res) => {
+    const directoryPath = path.join(__dirname, 'public/uploads');
+    fs.readdir(directoryPath, (err, files) => {
+        if (err) {
+            return res.status(500).send('Unable to scan directory');
+        }
+        res.json(files); // Sends the list of files as a JSON array
+    });
+});
 // Start the server
 app.listen(PORT, () => {
     console.log(`Procurement PWA Server is running on http://localhost:${PORT}`);
