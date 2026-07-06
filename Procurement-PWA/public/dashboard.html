@@ -410,28 +410,5 @@
     }
   }
 </script>
-<script>
-    window.addEventListener('DOMContentLoaded', async () => {
-        try {
-            console.log("Checking session...");
-            const response = await fetch('/auth/me', { credentials: 'include' });
-            
-            // response.ok is true for 200-299 statuses (this handles 200, 304, etc.)
-            if (response.ok) {
-                console.log("User verified! Staying on page.");
-            } 
-            // Only redirect if status is 401 (Unauthorized)
-            else if (response.status === 401) {
-                console.log("Not logged in. Redirecting to login...");
-                window.location.href = '/login.html';
-            } 
-            else {
-                console.log("Server responded with error status:", response.status);
-            }
-        } catch (err) {
-            console.error('Connection error:', err);
-        }
-    });
-</script>
 </body>
 </html>
