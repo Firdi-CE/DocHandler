@@ -2,7 +2,6 @@ const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const multer = require('multer');
 const db = require('./db'); 
 const upload = multer({ dest: 'uploads/' });
 const app = express();
@@ -57,7 +56,7 @@ const storage = multer.diskStorage({
     }
 });
 
-const upload = multer({ storage: storage });
+
 
 // API Endpoint to handle the PDF upload
 app.post('/upload', upload.single('document'), (req, res) => {

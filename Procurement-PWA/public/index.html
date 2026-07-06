@@ -2,51 +2,64 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Procurement Portal</title>
-    <link rel="manifest" href="/manifest.json">
-    <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; padding: 2rem; display: flex; justify-content: center; }
-        .container { background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: 100%; max-width: 400px; }
-        h2 { color: #333; margin-top: 0; }
-        label { font-weight: bold; display: block; margin-top: 1rem; color: #555; }
-        select, input[type="file"] { width: 100%; padding: 0.5rem; margin-top: 0.5rem; border: 1px solid #ccc; border-radius: 4px; }
-        button { margin-top: 1.5rem; width: 100%; background-color: #0284c7; color: white; border: none; padding: 0.75rem; font-size: 1rem; border-radius: 4px; cursor: pointer; }
-        button:hover { background-color: #026aa7; }
-    </style>
+    <title>PBE Procurement Upload</title>
 </head>
 <body>
-<div style="margin-bottom: 1rem;">
-    <button onclick="window.location.href='/dashboard.html'" style="background-color: #64748b;">View Dashboard →</button>
-</div>
-    <div class="container">
-        <h2>PBE Document Portal</h2>
-        <form action="/upload" method="POST" enctype="multipart/form-data">
-            
-            <label for="team">Route to Team:</label>
-            <select name="team" id="team" required>
-                <option value="All">All Teams</option>
-                <option value="Procurement">Procurement</option>
-                <option value="Engineering">Engineering Team</option>
-                <option value="Site_Managers">Site Managers</option>
-                <option value="Project_Managers">Project Managers</option>
-                <option value="Finance">Finance / Cashflow</option>
-                <option value="HSE">HSE Department</option>
+    <h1>Upload Procurement Document</h1>
+    <form id="uploadForm">
+        <input type="file" name="document" required>
+        
+        <input type="hidden" id="senderId" value="1"> 
+        <input type="hidden" id="projectId" value="1">
+        
+        <div>
+            <label>Department:</label>
+            <select id="deptDropdown" name="departmentId" onchange="loadUsers()" required>
+                <option value="">-- Select --</option>
+                <option value="1">Engineering</option>
+                <option value="2">Procurement</option>
+                <option value="3">Site Managers</option>
+                <option value="5">Finance</option>
             </select>
+        </div>
 
-            <label for="document">Select Document:</label>
-            <input type="file" name="document" id="document" accept="application/pdf" required>
-
-            <button type="submit">Upload & Send</button>
-        </form>
-    </div>
+        <div>
+            <label>Recipient (PIC):</label>
+            <select id="picDropdown" name="recipientId" required>
+                <option value="">-- Choose Dept first --</option>
+            </select>
+        </div>
+        
+        <button type="submit">Upload & Route</button>
+    </form>
 
     <script>
-        // Register the Service Worker for PWA capabilities
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/sw.js')
-                .then(() => console.log('Service Worker Registered'));
+        async function loadUsers() {
+            const deptId = document.getElementById('deptDropdown').value;
+            const picDropdown = document.getElementById('picDropdown');
+            picDropdown.innerHTML = '<option value="">-- Loading... --</option>';
+
+            const res = await fetch(`/users/by-department/${deptId}`);
+            const users = await res.json();
+            
+            picDropdown.innerHTML = '<option value="">-- Choose Person --</option>';
+            users.forEach(u => {
+                const opt = document.createElement('option');
+                opt.value = u.id;
+                opt.textContent = u.email;
+                picDropdown.appendChild(opt);
+            });
         }
+
+        document.getElementById('uploadForm').onsubmit = async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            formData.append('senderId', document.getElementById('senderId').value);
+            formData.append('projectId', document.getElementById('projectId').value);
+
+            const res = await fetch('/upload', { method: 'POST', body: formData });
+            if (res.ok) alert('File uploaded and routed!');
+        };
     </script>
 </body>
 </html>
