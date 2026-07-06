@@ -1,4 +1,3 @@
-require('dotenv').config();
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
@@ -8,8 +7,9 @@ const passport = require('./auth'); // Imports configured passport from auth.js
 const db = require('./db');         // Imports PostgreSQL connection pool from db.js
 
 const app = express();
-app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3000;
+// Add this to your server.js, line 10
+console.log("--- STARTING NEW SERVER VERSION ---");
 
 // --- 1. MIDDLEWARE CONFIGURATION ---
 app.use(express.json());
@@ -20,12 +20,7 @@ app.use(session({
     secret: 'pbe_oneforall_secret_key_placeholder', 
     resave: false,
     saveUninitialized: false,
-    cookie: { 
-        secure: false,    // Set to false for local dev (use true only if you have HTTPS)
-        httpOnly: true,
-        sameSite: 'lax',  // 'lax' allows the cookie to pass through the tunnel
-        maxAge: 1000 * 60 * 60 * 24 // 24 hours
-    }
+    cookie: { secure: false } 
 }));
 
 // Initialize Passport sessions
@@ -74,6 +69,10 @@ app.get('/auth/google/callback',
         res.redirect('/index.html'); 
     }
 );
+
+
+// --- 4. DATA SELECT DROPDOWN ENDPOINTS ---
+
 // API Endpoint to fetch existing company projects to build frontend selections dynamically
 app.get('/projects', async (req, res) => {
     try {
@@ -86,7 +85,6 @@ app.get('/projects', async (req, res) => {
 
 // API Endpoint to fetch users grouped by selected department for chained dependent options
 app.get('/users/by-department/:deptId', async (req, res) => {
-app.get('/users/by-department/:deptId', ensureAuthenticated, async (req, res) => {
     try {
         const { deptId } = req.params;
         const result = await db.query(
@@ -104,7 +102,6 @@ app.get('/users/by-department/:deptId', ensureAuthenticated, async (req, res) =>
 
 // Endpoint handling physical multi-part upload write transactions and relational database linking
 app.post('/upload', upload.single('document'), async (req, res) => {
-app.post('/upload', ensureAuthenticated, upload.single('document'), async (req, res) => {
     try {
         if (!req.file) {
             return res.status(400).send('No file uploaded.');
@@ -133,18 +130,10 @@ app.post('/upload', ensureAuthenticated, upload.single('document'), async (req, 
 
 // Endpoint to capture inbox layout listings targeting single identity profile logs
 app.get('/documents/my-inbox/:userId', async (req, res) => {
-app.get('/documents/my-inbox', ensureAuthenticated, async (req, res) => {
     try {
         const { userId } = req.params;
-        const userId = req.user.id; // Securely get user ID from the authenticated session
         const result = await db.query(
             'SELECT * FROM documents WHERE recipient_id = $1 ORDER BY created_at DESC',
-            `SELECT d.*, p.name as project_name, u_sender.email as sender_email, dept.name as department_name
-             FROM documents d
-             LEFT JOIN projects p ON d.project_id = p.id
-             LEFT JOIN users u_sender ON d.sender_id = u_sender.id
-             LEFT JOIN departments dept ON d.department_id = dept.id
-             WHERE d.recipient_id = $1 ORDER BY d.created_at DESC`,
             [userId]
         );
         res.json(result.rows);
@@ -153,18 +142,6 @@ app.get('/documents/my-inbox', ensureAuthenticated, async (req, res) => {
     }
 });
 
-// Endpoint for the frontend to verify the user's session and get user data.
-app.get('/auth/me', (req, res) => {
-    if (req.isAuthenticated()) {
-        // req.isAuthenticated() is a Passport helper that checks the session
-        res.json(req.user); 
-    } else {
-        res.status(401).json({ message: "Not logged in" });
-    }
-app.get('/auth/me', ensureAuthenticated, (req, res) => {
-    // If ensureAuthenticated passes, req.user is guaranteed to exist.
-    res.json(req.user);
-});
 
 // --- 6. START SERVER ENGINE ---
 app.listen(PORT, () => {

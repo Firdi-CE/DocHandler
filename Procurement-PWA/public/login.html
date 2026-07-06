@@ -4,10 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Sign In — DocHandler</title>
-  <link rel="icon" href="/favicon.ico" type="image/x-icon">
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       font-family: 'Segoe UI', system-ui, sans-serif;
       background: #f4f7f6;
@@ -15,6 +12,7 @@
       justify-content: center;
       align-items: center;
       min-height: 100vh;
+      margin: 0;
     }
     .card {
       background: white;
@@ -26,128 +24,26 @@
       width: 90%;
       text-align: center;
     }
-    h1 {
-      font-size: 1.8rem;
-      font-weight: 800;
-      margin-bottom: 0.25rem;
-      color: #111;
-    }
-    .subtitle {
-      color: #555;
-      margin-bottom: 2rem;
-      font-size: 0.95rem;
-    }
-    #g_id_onload {
-      display: flex;
-      justify-content: center;
-      margin-bottom: 1.5rem;
-    }
-    .status-box {
-      background: #f8f9fa;
-      border: 2px solid #ddd;
-      border-radius: 8px;
-      padding: 1rem;
-      margin-top: 1rem;
-      font-size: 0.9rem;
-      color: #333;
-      display: none;
-    }
-    .status-box.error { border-color: #ef4444; background: #fef2f2; color: #b91c1c; }
-    .status-box.success { border-color: #10b981; background: #ecfdf5; color: #065f46; }
-    .status-box.info { border-color: #f59e0b; background: #fffbeb; color: #92400e; }
-    .demo-note {
-      margin-top: 1.5rem;
-      padding: 0.75rem;
-      font-size: 0.8rem;
-      background: #f0f0f0;
+    h1 { font-size: 1.8rem; font-weight: 800; margin-bottom: 1rem; }
+    .google-btn {
+      display: inline-block;
+      padding: 12px 24px;
+      background: #4285f4;
+      color: white;
+      text-decoration: none;
       border-radius: 6px;
-      color: #666;
+      font-weight: bold;
+      margin-top: 1rem;
     }
+    .google-btn:hover { background: #357ae8; }
   </style>
 </head>
 <body>
-
-<div class="card">
-  <h1>📄 DocHandler</h1>
-  <p class="subtitle">Document routing for PBE projects</p>
-
-  <div id="g_id_onload"
-       data-client_id="941222430549-jl0ltuujq90srb544hjm9ckivrki2a7t.apps.googleusercontent.com"
-       data-context="signin"
-       data-ux_mode="popup"
-       data-callback="handleCredentialResponse"
-       data-auto_prompt="false">
+  <div class="card">
+    <h1>Sign In</h1>
+    <p>Please log in using your company account.</p>
+    
+    <a href="/auth/google" class="google-btn">Login with Google</a>
   </div>
-  <div class="g_id_signin"
-       data-type="standard"
-       data-shape="rectangular"
-       data-theme="outline"
-       data-text="signin_with"
-       data-size="large"
-       data-logo_alignment="left">
-  </div>
-
-  <div id="statusMessage" class="status-box"></div>
-
-  <div class="demo-note">
-    ⚡ Sign in with your Google account. First-time users will be placed in the approval queue.
-  </div>
-</div>
-
-<script>
-  const API_BASE = '';
-
-  async function handleCredentialResponse(response) {
-    const statusEl = document.getElementById('statusMessage');
-    statusEl.style.display = 'block';
-    statusEl.className = 'status-box info';
-    statusEl.textContent = 'Verifying...';
-
-    try {
-      const res = await fetch(API_BASE + '/auth/google', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ idToken: response.credential })
-      });
-
-      const data = await res.json();
-
-      if (res.status === 200 && data.status === 'approved') {
-        // Save JWT
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('user', JSON.stringify(data.user));
-
-        statusEl.className = 'status-box success';
-        statusEl.textContent = 'Signed in! Redirecting...';
-
-        // Redirect based on role
-        if (data.user.role === 'Executive') {
-          window.location.href = '/admin/approvals.html';
-        } else {
-          window.location.href = '/dashboard.html';
-        }
-      } else if (res.status === 403 && data.status === 'pending') {
-        statusEl.className = 'status-box error';
-        statusEl.textContent = data.message || 'Account pending approval.';
-      } else if (res.status === 201) {
-        statusEl.className = 'status-box info';
-        statusEl.textContent = data.message || 'Request submitted. Wait for admin approval.';
-      } else {
-        statusEl.className = 'status-box error';
-        statusEl.textContent = data.error || 'Something went wrong.';
-      }
-    } catch (err) {
-      statusEl.className = 'status-box error';
-      statusEl.textContent = 'Network error. Is the server running?';
-      console.error(err);
-    }
-  }
-
-  // If already logged in, go straight to dashboard
-  if (localStorage.getItem('token')) {
-    window.location.href = '/dashboard.html';
-  }
-</script>
-
 </body>
 </html>
