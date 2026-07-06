@@ -3,7 +3,11 @@ const jwt = require('jsonwebtoken');
 const db = require('./db');
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
-const JWT_SECRET = process.env.JWT_SECRET || 'dochandler_demo_secret_change_in_production';
+const JWT_SECRET = process.env.JWT_SECRET;
+
+if (!JWT_SECRET) {
+  throw new Error('FATAL ERROR: JWT_SECRET is not defined in environment variables.');
+}
 
 const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
 

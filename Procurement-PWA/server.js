@@ -3,34 +3,15 @@ const express = require('express');
 const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
-const session = require('express-session');
-const passport = require('./auth'); // Imports configured passport from auth.js
+const auth = require('./auth'); // Imports JWT auth helpers
 const db = require('./db');         // Imports PostgreSQL connection pool from db.js
 
 const app = express();
-app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3000;
 
 // --- 1. MIDDLEWARE CONFIGURATION ---
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
-// Express session setup (Vital for maintaining login states)
-app.use(session({
-    secret: 'pbe_oneforall_secret_key_placeholder', 
-    resave: false,
-    saveUninitialized: false,
-    cookie: { 
-        secure: false,    // Set to false for local dev (use true only if you have HTTPS)
-        httpOnly: true,
-        sameSite: 'lax',  // 'lax' allows the cookie to pass through the tunnel
-        maxAge: 1000 * 60 * 60 * 24 // 24 hours
-    }
-}));
-
-// Initialize Passport sessions
-app.use(passport.initialize());
-app.use(passport.session());
 
 // Serve static web interface assets from the public directory
 app.use(express.static(path.join(__dirname, 'public')));
@@ -61,26 +42,39 @@ const upload = multer({ storage: storage });
 app.use('/uploads', express.static(uploadDir));
 
 
-// --- 3. GOOGLE SINGLE SIGN-ON (SSO) AUTHENTICATION ROUTES ---
+// --- 3. AUTHENTICATION ROUTES & MIDDLEWARE ---
 
-// Route to kick off the Google OAuth login prompt overlay
-app.get('/auth/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
-
-// Callback redirect route target whitelisted in Google Cloud Platform Console
-app.get('/auth/google/callback', 
-    passport.authenticate('google', { failureRedirect: '/login.html' }),
-    (req, res) => {
-        // Successfully authenticated cookie token verified. Forward to main portal view page.
-        res.redirect('/index.html'); 
+// New endpoint for client-side Google Sign-In.
+// The client sends the Google ID token, the server verifies it and returns a JWT.
+app.post('/auth/google/login', async (req, res) => {
+    try {
+        const { idToken } = req.body;
+        if (!idToken) {
+            return res.status(400).json({ error: 'idToken is required' });
+        }
+        const result = await auth.handleGoogleLogin(idToken);
+        res.json(result);
+    } catch (error) {
+        console.error('Google login error:', error);
+        res.status(401).json({ error: 'Authentication failed', details: error.message });
     }
-);
+});
 
-// Middleware to protect routes by ensuring the user is authenticated.
+// Middleware to protect routes by verifying the JWT.
 const ensureAuthenticated = (req, res, next) => {
-    if (req.isAuthenticated()) {
-        return next();
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ message: 'Not authenticated: No token provided' });
     }
-    res.status(401).json({ message: 'Not authenticated' });
+    const token = authHeader.split(' ')[1];
+    try {
+        const decoded = auth.verifyToken(token);
+        // Attach user info from token to the request object
+        req.user = { id: decoded.userId, email: decoded.email, role: decoded.role, department_id: decoded.departmentId, display_name: decoded.displayName };
+        return next();
+    } catch (error) {
+        return res.status(401).json({ message: 'Not authenticated: Invalid token' });
+    }
 };
 
 // --- 4. DATA SELECT DROPDOWN ENDPOINTS ---
@@ -100,7 +94,7 @@ app.get('/users/by-department/:deptId', ensureAuthenticated, async (req, res) =>
     try {
         const { deptId } = req.params;
         const result = await db.query(
-            'SELECT id, email FROM users WHERE department_id = $1 ORDER BY email ASC',
+            'SELECT id, email, display_name FROM users WHERE department_id = $1 ORDER BY display_name ASC',
             [deptId]
         );
         res.json(result.rows);
@@ -120,7 +114,8 @@ app.post('/upload', ensureAuthenticated, upload.single('document'), async (req, 
         }
 
         // Capture properties emitted from form elements matching layout targets
-        const { senderId, recipientId, projectId, departmentId } = req.body;
+        const senderId = req.user.id; // Sender is the authenticated user
+        const { recipientId, projectId, departmentId } = req.body;
         const filename = req.file.filename;
 
         // Perform strict table transaction sequence mapping elements cleanly to table relations
@@ -143,7 +138,7 @@ app.post('/upload', ensureAuthenticated, upload.single('document'), async (req, 
 // Endpoint to capture inbox layout listings targeting single identity profile logs
 app.get('/documents/my-inbox', ensureAuthenticated, async (req, res) => {
     try {
-        const userId = req.user.id; // Securely get user ID from the authenticated session
+        const userId = req.user.id; // Securely get user ID from the authenticated token
         const result = await db.query(
             `SELECT d.*, p.name as project_name, u_sender.email as sender_email, dept.name as department_name
              FROM documents d
@@ -154,6 +149,26 @@ app.get('/documents/my-inbox', ensureAuthenticated, async (req, res) => {
             [userId]
         );
         res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Endpoint to rename a document
+app.patch('/documents/:id/rename', ensureAuthenticated, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { filename: newBaseName } = req.body;
+        if (!newBaseName) return res.status(400).json({ error: 'New filename is required.' });
+
+        const docRes = await db.query('SELECT filename FROM documents WHERE id = $1', [id]);
+        if (docRes.rows.length === 0) return res.status(404).json({ error: 'Document not found' });
+        
+        const ext = path.extname(docRes.rows[0].filename);
+        const newFilename = `${newBaseName}${ext}`;
+
+        await db.query('UPDATE documents SET filename = $1 WHERE id = $2', [newFilename, id]);
+        res.json({ message: 'Rename successful', newFilename });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
