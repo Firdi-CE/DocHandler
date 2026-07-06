@@ -1,50 +1,252 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Document Inbox</title>
-    <style>
-        body { font-family: sans-serif; padding: 2rem; background: #f4f7f6; }
-        .card { background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); max-width: 800px; margin: auto; }
-        li { padding: 1rem; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
-        .filename { font-weight: bold; color: #333; }
-        .view-btn { background: #10b981; color: white; text-decoration: none; padding: 5px 10px; border-radius: 4px; font-size: 0.9rem; }
-        .view-btn:hover { background: #059669; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Inbox — DocHandler</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #f4f7f6;
+      padding: 2rem;
+    }
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      max-width: 900px;
+      margin: 0 auto 1.5rem;
+    }
+    .topbar h2 { font-size: 1.4rem; color: #111; }
+    .topbar .user-info {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-size: 0.85rem;
+      color: #555;
+    }
+    .topbar button {
+      background: none;
+      border: 2px solid #111;
+      border-radius: 6px;
+      padding: 4px 12px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    .card {
+      background: white;
+      border: 3px solid #111;
+      border-radius: 16px;
+      box-shadow: 8px 8px 0 #111;
+      padding: 2rem;
+      max-width: 900px;
+      margin: auto;
+    }
+    .nav-links {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .nav-links a {
+      color: #0284c7;
+      font-size: 0.9rem;
+      text-decoration: none;
+      font-weight: 600;
+    }
+    .nav-links a:hover { text-decoration: underline; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    th {
+      text-align: left;
+      padding: 0.75rem 0.5rem;
+      border-bottom: 2px solid #111;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #555;
+    }
+    td {
+      padding: 0.75rem 0.5rem;
+      border-bottom: 1px solid #e5e7eb;
+      font-size: 0.9rem;
+    }
+    tr:hover td { background: #f9fafb; }
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      background: #fef3c7;
+      color: #92400e;
+    }
+    .badge.approved { background: #d1fae5; color: #065f46; }
+    .badge.rejected { background: #fee2e2; color: #991b1b; }
+    .view-btn {
+      background: #10b981;
+      color: white;
+      text-decoration: none;
+      padding: 4px 12px;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      border: 2px solid #111;
+    }
+    .view-btn:hover { background: #059669; }
+    .empty-state {
+      text-align: center;
+      padding: 3rem 1rem;
+      color: #888;
+    }
+    .empty-state p { font-size: 1.1rem; margin-bottom: 0.5rem; }
+    .project-filter {
+      margin-bottom: 1rem;
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+    }
+    .project-filter select {
+      padding: 6px 10px;
+      border: 2px solid #111;
+      border-radius: 6px;
+      font-size: 0.9rem;
+    }
+  </style>
 </head>
 <body>
-    <div class="card">
-        <h2>My Inbox</h2>
-        <p><a href="/index.html">← Back to Upload</a></p>
-        <ul id="docList" style="list-style: none; padding: 0;"></ul>
-    </div>
 
-    <script>
-        async function loadDocs() {
-            // Fetch documents sent to our hardcoded user ID (1)
-            const res = await fetch('/documents/my-inbox/1');
-            const docs = await res.json();
-            const list = document.getElementById('docList');
-            
-            if (docs.length === 0) {
-                list.innerHTML = '<li>No documents found.</li>';
-                return;
-            }
+<div class="topbar">
+  <h2>📥 My Inbox</h2>
+  <div class="user-info">
+    <span id="userDisplay">Loading...</span>
+    <button onclick="logout()">Sign Out</button>
+  </div>
+</div>
 
-            docs.forEach(d => {
-                const li = document.createElement('li');
-                // The filename now includes the original extension!
-                li.innerHTML = `
-                    <div>
-                        <div class="filename">${d.filename}</div>
-                        <small style="color:#666;">Status: ${d.status}</small>
-                    </div>
-                    <a class="view-btn" href="/uploads/${d.filename}" target="_blank">View File</a>
-                `;
-                list.appendChild(li);
-            });
-        }
-        loadDocs();
-    </script>
+<div class="card">
+  <div class="nav-links">
+    <a href="/index.html">← Upload Document</a>
+    <a href="#" id="adminLink" style="display:none;">⚙ Admin Panel</a>
+  </div>
+
+  <div class="project-filter">
+    <label>Filter by project:</label>
+    <select id="projectFilter" onchange="filterDocs()">
+      <option value="">All Projects</option>
+    </select>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>File</th>
+        <th>Project</th>
+        <th>Department</th>
+        <th>From</th>
+        <th>Status</th>
+        <th>Date</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody id="docTableBody">
+      <tr><td colspan="7" class="empty-state"><p>Loading documents...</p></td></tr>
+    </tbody>
+  </table>
+</div>
+
+<script>
+  const API_BASE = '';
+
+  function getToken() { return localStorage.getItem('token'); }
+
+  function logout() {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    window.location.href = '/login.html';
+  }
+
+  const token = getToken();
+  if (!token) window.location.href = '/login.html';
+
+  let allDocs = [];
+  let projects = [];
+
+  // Load user info + admin link
+  (async () => {
+    try {
+      const res = await fetch(API_BASE + '/auth/me', { headers: { 'Authorization': 'Bearer ' + token } });
+      const user = await res.json();
+      document.getElementById('userDisplay').textContent = user.display_name || user.email;
+
+      if (user.role === 'Executive') {
+        document.getElementById('adminLink').style.display = 'inline';
+      }
+    } catch (e) {
+      logout();
+    }
+  })();
+
+  // Load projects for filter
+  (async () => {
+    try {
+      const res = await fetch(API_BASE + '/projects', { headers: { 'Authorization': 'Bearer ' + token } });
+      projects = await res.json();
+      const filter = document.getElementById('projectFilter');
+      projects.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.id;
+        opt.textContent = p.name;
+        filter.appendChild(opt);
+      });
+    } catch (e) { /* ignore */ }
+  })();
+
+  // Load documents
+  (async () => {
+    try {
+      const res = await fetch(API_BASE + '/documents/my-inbox', {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      if (res.status === 401) { logout(); return; }
+      allDocs = await res.json();
+      renderDocs(allDocs);
+    } catch (e) {
+      document.getElementById('docTableBody').innerHTML =
+        '<tr><td colspan="7" class="empty-state"><p>Failed to load documents.</p></td></tr>';
+    }
+  })();
+
+  function renderDocs(docs) {
+    const tbody = document.getElementById('docTableBody');
+    if (docs.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7" class="empty-state"><p>No documents found.</p><p style="font-size:0.85rem;">Upload one from the upload page!</p></td></tr>';
+      return;
+    }
+    tbody.innerHTML = docs.map(d => `
+      <tr>
+        <td><strong>${d.filename}</strong></td>
+        <td>${d.project_name || '—'}</td>
+        <td>${d.department_name || '—'}</td>
+        <td>${d.sender_email || '—'}</td>
+        <td><span class="badge ${d.status?.toLowerCase()}">${d.status || 'Pending'}</span></td>
+        <td style="font-size:0.8rem;color:#666;">${new Date(d.created_at).toLocaleDateString()}</td>
+        <td><a class="view-btn" href="/uploads/${d.filename}" target="_blank">View</a></td>
+      </tr>
+    `).join('');
+  }
+
+  function filterDocs() {
+    const projectId = document.getElementById('projectFilter').value;
+    if (!projectId) {
+      renderDocs(allDocs);
+    } else {
+      renderDocs(allDocs.filter(d => d.project_id == projectId));
+    }
+  }
+</script>
+
 </body>
 </html>

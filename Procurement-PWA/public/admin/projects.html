@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Projects — Admin</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: #f4f7f6; padding: 2rem; }
+    .topbar {
+      display: flex; justify-content: space-between; align-items: center;
+      max-width: 700px; margin: 0 auto 1.5rem;
+    }
+    .topbar h2 { font-size: 1.4rem; }
+    .topbar button { background: none; border: 2px solid #111; border-radius: 6px; padding: 4px 12px; cursor: pointer; font-weight: 600; }
+    .card { background: white; border: 3px solid #111; border-radius: 16px; box-shadow: 8px 8px 0 #111; padding: 2rem; max-width: 700px; margin: auto; }
+    .nav-links { display: flex; gap: 1rem; margin-bottom: 1.5rem; }
+    .nav-links a { color: #0284c7; font-size: 0.9rem; font-weight: 600; }
+    .form-row { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; }
+    .form-row input { flex: 1; padding: 10px; border: 2px solid #111; border-radius: 8px; font-size: 0.95rem; }
+    .form-row button { background: #0284c7; color: white; border: 2px solid #111; border-radius: 8px; padding: 10px 20px; cursor: pointer; font-weight: 700; }
+    .form-row button:hover { background: #026aa7; }
+    table { width: 100%; border-collapse: collapse; }
+    th { text-align: left; padding: 0.75rem 0.5rem; border-bottom: 2px solid #111; font-size: 0.8rem; text-transform: uppercase; color: #555; }
+    td { padding: 0.75rem 0.5rem; border-bottom: 1px solid #e5e7eb; font-size: 0.9rem; }
+    .project-list { list-style: none; }
+    .project-list li { padding: 0.5rem 0; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; }
+    .status-msg { padding: 0.75rem; border-radius: 8px; margin-bottom: 1rem; display: none; }
+    .status-msg.success { display: block; background: #ecfdf5; border: 2px solid #10b981; color: #065f46; }
+    .status-msg.error { display: block; background: #fef2f2; border: 2px solid #ef4444; color: #b91c1c; }
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <h2>📁 Admin — Projects</h2>
+  <button onclick="logout()">Sign Out</button>
+</div>
+
+<div class="card">
+  <div class="nav-links">
+    <a href="approvals.html">📋 Approvals</a>
+    <a href="users.html">👥 User Management</a>
+    <a href="projects.html">📁 Projects</a>
+    <a href="/dashboard.html">← Dashboard</a>
+  </div>
+
+  <div id="statusMessage" class="status-msg"></div>
+
+  <h3 style="margin-bottom:1rem;">Create New Project</h3>
+  <div class="form-row">
+    <input type="text" id="projectName" placeholder="Project name (e.g. Medco Recovery Project)" onkeydown="if(event.key==='Enter') createProject()">
+    <button onclick="createProject()">Create</button>
+  </div>
+
+  <h3 style="margin-bottom:1rem;">Existing Projects</h3>
+  <table>
+    <thead><tr><th>ID</th><th>Name</th></tr></thead>
+    <tbody id="projectsBody">
+      <tr><td colspan="2" style="text-align:center;padding:2rem;color:#888;">Loading...</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<script>
+  const API_BASE = '';
+  const token = localStorage.getItem('token');
+  if (!token) window.location.href = '/login.html';
+
+  function showStatus(msg, type) {
+    const el = document.getElementById('statusMessage');
+    el.textContent = msg; el.className = 'status-msg ' + type;
+    setTimeout(() => el.style.display = 'none', 3000);
+  }
+
+  async function loadProjects() {
+    try {
+      const res = await fetch(API_BASE + '/projects', {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      if (res.status === 403) { window.location.href = '/dashboard.html'; return; }
+      const projects = await res.json();
+      const tbody = document.getElementById('projectsBody');
+      if (projects.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="2" style="text-align:center;padding:2rem;color:#888;">No projects yet.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = projects.map(p => `
+        <tr><td style="color:#888;">${p.id}</td><td><strong>${p.name}</strong></td></tr>
+      `).join('');
+    } catch (e) {
+      document.getElementById('projectsBody').innerHTML =
+        '<tr><td colspan="2" style="text-align:center;padding:2rem;color:#888;">Failed to load.</td></tr>';
+    }
+  }
+
+  async function createProject() {
+    const name = document.getElementById('projectName').value.trim();
+    if (!name) { alert('Enter a project name.'); return; }
+
+    const res = await fetch(API_BASE + '/admin/projects', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      showStatus('Project created!', 'success');
+      document.getElementById('projectName').value = '';
+      loadProjects();
+    } else {
+      showStatus(data.error, 'error');
+    }
+  }
+
+  function logout() {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    window.location.href = '/login.html';
+  }
+
+  loadProjects();
+</script>
+
+</body>
+</html>

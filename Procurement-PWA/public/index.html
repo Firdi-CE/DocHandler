@@ -1,101 +1,242 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Upload Portal</title>
-    <style>
-        body { font-family: sans-serif; padding: 2rem; background: #f4f7f6; }
-        .card { background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); max-width: 500px; margin: auto; }
-        .filter-group { margin-bottom: 1rem; }
-        select, input, button { width: 100%; padding: 10px; margin-top: 5px; box-sizing: border-box; }
-        button { background-color: #0284c7; color: white; border: none; cursor: pointer; border-radius: 4px; font-weight: bold; }
-        button:hover { background-color: #026aa7; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Upload Document — DocHandler</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #f4f7f6;
+      padding: 2rem;
+    }
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      max-width: 600px;
+      margin: 0 auto 1.5rem;
+    }
+    .topbar h2 { font-size: 1.4rem; color: #111; }
+    .topbar .user-info {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-size: 0.85rem;
+      color: #555;
+    }
+    .topbar button {
+      background: none;
+      border: 2px solid #111;
+      border-radius: 6px;
+      padding: 4px 12px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    .card {
+      background: white;
+      border: 3px solid #111;
+      border-radius: 16px;
+      box-shadow: 8px 8px 0 #111;
+      padding: 2rem;
+      max-width: 600px;
+      margin: auto;
+    }
+    .filter-group {
+      margin-bottom: 1.25rem;
+    }
+    label {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 4px;
+      font-size: 0.9rem;
+    }
+    select, input[type="file"], button[type="submit"] {
+      width: 100%;
+      padding: 10px 12px;
+      border: 2px solid #111;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      background: white;
+    }
+    button[type="submit"] {
+      background: #0284c7;
+      color: white;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 0.5rem;
+    }
+    button[type="submit"]:hover { background: #026aa7; }
+    .nav-links { text-align: center; margin-top: 1rem; }
+    .nav-links a { color: #0284c7; font-size: 0.9rem; }
+    .status-msg {
+      padding: 0.75rem;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+      font-size: 0.9rem;
+      display: none;
+    }
+    .status-msg.error { display: block; background: #fef2f2; border: 2px solid #ef4444; color: #b91c1c; }
+    .status-msg.success { display: block; background: #ecfdf5; border: 2px solid #10b981; color: #065f46; }
+  </style>
 </head>
 <body>
 
-    <div class="card">
-        <h2>Send New Document</h2>
-        <form id="uploadForm">
-            <input type="file" name="document" required>
-            <input type="hidden" id="senderId" value="1"> 
-            
-            <div class="filter-group">
-                <label>Project:</label>
-                <select id="projectDropdown" name="projectId" required>
-                    <option value="">-- Loading Projects... --</option>
-                </select>
-            </div>
+<div class="topbar">
+  <h2>📄 Upload Document</h2>
+  <div class="user-info">
+    <span id="userDisplay">Loading...</span>
+    <button onclick="logout()">Sign Out</button>
+  </div>
+</div>
 
-            <div class="filter-group">
-                <label>Target Department:</label>
-                <select id="deptDropdown" name="departmentId" onchange="loadUsers()" required>
-                    <option value="">-- Choose Dept --</option>
-                    <option value="1">Engineering</option>
-                    <option value="2">Procurement</option>
-                    <option value="3">Site Managers</option>
-                    <option value="4">HSE</option>
-                    <option value="5">Finance</option>
-                </select>
-            </div>
+<div class="card">
+  <div id="statusMessage" class="status-msg"></div>
 
-            <div class="filter-group">
-                <label>Recipient (PIC):</label>
-                <select id="picDropdown" name="recipientId" required>
-                    <option value="">-- Choose Dept first --</option>
-                </select>
-            </div>
-            
-            <button type="submit">Upload & Route</button>
-        </form>
+  <form id="uploadForm">
+    <input type="file" name="document" required>
+
+    <div class="filter-group">
+      <label>Project:</label>
+      <select id="projectDropdown" name="projectId" required>
+        <option value="">-- Loading Projects... --</option>
+      </select>
     </div>
 
-    <script>
-        // Load Projects immediately when page loads
-        window.onload = async () => {
-            const projectDropdown = document.getElementById('projectDropdown');
-            const res = await fetch('/projects');
-            const projects = await res.json();
-            
-            projectDropdown.innerHTML = '<option value="">-- Select Project --</option>';
-            projects.forEach(p => {
-                const opt = document.createElement('option');
-                opt.value = p.id;
-                opt.textContent = p.name;
-                projectDropdown.appendChild(opt);
-            });
-        };
+    <div class="filter-group">
+      <label>Target Department:</label>
+      <select id="deptDropdown" name="departmentId" onchange="loadUsers()" required>
+        <option value="">-- Choose Dept --</option>
+      </select>
+    </div>
 
-        async function loadUsers() {
-            const deptId = document.getElementById('deptDropdown').value;
-            const picDropdown = document.getElementById('picDropdown');
-            picDropdown.innerHTML = '<option value="">-- Loading... --</option>';
-            if (!deptId) return;
-            const res = await fetch(`/users/by-department/${deptId}`);
-            const users = await res.json();
-            picDropdown.innerHTML = '<option value="">-- Choose Person --</option>';
-            users.forEach(u => {
-                const opt = document.createElement('option');
-                opt.value = u.id;
-                opt.textContent = u.email;
-                picDropdown.appendChild(opt);
-            });
-        }
+    <div class="filter-group">
+      <label>Recipient (PIC):</label>
+      <select id="picDropdown" name="recipientId" required>
+        <option value="">-- Choose Dept first --</option>
+      </select>
+    </div>
 
-        document.getElementById('uploadForm').onsubmit = async (e) => {
-            e.preventDefault();
-            const formData = new FormData(e.target);
-            formData.append('senderId', document.getElementById('senderId').value);
-            // projectId is now handled automatically by the form name="projectId"
+    <button type="submit">Upload & Route</button>
+  </form>
 
-            const res = await fetch('/upload', { method: 'POST', body: formData });
-            if (res.ok) {
-                alert('File uploaded and routed!');
-                window.location.href = '/dashboard.html'; // Redirect to see the file
-            } else {
-                alert('Error uploading document.');
-            }
-        };
-    </script>
+  <div class="nav-links">
+    <a href="/dashboard.html">→ View Inbox</a>
+  </div>
+</div>
+
+<script>
+  const API_BASE = '';
+
+  function getToken() {
+    return localStorage.getItem('token');
+  }
+
+  function getAuthHeaders() {
+    return {
+      'Authorization': 'Bearer ' + getToken(),
+      'Content-Type': 'application/json',
+    };
+  }
+
+  function logout() {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    window.location.href = '/login.html';
+  }
+
+  // Check auth
+  const token = getToken();
+  if (!token) window.location.href = '/login.html';
+
+  // Show user info
+  (async () => {
+    try {
+      const res = await fetch(API_BASE + '/auth/me', { headers: { 'Authorization': 'Bearer ' + token } });
+      const user = await res.json();
+      document.getElementById('userDisplay').textContent = user.display_name || user.email;
+    } catch (e) {
+      logout();
+    }
+  })();
+
+  // Load projects
+  window.onload = async () => {
+    try {
+      const [projRes, deptRes] = await Promise.all([
+        fetch(API_BASE + '/projects', { headers: { 'Authorization': 'Bearer ' + token } }),
+        fetch(API_BASE + '/departments', { headers: { 'Authorization': 'Bearer ' + token } }),
+      ]);
+
+      const projects = await projRes.json();
+      const depts = await deptRes.json();
+
+      const projDropdown = document.getElementById('projectDropdown');
+      projDropdown.innerHTML = '<option value="">-- Select Project --</option>';
+      projects.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.id;
+        opt.textContent = p.name;
+        projDropdown.appendChild(opt);
+      });
+
+      const deptDropdown = document.getElementById('deptDropdown');
+      deptDropdown.innerHTML = '<option value="">-- Choose Dept --</option>';
+      depts.forEach(d => {
+        const opt = document.createElement('option');
+        opt.value = d.id;
+        opt.textContent = d.name;
+        deptDropdown.appendChild(opt);
+      });
+    } catch (e) {
+      showStatus('Failed to load data. Is the server running?', 'error');
+    }
+  };
+
+  async function loadUsers() {
+    const deptId = document.getElementById('deptDropdown').value;
+    const picDropdown = document.getElementById('picDropdown');
+    picDropdown.innerHTML = '<option value="">-- Loading... --</option>';
+    if (!deptId) return;
+    const res = await fetch(API_BASE + '/users/by-department/' + deptId, {
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    const users = await res.json();
+    picDropdown.innerHTML = '<option value="">-- Choose Person --</option>';
+    users.forEach(u => {
+      const opt = document.createElement('option');
+      opt.value = u.id;
+      opt.textContent = u.display_name || u.email;
+      picDropdown.appendChild(opt);
+    });
+  }
+
+  function showStatus(msg, type) {
+    const el = document.getElementById('statusMessage');
+    el.textContent = msg;
+    el.className = 'status-msg ' + type;
+  }
+
+  document.getElementById('uploadForm').onsubmit = async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+
+    const res = await fetch(API_BASE + '/upload', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + token },
+      body: formData,
+    });
+
+    if (res.ok) {
+      showStatus('File uploaded and routed successfully!', 'success');
+      setTimeout(() => window.location.href = '/dashboard.html', 1000);
+    } else {
+      const err = await res.text();
+      showStatus('Error: ' + err, 'error');
+    }
+  };
+</script>
+
 </body>
 </html>

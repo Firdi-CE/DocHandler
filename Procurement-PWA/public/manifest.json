@@ -1,7 +1,7 @@
 {
-  "name": "Procurement File Portal",
-  "short_name": "ProcurePortal",
-  "start_url": "/",
+  "name": "DocHandler — PBE Document Portal",
+  "short_name": "DocHandler",
+  "start_url": "/login.html",
   "display": "standalone",
   "background_color": "#f4f7f6",
   "theme_color": "#0284c7",

@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>User Management — Admin</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: #f4f7f6; padding: 2rem; }
+    .topbar {
+      display: flex; justify-content: space-between; align-items: center;
+      max-width: 900px; margin: 0 auto 1.5rem;
+    }
+    .topbar h2 { font-size: 1.4rem; }
+    .topbar button { background: none; border: 2px solid #111; border-radius: 6px; padding: 4px 12px; cursor: pointer; font-weight: 600; }
+    .card { background: white; border: 3px solid #111; border-radius: 16px; box-shadow: 8px 8px 0 #111; padding: 2rem; max-width: 900px; margin: auto; }
+    .nav-links { display: flex; gap: 1rem; margin-bottom: 1.5rem; }
+    .nav-links a { color: #0284c7; font-size: 0.9rem; font-weight: 600; }
+    table { width: 100%; border-collapse: collapse; }
+    th { text-align: left; padding: 0.75rem 0.5rem; border-bottom: 2px solid #111; font-size: 0.8rem; text-transform: uppercase; color: #555; }
+    td { padding: 0.75rem 0.5rem; border-bottom: 1px solid #e5e7eb; font-size: 0.9rem; }
+    .btn-assign { background: #0284c7; color: white; border: 2px solid #111; border-radius: 6px; padding: 4px 12px; cursor: pointer; font-weight: 600; font-size: 0.8rem; }
+    .status-msg { padding: 0.75rem; border-radius: 8px; margin-bottom: 1rem; display: none; }
+    .status-msg.success { display: block; background: #ecfdf5; border: 2px solid #10b981; color: #065f46; }
+    .status-msg.error { display: block; background: #fef2f2; border: 2px solid #ef4444; color: #b91c1c; }
+    .modal-overlay {
+      display: none; position: fixed; top:0; left:0; width:100%; height:100%;
+      background: rgba(0,0,0,0.4); justify-content: center; align-items: center;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: white; border: 3px solid #111; border-radius: 16px;
+      box-shadow: 8px 8px 0 #111; padding: 2rem; max-width: 500px; width: 90%;
+    }
+    .modal h3 { margin-bottom: 1rem; }
+    .modal label { display: block; font-weight: 600; margin: 0.5rem 0 0.25rem; }
+    .modal select { width: 100%; padding: 8px; border: 2px solid #111; border-radius: 6px; margin-bottom: 0.5rem; }
+    .modal .btn-group { display: flex; gap: 0.5rem; margin-top: 1rem; }
+    .modal .btn-save { background: #10b981; color: white; border: 2px solid #111; border-radius: 6px; padding: 8px 16px; cursor: pointer; font-weight: 600; }
+    .modal .btn-cancel { background: #e5e7eb; border: 2px solid #111; border-radius: 6px; padding: 8px 16px; cursor: pointer; font-weight: 600; }
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <h2>👥 Admin — User Management</h2>
+  <button onclick="logout()">Sign Out</button>
+</div>
+
+<div class="card">
+  <div class="nav-links">
+    <a href="approvals.html">📋 Approvals</a>
+    <a href="users.html">👥 User Management</a>
+    <a href="projects.html">📁 Projects</a>
+    <a href="/dashboard.html">← Dashboard</a>
+  </div>
+
+  <div id="statusMessage" class="status-msg"></div>
+
+  <h3 style="margin-bottom:1rem;">All Approved Users</h3>
+  <table>
+    <thead>
+      <tr><th>Email</th><th>Name</th><th>Role</th><th>Department</th><th>Projects</th></tr>
+    </thead>
+    <tbody id="usersBody">
+      <tr><td colspan="5" style="text-align:center;padding:2rem;color:#888;">Loading...</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- Project Assignment Modal -->
+<div class="modal-overlay" id="projectModal">
+  <div class="modal">
+    <h3>Assign Projects</h3>
+    <p id="assignUserLabel" style="margin-bottom:1rem;color:#555;"></p>
+    <div id="projectCheckboxes"></div>
+    <div class="btn-group">
+      <button class="btn-save" onclick="saveAssignments()">Save</button>
+      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const API_BASE = '';
+  const token = localStorage.getItem('token');
+  if (!token) window.location.href = '/login.html';
+
+  let currentUserId = null;
+  let allProjects = [];
+
+  function showStatus(msg, type) {
+    const el = document.getElementById('statusMessage');
+    el.textContent = msg; el.className = 'status-msg ' + type;
+    setTimeout(() => el.style.display = 'none', 3000);
+  }
+
+  async function loadUsers() {
+    try {
+      const res = await fetch(API_BASE + '/admin/users', {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      if (res.status === 403) { window.location.href = '/dashboard.html'; return; }
+      const users = await res.json();
+      const tbody = document.getElementById('usersBody');
+      tbody.innerHTML = users.map(u => `
+        <tr>
+          <td>${u.email}</td>
+          <td>${u.display_name || '—'}</td>
+          <td>${u.role}</td>
+          <td>${u.department_name || '—'}</td>
+          <td><button class="btn-assign" onclick="openAssignModal(${u.id}, '${u.email}')">Assign Projects</button></td>
+        </tr>
+      `).join('');
+    } catch (e) {
+      document.getElementById('usersBody').innerHTML =
+        '<tr><td colspan="5" style="text-align:center;padding:2rem;color:#888;">Failed to load.</td></tr>';
+    }
+  }
+
+  async function openAssignModal(userId, userEmail) {
+    currentUserId = userId;
+    document.getElementById('assignUserLabel').textContent = 'Assigning projects for: ' + userEmail;
+    document.getElementById('projectModal').classList.add('open');
+
+    // Load projects
+    const projRes = await fetch(API_BASE + '/projects', {
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    allProjects = await projRes.json();
+
+    // Load user's current assignments
+    const assignRes = await fetch(API_BASE + '/admin/users/' + userId + '/projects', {
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    const assignedIds = await assignRes.json();
+
+    const container = document.getElementById('projectCheckboxes');
+    if (allProjects.length === 0) {
+      container.innerHTML = '<p style="color:#888;">No projects available. Create one first.</p>';
+      return;
+    }
+
+    container.innerHTML = allProjects.map(p => `
+      <label style="display:flex;align-items:center;gap:0.5rem;padding:0.3rem 0;cursor:pointer;">
+        <input type="checkbox" value="${p.id}" ${assignedIds.includes(p.id) ? 'checked' : ''}>
+        ${p.name}
+      </label>
+    `).join('');
+  }
+
+  function closeModal() {
+    document.getElementById('projectModal').classList.remove('open');
+    currentUserId = null;
+  }
+
+  async function saveAssignments() {
+    const checked = document.querySelectorAll('#projectCheckboxes input:checked');
+    const projectIds = Array.from(checked).map(cb => parseInt(cb.value));
+
+    const res = await fetch(API_BASE + '/admin/users/' + currentUserId + '/projects', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ projectIds })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      showStatus('Project assignments updated.', 'success');
+      closeModal();
+    } else {
+      showStatus(data.error, 'error');
+    }
+  }
+
+  function logout() {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    window.location.href = '/login.html';
+  }
+
+  loadUsers();
+</script>
+
+</body>
+</html>
