@@ -76,6 +76,18 @@ app.get('/files', (req, res) => {
     if (!fs.existsSync(FILE_MANIFEST)) return res.json([]);
     res.sendFile(FILE_MANIFEST);
 });
+app.get('/documents/my-inbox/:userId', async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const result = await db.query(
+            'SELECT * FROM documents WHERE recipient_id = $1 ORDER BY created_at DESC',
+            [userId]
+        );
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
 // get users by department
 app.get('/users/by-department/:deptId', async (req, res) => {
     try {

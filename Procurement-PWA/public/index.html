@@ -2,46 +2,54 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>PBE Procurement Upload</title>
+    <title>Upload Portal</title>
+    <style>
+        body { font-family: sans-serif; padding: 2rem; background: #f4f7f6; }
+        .card { background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); max-width: 500px; margin: auto; }
+        .filter-group { margin-bottom: 1rem; }
+        select, input, button { width: 100%; padding: 10px; margin-top: 5px; }
+        button { background-color: #0284c7; color: white; border: none; cursor: pointer; border-radius: 4px; }
+    </style>
 </head>
 <body>
-    <h1>Upload Procurement Document</h1>
-    <form id="uploadForm">
-        <input type="file" name="document" required>
-        
-        <input type="hidden" id="senderId" value="1"> 
-        <input type="hidden" id="projectId" value="1">
-        
-        <div>
-            <label>Department:</label>
-            <select id="deptDropdown" name="departmentId" onchange="loadUsers()" required>
-                <option value="">-- Select --</option>
-                <option value="1">Engineering</option>
-                <option value="2">Procurement</option>
-                <option value="3">Site Managers</option>
-                <option value="5">Finance</option>
-            </select>
-        </div>
 
-        <div>
-            <label>Recipient (PIC):</label>
-            <select id="picDropdown" name="recipientId" required>
-                <option value="">-- Choose Dept first --</option>
-            </select>
-        </div>
-        
-        <button type="submit">Upload & Route</button>
-    </form>
+    <div class="card">
+        <h2>Send New Document</h2>
+        <form id="uploadForm">
+            <input type="file" name="document" required>
+            <input type="hidden" id="senderId" value="1"> 
+            
+            <div class="filter-group">
+                <label>Department:</label>
+                <select id="deptDropdown" name="departmentId" onchange="loadUsers()" required>
+                    <option value="">-- Choose Dept --</option>
+                    <option value="1">Engineering</option>
+                    <option value="2">Procurement</option>
+                    <option value="3">Site Managers</option>
+                    <option value="4">HSE</option>
+                    <option value="5">Finance</option>
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label>Recipient (PIC):</label>
+                <select id="picDropdown" name="recipientId" required>
+                    <option value="">-- Choose Dept first --</option>
+                </select>
+            </div>
+            
+            <button type="submit">Upload & Route</button>
+        </form>
+    </div>
 
     <script>
         async function loadUsers() {
             const deptId = document.getElementById('deptDropdown').value;
             const picDropdown = document.getElementById('picDropdown');
             picDropdown.innerHTML = '<option value="">-- Loading... --</option>';
-
+            if (!deptId) return;
             const res = await fetch(`/users/by-department/${deptId}`);
             const users = await res.json();
-            
             picDropdown.innerHTML = '<option value="">-- Choose Person --</option>';
             users.forEach(u => {
                 const opt = document.createElement('option');
@@ -50,13 +58,11 @@
                 picDropdown.appendChild(opt);
             });
         }
-
         document.getElementById('uploadForm').onsubmit = async (e) => {
             e.preventDefault();
             const formData = new FormData(e.target);
             formData.append('senderId', document.getElementById('senderId').value);
-            formData.append('projectId', document.getElementById('projectId').value);
-
+            formData.append('projectId', 1);
             const res = await fetch('/upload', { method: 'POST', body: formData });
             if (res.ok) alert('File uploaded and routed!');
         };

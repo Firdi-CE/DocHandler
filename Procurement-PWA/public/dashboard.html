@@ -2,74 +2,32 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Document Routing Dashboard</title>
+    <title>Document Inbox</title>
     <style>
         body { font-family: sans-serif; padding: 2rem; background: #f4f7f6; }
         .card { background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        .filter-group { margin-bottom: 1rem; }
-        select, input { padding: 8px; margin-right: 10px; }
+        li { padding: 0.75rem; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; }
     </style>
 </head>
 <body>
-
     <div class="card">
-        <h2>Send Document</h2>
-        <form id="uploadForm">
-            <input type="file" name="document" required>
-            
-            <input type="hidden" id="senderId" value="1"> 
-            <input type="hidden" id="projectId" value="1">
-            
-            <div class="filter-group">
-                <label>Select Department:</label>
-                <select id="deptDropdown" name="departmentId" onchange="loadUsers()" required>
-                    <option value="">-- Choose Dept --</option>
-                    <option value="1">Engineering</option>
-                    <option value="2">Procurement</option>
-                    <option value="3">Site Managers</option>
-                    <option value="4">HSE</option>
-                    <option value="5">Finance</option>
-                </select>
-            </div>
-
-            <div class="filter-group">
-                <label>Select Recipient (PIC):</label>
-                <select id="picDropdown" name="recipientId" required>
-                    <option value="">-- Choose Person --</option>
-                </select>
-            </div>
-            
-            <button type="submit">Send Document</button>
-        </form>
+        <h2>My Inbox</h2>
+        <ul id="docList"></ul>
     </div>
 
     <script>
-        async function loadUsers() {
-            const deptId = document.getElementById('deptDropdown').value;
-            const picDropdown = document.getElementById('picDropdown');
-            picDropdown.innerHTML = '<option value="">-- Choose Person --</option>';
-
-            if (!deptId) return;
-
-            const res = await fetch(`/users/by-department/${deptId}`);
-            const users = await res.json();
-            users.forEach(user => {
-                const opt = document.createElement('option');
-                opt.value = user.id;
-                opt.textContent = user.email;
-                picDropdown.appendChild(opt);
+        async function loadDocs() {
+            // We fetch documents sent to our hardcoded user ID (1)
+            const res = await fetch('/documents/my-inbox/1');
+            const docs = await res.json();
+            const list = document.getElementById('docList');
+            docs.forEach(d => {
+                const li = document.createElement('li');
+                li.textContent = `File: ${d.filename} | Status: ${d.status}`;
+                list.appendChild(li);
             });
         }
-
-        document.getElementById('uploadForm').onsubmit = async (e) => {
-            e.preventDefault();
-            const formData = new FormData(e.target);
-            formData.append('senderId', document.getElementById('senderId').value);
-            formData.append('projectId', document.getElementById('projectId').value);
-
-            const res = await fetch('/upload', { method: 'POST', body: formData });
-            if (res.ok) alert('Document Sent!');
-        };
+        loadDocs();
     </script>
 </body>
 </html>
