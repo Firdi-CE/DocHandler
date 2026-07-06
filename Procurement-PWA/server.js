@@ -7,6 +7,7 @@ const upload = multer({ dest: 'uploads/' });
 const app = express();
 const PORT = 3000;
 
+
 const FILE_MANIFEST = path.join(__dirname, 'files.json');
 
 app.post('/upload', upload.single('document'), async (req, res) => {
@@ -36,27 +37,19 @@ app.post('/upload', upload.single('document'), async (req, res) => {
 });
 // Serve static files from the 'public' directory
 app.use(express.static('public'));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Configure Multer for dynamic team-based folder routing
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
-        // Use the 'team' value from the form body to create a subfolder
-        const teamName = req.body.team || 'General';
-        const uploadPath = path.join(__dirname, 'public/uploads', teamName);
-        
-        // Ensure the directory exists
-        if (!fs.existsSync(uploadPath)){
-            fs.mkdirSync(uploadPath, { recursive: true });
-        }
-        cb(null, uploadPath);
+        cb(null, 'uploads/')
     },
     filename: function (req, file, cb) {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        cb(null, uniqueSuffix + '-' + file.originalname);
+        // Keeps the original name but adds a timestamp to prevent overwriting files with the same name
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9)
+        cb(null, uniqueSuffix + '-' + file.originalname)
     }
 });
-
-
 
 // API Endpoint to handle the PDF upload
 app.post('/upload', upload.single('document'), (req, res) => {
@@ -68,6 +61,7 @@ app.post('/upload', upload.single('document'), (req, res) => {
     const targetTeam = req.body.team;
     console.log(`New PDF routed to: ${targetTeam}`);
     console.log(`File saved as: ${req.file.filename}`);
+    
 
     res.send(`File successfully uploaded and routed to ${targetTeam}!`);
 });
@@ -96,6 +90,15 @@ app.get('/users/by-department/:deptId', async (req, res) => {
             'SELECT id, email FROM users WHERE department_id = $1',
             [deptId]
         );
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+// --- GET PROJECTS ---
+app.get('/projects', async (req, res) => {
+    try {
+        const result = await db.query('SELECT id, name FROM projects ORDER BY name ASC');
         res.json(result.rows);
     } catch (err) {
         res.status(500).json({ error: err.message });

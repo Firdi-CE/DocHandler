@@ -5,25 +5,42 @@
     <title>Document Inbox</title>
     <style>
         body { font-family: sans-serif; padding: 2rem; background: #f4f7f6; }
-        .card { background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        li { padding: 0.75rem; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; }
+        .card { background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); max-width: 800px; margin: auto; }
+        li { padding: 1rem; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
+        .filename { font-weight: bold; color: #333; }
+        .view-btn { background: #10b981; color: white; text-decoration: none; padding: 5px 10px; border-radius: 4px; font-size: 0.9rem; }
+        .view-btn:hover { background: #059669; }
     </style>
 </head>
 <body>
     <div class="card">
         <h2>My Inbox</h2>
-        <ul id="docList"></ul>
+        <p><a href="/index.html">← Back to Upload</a></p>
+        <ul id="docList" style="list-style: none; padding: 0;"></ul>
     </div>
 
     <script>
         async function loadDocs() {
-            // We fetch documents sent to our hardcoded user ID (1)
+            // Fetch documents sent to our hardcoded user ID (1)
             const res = await fetch('/documents/my-inbox/1');
             const docs = await res.json();
             const list = document.getElementById('docList');
+            
+            if (docs.length === 0) {
+                list.innerHTML = '<li>No documents found.</li>';
+                return;
+            }
+
             docs.forEach(d => {
                 const li = document.createElement('li');
-                li.textContent = `File: ${d.filename} | Status: ${d.status}`;
+                // The filename now includes the original extension!
+                li.innerHTML = `
+                    <div>
+                        <div class="filename">${d.filename}</div>
+                        <small style="color:#666;">Status: ${d.status}</small>
+                    </div>
+                    <a class="view-btn" href="/uploads/${d.filename}" target="_blank">View File</a>
+                `;
                 list.appendChild(li);
             });
         }
