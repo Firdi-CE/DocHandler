@@ -26,14 +26,27 @@ if (!fs.existsSync(uploadDir)) {
     console.log('Created missing uploads folder structure at:', uploadDir);
 }
 
+// Helper to format date as YYYY-MM-DD HHhMMm
+function getFormattedTimestamp() {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    // Using h and m is safer for filenames than colons
+    return `${year}-${month}-${day} ${hours}h${minutes}m`;
+}
+
 // Storage engine configuration keeping original names safely timestamps
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
         cb(null, uploadDir);
     },
     filename: function (req, file, cb) {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        cb(null, uniqueSuffix + '-' + file.originalname);
+        const timestamp = getFormattedTimestamp();
+        const safeOriginalName = file.originalname.replace(/[^a-zA-Z0-9. _-]/g, '');
+        cb(null, `(${timestamp}) ${safeOriginalName}`);
     }
 });
 const upload = multer({ storage: storage });
@@ -51,12 +64,14 @@ app.post('/auth/google/login', async (req, res) => {
         const { idToken } = req.body;
         if (!idToken) {
             return res.status(400).json({ error: 'idToken is required' });
+            return res.status(400).json({ message: 'idToken is required' });
         }
         const result = await auth.handleGoogleLogin(idToken);
         res.json(result);
     } catch (error) {
         console.error('Google login error:', error);
         res.status(401).json({ error: 'Authentication failed', details: error.message });
+        res.status(401).json({ message: 'Authentication failed', details: error.message });
     }
 });
 
@@ -77,6 +92,14 @@ const ensureAuthenticated = (req, res, next) => {
     }
 };
 
+// Middleware to ensure user is an admin
+const ensureAdmin = (req, res, next) => {
+    if (req.user && req.user.role === 'Executive') {
+        return next();
+    }
+    res.status(403).json({ message: 'Forbidden: Requires admin privileges' });
+};
+
 // --- 4. DATA SELECT DROPDOWN ENDPOINTS ---
 
 // API Endpoint to fetch existing company projects to build frontend selections dynamically
@@ -86,6 +109,18 @@ app.get('/projects', ensureAuthenticated, async (req, res) => {
         res.json(result.rows);
     } catch (err) {
         res.status(500).json({ error: err.message });
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// API endpoint to fetch all departments
+app.get('/departments', ensureAuthenticated, async (req, res) => {
+    try {
+        const result = await db.query('SELECT id, name FROM departments ORDER BY name ASC');
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+        res.status(500).json({ message: err.message });
     }
 });
 
@@ -100,6 +135,7 @@ app.get('/users/by-department/:deptId', ensureAuthenticated, async (req, res) =>
         res.json(result.rows);
     } catch (err) {
         res.status(500).json({ error: err.message });
+        res.status(500).json({ message: err.message });
     }
 });
 
@@ -151,6 +187,7 @@ app.get('/documents/my-inbox', ensureAuthenticated, async (req, res) => {
         res.json(result.rows);
     } catch (err) {
         res.status(500).json({ error: err.message });
+        res.status(500).json({ message: err.message });
     }
 });
 
@@ -160,9 +197,11 @@ app.patch('/documents/:id/rename', ensureAuthenticated, async (req, res) => {
         const { id } = req.params;
         const { filename: newBaseName } = req.body;
         if (!newBaseName) return res.status(400).json({ error: 'New filename is required.' });
+        if (!newBaseName) return res.status(400).json({ message: 'New filename is required.' });
 
         const docRes = await db.query('SELECT filename FROM documents WHERE id = $1', [id]);
         if (docRes.rows.length === 0) return res.status(404).json({ error: 'Document not found' });
+        if (docRes.rows.length === 0) return res.status(404).json({ message: 'Document not found' });
         
         const ext = path.extname(docRes.rows[0].filename);
         const newFilename = `${newBaseName}${ext}`;
@@ -171,6 +210,107 @@ app.patch('/documents/:id/rename', ensureAuthenticated, async (req, res) => {
         res.json({ message: 'Rename successful', newFilename });
     } catch (err) {
         res.status(500).json({ error: err.message });
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// --- 5. ADMIN ROUTES ---
+
+// Get all pending account requests
+app.get('/admin/requests', ensureAuthenticated, ensureAdmin, async (req, res) => {
+    try {
+        const result = await db.query('SELECT * FROM account_requests ORDER BY created_at ASC');
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// Approve an account request
+app.post('/admin/requests/:id/approve', ensureAuthenticated, ensureAdmin, async (req, res) => {
+    const { id } = req.params;
+    const { role, department_id } = req.body;
+
+    if (!role || !department_id) {
+        return res.status(400).json({ error: 'Role and department are required.' });
+        return res.status(400).json({ message: 'Role and department are required.' });
+    }
+
+    try {
+        // Use a transaction
+        await db.query('BEGIN');
+
+        const requestRes = await db.query('SELECT * FROM account_requests WHERE id = $1', [id]);
+        if (requestRes.rows.length === 0) {
+            await db.query('ROLLBACK');
+            return res.status(404).json({ error: 'Request not found.' });
+            return res.status(404).json({ message: 'Request not found.' });
+        }
+        const request = requestRes.rows[0];
+
+        // Insert into users table
+        await db.query(
+            'INSERT INTO users (email, google_id, display_name, role, department_id, is_approved) VALUES ($1, $2, $3, $4, $5, TRUE)',
+            [request.email, request.google_id, request.display_name, role, department_id]
+        );
+
+        // Delete from requests table
+        await db.query('DELETE FROM account_requests WHERE id = $1', [id]);
+
+        await db.query('COMMIT');
+        res.status(200).json({ message: 'User approved successfully.' });
+    } catch (err) {
+        await db.query('ROLLBACK');
+        res.status(500).json({ error: err.message });
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// Deny (delete) an account request
+app.delete('/admin/requests/:id', ensureAuthenticated, ensureAdmin, async (req, res) => {
+    try {
+        const { id } = req.params;
+        await db.query('DELETE FROM account_requests WHERE id = $1', [id]);
+        res.status(200).json({ message: 'Request denied successfully.' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// Get all users
+app.get('/admin/users', ensureAuthenticated, ensureAdmin, async (req, res) => {
+    try {
+        const result = await db.query(`
+            SELECT u.id, u.email, u.display_name, u.role, u.department_id, d.name as department_name, u.is_approved
+            FROM users u
+            LEFT JOIN departments d ON u.department_id = d.id
+            ORDER BY u.display_name ASC
+        `);
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// Update a user's role or department
+app.patch('/admin/users/:id', ensureAuthenticated, ensureAdmin, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { role, department_id } = req.body;
+
+        if (!role && !department_id) {
+            return res.status(400).json({ error: 'Either role or department_id is required.' });
+            return res.status(400).json({ message: 'Either role or department_id is required.' });
+        }
+
+        await db.query('UPDATE users SET role = $1, department_id = $2 WHERE id = $3', [role, department_id, id]);
+        res.status(200).json({ message: 'User updated successfully.' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+        res.status(500).json({ message: err.message });
     }
 });
 

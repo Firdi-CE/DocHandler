@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin - DocHandler</title>
+  <style>
+    /* Re-using styles from other pages for consistency */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: #f4f7f6; padding: 1rem; }
+    .topbar { display: flex; justify-content: space-between; align-items: center; max-width: 1200px; margin: 0 auto 1.5rem; }
+    .topbar h2 { font-size: 1.4rem; color: #111; }
+    .topbar .user-info { display: flex; align-items: center; gap: 0.75rem; font-size: 0.85rem; color: #555; }
+    .topbar button { background: none; border: 2px solid #111; border-radius: 6px; padding: 4px 12px; cursor: pointer; font-weight: 600; }
+    .card { background: white; border: 3px solid #111; border-radius: 16px; box-shadow: 8px 8px 0 #111; padding: 1.5rem; max-width: 1200px; margin: auto; margin-bottom: 2rem; }
+    .card h3 { margin-bottom: 1rem; border-bottom: 2px solid #eee; padding-bottom: 0.5rem; }
+    .nav-links { text-align: left; margin-bottom: 1rem; }
+    .nav-links a { color: #0284c7; font-size: 0.9rem; font-weight: 600; }
+    .item-list { list-style: none; }
+    .item-card { background: #f9fafb; border: 2px solid #e5e7eb; border-radius: 10px; padding: 1rem; margin-bottom: 1rem; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 1rem; }
+    .item-info { flex: 1 1 300px; }
+    .item-info .name { font-weight: 700; }
+    .item-info .email { color: #666; font-size: 0.9rem; }
+    .item-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+    .item-actions select, .item-actions button { padding: 6px 12px; border: 2px solid #111; border-radius: 6px; font-weight: 600; cursor: pointer; }
+    .btn-approve { background: #10b981; color: white; }
+    .btn-deny { background: #ef4444; color: white; }
+    .btn-update { background: #f59e0b; color: white; }
+    .empty-state { text-align: center; padding: 2rem 1rem; color: #888; }
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <h2>⚙️ Admin Panel</h2>
+  <div class="user-info">
+    <span id="userDisplay">Loading...</span>
+    <button onclick="logout()">Sign Out</button>
+  </div>
+</div>
+
+<div class="card">
+  <div class="nav-links">
+    <a href="/dashboard.html">← Back to Inbox</a>
+  </div>
+  <h3>Pending Account Requests</h3>
+  <ul id="requestsList" class="item-list">
+    <li class="empty-state">Loading requests...</li>
+  </ul>
+</div>
+
+<div class="card">
+  <h3>Manage Users</h3>
+  <ul id="usersList" class="item-list">
+    <li class="empty-state">Loading users...</li>
+  </ul>
+</div>
+
+<script>
+  const token = localStorage.getItem('token');
+  let departments = [];
+
+  function logout() {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    window.location.href = '/login.html';
+  }
+
+  async function checkAuthAndRole() {
+    if (!token) {
+      logout();
+      return;
+    }
+    try {
+      const res = await fetch('/auth/me', { headers: { 'Authorization': 'Bearer ' + token } });
+      if (res.status === 401) {
+        logout();
+        return;
+      }
+      const user = await res.json();
+      document.getElementById('userDisplay').textContent = user.display_name || user.email;
+      if (user.role !== 'Executive') {
+        alert('Access Denied. You must be an admin to view this page.');
+        window.location.href = '/dashboard.html';
+      }
+    } catch (e) {
+      logout();
+    }
+  }
+
+  async function loadData() {
+    try {
+      // Fetch departments first to populate dropdowns
+      const deptRes = await fetch('/departments', { headers: { 'Authorization': 'Bearer ' + token } });
+      departments = await deptRes.json();
+
+      // Fetch requests and users in parallel
+      const [requestsRes, usersRes] = await Promise.all([
+        fetch('/admin/requests', { headers: { 'Authorization': 'Bearer ' + token } }),
+        fetch('/admin/users', { headers: { 'Authorization': 'Bearer ' + token } })
+      ]);
+
+      const requests = await requestsRes.json();
+      const users = await usersRes.json();
+
+      renderRequests(requests);
+      renderUsers(users);
+    } catch (error) {
+      console.error('Failed to load admin data:', error);
+      alert('Could not load admin data. Please try again.');
+    }
+  }
+
+  function renderRequests(requests) {
+    const list = document.getElementById('requestsList');
+    if (requests.length === 0) {
+      list.innerHTML = '<li class="empty-state">No pending requests.</li>';
+      return;
+    }
+    list.innerHTML = requests.map(req => `
+      <li class="item-card">
+        <div class="item-info">
+          <div class="name">${req.display_name}</div>
+          <div class="email">${req.email}</div>
+        </div>
+        <div class="item-actions">
+          <select id="role-${req.id}">
+            <option value="Staff">Staff</option>
+            <option value="Supervisor">Supervisor</option>
+            <option value="Executive">Executive</option>
+          </select>
+          <select id="dept-${req.id}">
+            ${departments.map(d => `<option value="${d.id}">${d.name}</option>`).join('')}
+          </select>
+          <button class="btn-approve" onclick="approveRequest(${req.id})">Approve</button>
+          <button class="btn-deny" onclick="denyRequest(${req.id})">Deny</button>
+        </div>
+      </li>
+    `).join('');
+  }
+
+  function renderUsers(users) {
+    const list = document.getElementById('usersList');
+    if (users.length === 0) {
+      list.innerHTML = '<li class="empty-state">No users found.</li>';
+      return;
+    }
+    list.innerHTML = users.map(user => `
+      <li class="item-card">
+        <div class="item-info">
+          <div class="name">${user.display_name} (${user.role})</div>
+          <div class="email">${user.email} - ${user.department_name || 'No Dept'}</div>
+        </div>
+        <div class="item-actions">
+          <select id="role-user-${user.id}">
+            <option value="Staff" ${user.role === 'Staff' ? 'selected' : ''}>Staff</option>
+            <option value="Supervisor" ${user.role === 'Supervisor' ? 'selected' : ''}>Supervisor</option>
+            <option value="Executive" ${user.role === 'Executive' ? 'selected' : ''}>Executive</option>
+          </select>
+          <select id="dept-user-${user.id}">
+            ${departments.map(d => `<option value="${d.id}" ${user.department_id === d.id ? 'selected' : ''}>${d.name}</option>`).join('')}
+          </select>
+          <button class="btn-update" onclick="updateUser(${user.id})">Update</button>
+        </div>
+      </li>
+    `).join('');
+  }
+
+  async function approveRequest(id) {
+    const role = document.getElementById(`role-${id}`).value;
+    const department_id = document.getElementById(`dept-${id}`).value;
+
+    const res = await fetch(`/admin/requests/${id}/approve`, {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role, department_id })
+    });
+
+    if (res.ok) {
+      alert('User approved!');
+      loadData();
+    } else {
+      const err = await res.json();
+      alert('Error: ' + err.message);
+    }
+  }
+
+  async function denyRequest(id) {
+    if (!confirm('Are you sure you want to deny this request?')) return;
+
+    const res = await fetch(`/admin/requests/${id}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+
+    if (res.ok) {
+      alert('Request denied.');
+      loadData();
+    } else {
+      const err = await res.json();
+      alert('Error: ' + err.message);
+    }
+  }
+
+  async function updateUser(id) {
+    const role = document.getElementById(`role-user-${id}`).value;
+    const department_id = document.getElementById(`dept-user-${id}`).value;
+
+    const res = await fetch(`/admin/users/${id}`, {
+      method: 'PATCH',
+      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role, department_id })
+    });
+
+    if (res.ok) {
+      alert('User updated!');
+      loadData();
+    } else {
+      const err = await res.json();
+      alert('Error: ' + err.message);
+    }
+  }
+
+  // Initial load
+  window.addEventListener('DOMContentLoaded', () => {
+    checkAuthAndRole();
+    loadData();
+  });
+</script>
+</body>
+</html>

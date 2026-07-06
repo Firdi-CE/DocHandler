@@ -1,49 +1,71 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sign In — DocHandler</title>
-  <style>
-    body {
-      font-family: 'Segoe UI', system-ui, sans-serif;
-      background: #f4f7f6;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 100vh;
-      margin: 0;
-    }
-    .card {
-      background: white;
-      border: 3px solid #111;
-      border-radius: 16px;
-      box-shadow: 8px 8px 0 #111;
-      padding: 2.5rem;
-      max-width: 420px;
-      width: 90%;
-      text-align: center;
-    }
-    h1 { font-size: 1.8rem; font-weight: 800; margin-bottom: 1rem; }
-    .google-btn {
-      display: inline-block;
-      padding: 12px 24px;
-      background: #4285f4;
-      color: white;
-      text-decoration: none;
-      border-radius: 6px;
-      font-weight: bold;
-      margin-top: 1rem;
-    }
-    .google-btn:hover { background: #357ae8; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - DocHandler</title>
+    <!-- Google Platform Library -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <style>
+        /* Basic styling for the login page */
+        body { font-family: 'Segoe UI', system-ui, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #f4f7f6; margin: 0; }
+        .login-card { background: white; border: 3px solid #111; border-radius: 16px; box-shadow: 8px 8px 0 #111; padding: 2rem 3rem; text-align: center; }
+        h1 { margin-bottom: 0.5rem; }
+        p { color: #666; margin-bottom: 1.5rem; }
+        #status { margin-top: 1rem; color: #b91c1c; font-weight: 600; font-size: 0.9rem; min-height: 1.2em;}
+    </style>
 </head>
 <body>
-  <div class="card">
-    <h1>Sign In</h1>
-    <p>Please log in using your company account.</p>
-    
-    <a href="/auth/google" class="google-btn">Login with Google</a>
-  </div>
+    <div class="login-card">
+        <h1>DocHandler</h1>
+        <p>Please sign in with your Google account.</p>
+
+        <!-- Google Sign-In Button -->
+        <div id="g_id_onload"
+             data-client_id="941222430549-jl0ltuujq90srb544hjm9ckivrki2a7t.apps.googleusercontent.com"
+             data-callback="handleCredentialResponse">
+        </div>
+        <div class="g_id_signin"
+             data-type="standard"
+             data-size="large"
+             data-theme="outline"
+             data-text="sign_in_with"
+             data-shape="rectangular"
+             data-logo_alignment="left">
+        </div>
+
+        <div id="status"></div>
+    </div>
+
+    <script>
+        async function handleCredentialResponse(response) {
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = 'Verifying...';
+
+            try {
+                // Send the ID token from Google to your server's login endpoint
+                const res = await fetch('/auth/google/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ idToken: response.credential }),
+                });
+
+                const data = await res.json();
+
+                if (res.ok && data.status === 'approved') {
+                    // On success, store the JWT and user info, then redirect to the main app
+                    localStorage.setItem('token', data.token);
+                    localStorage.setItem('user', JSON.stringify(data.user));
+                    window.location.href = '/index.html';
+                } else {
+                    // Handle pending approval or other server-side errors
+                    statusEl.textContent = data.message || 'Login failed. Please try again.';
+                }
+            } catch (error) {
+                console.error('Login request failed:', error);
+                statusEl.textContent = 'An error occurred. Please check the console.';
+            }
+        }
+    </script>
 </body>
 </html>
