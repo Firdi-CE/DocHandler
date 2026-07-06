@@ -12,15 +12,17 @@ const PORT = 3000;
 
 // --------------- Middleware ---------------
 app.use(express.json());
-app.use(express.static('public'));
+app.use(express.static(path.join(__dirname, 'public')));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // --------------- Multer Config ---------------
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, 'uploads/'),
   filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, uniqueSuffix + '-' + file.originalname);
+    const now = new Date();
+    const pad = n => String(n).padStart(2, '0');
+    const ts = now.getFullYear() + '-' + pad(now.getMonth() + 1) + '-' + pad(now.getDate()) + ' ' + pad(now.getHours()) + '.' + pad(now.getMinutes());
+    cb(null, ts + ' - ' + file.originalname);
   }
 });
 const upload = multer({ storage });
@@ -304,6 +306,38 @@ app.get('/departments', requireAuth, async (req, res) => {
     const result = await db.query('SELECT id, name FROM departments ORDER BY name ASC');
     res.json(result.rows);
   } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PATCH /documents/:id/rename — Rename a document (Supervisor+ only)
+app.patch('/documents/:id/rename', requireAuth, async (req, res) => {
+  try {
+    if (req.user.role !== 'Supervisor' && req.user.role !== 'Executive') {
+      return res.status(403).json({ error: 'Only Supervisors and Executives can rename documents.' });
+    }
+    const { id } = req.params;
+    const { filename: newFilename } = req.body;
+    if (!newFilename) return res.status(400).json({ error: 'New filename is required.' });
+
+    const docRes = await db.query('SELECT * FROM documents WHERE id = $1', [id]);
+    if (docRes.rows.length === 0) return res.status(404).json({ error: 'Document not found.' });
+    const doc = docRes.rows[0];
+
+    // Rename the physical file
+    const oldPath = path.join(__dirname, 'uploads', doc.filename);
+    const ext = path.extname(doc.filename);
+    const safeName = newFilename.replace(/[^a-zA-Z0-9 _.-]/g, '') + ext;
+    const newPath = path.join(__dirname, 'uploads', safeName);
+
+    if (fs.existsSync(oldPath)) {
+      fs.renameSync(oldPath, newPath);
+    }
+
+    await db.query('UPDATE documents SET filename = $1 WHERE id = $2', [safeName, id]);
+    res.json({ message: 'Document renamed.', filename: safeName });
+  } catch (err) {
+    console.error('Rename error:', err);
     res.status(500).json({ error: err.message });
   }
 });

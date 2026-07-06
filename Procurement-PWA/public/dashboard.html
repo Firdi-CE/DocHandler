@@ -2,118 +2,195 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>My Inbox — DocHandler</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       font-family: 'Segoe UI', system-ui, sans-serif;
       background: #f4f7f6;
-      padding: 2rem;
+      padding: 1rem;
     }
     .topbar {
       display: flex;
       justify-content: space-between;
       align-items: center;
       max-width: 900px;
-      margin: 0 auto 1.5rem;
+      margin: 0 auto 1rem;
+      flex-wrap: wrap;
+      gap: 0.5rem;
     }
-    .topbar h2 { font-size: 1.4rem; color: #111; }
+    .topbar h2 { font-size: 1.2rem; color: #111; }
     .topbar .user-info {
       display: flex;
       align-items: center;
-      gap: 0.75rem;
-      font-size: 0.85rem;
+      gap: 0.5rem;
+      font-size: 0.8rem;
       color: #555;
     }
     .topbar button {
       background: none;
       border: 2px solid #111;
       border-radius: 6px;
-      padding: 4px 12px;
+      padding: 4px 10px;
       cursor: pointer;
       font-weight: 600;
+      font-size: 0.8rem;
+      white-space: nowrap;
     }
     .card {
       background: white;
       border: 3px solid #111;
       border-radius: 16px;
       box-shadow: 8px 8px 0 #111;
-      padding: 2rem;
+      padding: 1rem;
       max-width: 900px;
       margin: auto;
     }
     .nav-links {
       display: flex;
-      gap: 1rem;
-      margin-bottom: 1.5rem;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
     }
     .nav-links a {
       color: #0284c7;
-      font-size: 0.9rem;
-      text-decoration: none;
+      font-size: 0.85rem;
       font-weight: 600;
     }
-    .nav-links a:hover { text-decoration: underline; }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-    th {
-      text-align: left;
-      padding: 0.75rem 0.5rem;
-      border-bottom: 2px solid #111;
-      font-size: 0.8rem;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: #555;
-    }
-    td {
-      padding: 0.75rem 0.5rem;
-      border-bottom: 1px solid #e5e7eb;
-      font-size: 0.9rem;
-    }
-    tr:hover td { background: #f9fafb; }
-    .badge {
-      display: inline-block;
-      padding: 2px 8px;
-      border-radius: 12px;
-      font-size: 0.75rem;
-      font-weight: 600;
-      background: #fef3c7;
-      color: #92400e;
-    }
-    .badge.approved { background: #d1fae5; color: #065f46; }
-    .badge.rejected { background: #fee2e2; color: #991b1b; }
-    .view-btn {
-      background: #10b981;
-      color: white;
-      text-decoration: none;
-      padding: 4px 12px;
-      border-radius: 6px;
-      font-size: 0.8rem;
-      font-weight: 600;
-      border: 2px solid #111;
-    }
-    .view-btn:hover { background: #059669; }
-    .empty-state {
-      text-align: center;
-      padding: 3rem 1rem;
-      color: #888;
-    }
-    .empty-state p { font-size: 1.1rem; margin-bottom: 0.5rem; }
     .project-filter {
       margin-bottom: 1rem;
       display: flex;
-      gap: 1rem;
+      gap: 0.5rem;
       align-items: center;
+      flex-wrap: wrap;
     }
+    .project-filter label { font-size: 0.85rem; font-weight: 600; }
     .project-filter select {
       padding: 6px 10px;
       border: 2px solid #111;
       border-radius: 6px;
-      font-size: 0.9rem;
+      font-size: 0.85rem;
+      flex: 1;
+      min-width: 140px;
     }
+
+    /* Mobile-friendly document list */
+    .doc-list { list-style: none; }
+    .doc-card {
+      background: #f9fafb;
+      border: 2px solid #e5e7eb;
+      border-radius: 10px;
+      padding: 0.75rem;
+      margin-bottom: 0.75rem;
+    }
+    .doc-card .doc-title {
+      font-weight: 700;
+      font-size: 0.9rem;
+      word-break: break-all;
+      margin-bottom: 0.3rem;
+    }
+    .doc-card .doc-meta {
+      font-size: 0.8rem;
+      color: #666;
+      margin-bottom: 0.4rem;
+      line-height: 1.4;
+    }
+    .doc-card .doc-actions {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+    .btn {
+      display: inline-block;
+      padding: 6px 14px;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-decoration: none;
+      border: 2px solid #111;
+      cursor: pointer;
+      text-align: center;
+    }
+    .btn-view { background: #10b981; color: white; }
+    .btn-rename { background: #f59e0b; color: white; }
+    .btn-rename:hover { background: #d97706; }
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      background: #fef3c7;
+      color: #92400e;
+    }
+    .empty-state {
+      text-align: center;
+      padding: 2rem 1rem;
+      color: #888;
+    }
+    .empty-state p { margin-bottom: 0.5rem; }
+
+    /* Rename modal */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.4);
+      justify-content: center;
+      align-items: center;
+      z-index: 999;
+      padding: 1rem;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: white;
+      border: 3px solid #111;
+      border-radius: 16px;
+      box-shadow: 8px 8px 0 #111;
+      padding: 1.5rem;
+      max-width: 400px;
+      width: 100%;
+    }
+    .modal h3 { margin-bottom: 1rem; font-size: 1rem; }
+    .modal input {
+      width: 100%;
+      padding: 10px;
+      border: 2px solid #111;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      margin-bottom: 0.75rem;
+    }
+    .modal .btn-group { display: flex; gap: 0.5rem; }
+    .modal .btn-save { background: #10b981; color: white; border: 2px solid #111; border-radius: 8px; padding: 8px 16px; cursor: pointer; font-weight: 600; flex: 1; }
+    .modal .btn-cancel { background: #e5e7eb; border: 2px solid #111; border-radius: 8px; padding: 8px 16px; cursor: pointer; font-weight: 600; flex: 1; }
+
+    /* Desktop: show table, hide cards */
+    @media (min-width: 768px) {
+      body { padding: 2rem; }
+      .topbar h2 { font-size: 1.4rem; }
+      .card { padding: 2rem; }
+      .doc-list { display: none; }
+      .doc-table { display: table; width: 100%; }
+    }
+    @media (max-width: 767px) {
+      .doc-table { display: none; }
+    }
+    .doc-table { width: 100%; border-collapse: collapse; }
+    .doc-table th {
+      text-align: left;
+      padding: 0.75rem 0.5rem;
+      border-bottom: 2px solid #111;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      color: #555;
+    }
+    .doc-table td {
+      padding: 0.75rem 0.5rem;
+      border-bottom: 1px solid #e5e7eb;
+      font-size: 0.85rem;
+    }
+    .doc-table tr:hover td { background: #f9fafb; }
   </style>
 </head>
 <body>
@@ -128,38 +205,55 @@
 
 <div class="card">
   <div class="nav-links">
-    <a href="/index.html">← Upload Document</a>
-    <a href="#" id="adminLink" style="display:none;">⚙ Admin Panel</a>
+    <a href="/index.html">← Upload</a>
+    <a href="#" id="adminLink" style="display:none;">⚙ Admin</a>
   </div>
 
   <div class="project-filter">
-    <label>Filter by project:</label>
+    <label>Filter:</label>
     <select id="projectFilter" onchange="filterDocs()">
       <option value="">All Projects</option>
     </select>
   </div>
 
-  <table>
+  <!-- Desktop table -->
+  <table class="doc-table">
     <thead>
       <tr>
         <th>File</th>
         <th>Project</th>
-        <th>Department</th>
+        <th>Dept</th>
         <th>From</th>
-        <th>Status</th>
         <th>Date</th>
         <th></th>
       </tr>
     </thead>
     <tbody id="docTableBody">
-      <tr><td colspan="7" class="empty-state"><p>Loading documents...</p></td></tr>
+      <tr><td colspan="6" class="empty-state"><p>Loading...</p></td></tr>
     </tbody>
   </table>
+
+  <!-- Mobile cards -->
+  <ul class="doc-list" id="docCardList">
+    <li class="empty-state"><p>Loading...</p></li>
+  </ul>
+</div>
+
+<!-- Rename Modal -->
+<div class="modal-overlay" id="renameModal">
+  <div class="modal">
+    <h3>Rename Document</h3>
+    <p style="font-size:0.8rem;color:#666;margin-bottom:0.5rem;" id="renameCurrentName"></p>
+    <input type="text" id="renameInput" placeholder="New filename (without extension)">
+    <div class="btn-group">
+      <button class="btn-save" onclick="doRename()">Save</button>
+      <button class="btn-cancel" onclick="closeRename()">Cancel</button>
+    </div>
+  </div>
 </div>
 
 <script>
   const API_BASE = '';
-
   function getToken() { return localStorage.getItem('token'); }
 
   function logout() {
@@ -173,23 +267,22 @@
 
   let allDocs = [];
   let projects = [];
+  let currentUser = null;
+  let renameDocId = null;
 
-  // Load user info + admin link
+  // Load user info
   (async () => {
     try {
       const res = await fetch(API_BASE + '/auth/me', { headers: { 'Authorization': 'Bearer ' + token } });
-      const user = await res.json();
-      document.getElementById('userDisplay').textContent = user.display_name || user.email;
-
-      if (user.role === 'Executive') {
+      currentUser = await res.json();
+      document.getElementById('userDisplay').textContent = currentUser.display_name || currentUser.email;
+      if (currentUser.role === 'Executive') {
         document.getElementById('adminLink').style.display = 'inline';
       }
-    } catch (e) {
-      logout();
-    }
+    } catch (e) { logout(); }
   })();
 
-  // Load projects for filter
+  // Load projects
   (async () => {
     try {
       const res = await fetch(API_BASE + '/projects', { headers: { 'Authorization': 'Bearer ' + token } });
@@ -197,11 +290,10 @@
       const filter = document.getElementById('projectFilter');
       projects.forEach(p => {
         const opt = document.createElement('option');
-        opt.value = p.id;
-        opt.textContent = p.name;
+        opt.value = p.id; opt.textContent = p.name;
         filter.appendChild(opt);
       });
-    } catch (e) { /* ignore */ }
+    } catch (e) {}
   })();
 
   // Load documents
@@ -212,38 +304,109 @@
       });
       if (res.status === 401) { logout(); return; }
       allDocs = await res.json();
-      renderDocs(allDocs);
+      renderAll();
     } catch (e) {
       document.getElementById('docTableBody').innerHTML =
-        '<tr><td colspan="7" class="empty-state"><p>Failed to load documents.</p></td></tr>';
+        '<tr><td colspan="6" class="empty-state"><p>Failed to load.</p></td></tr>';
     }
   })();
 
-  function renderDocs(docs) {
+  function canRename() {
+    return currentUser && (currentUser.role === 'Supervisor' || currentUser.role === 'Executive');
+  }
+
+  function renderAll() {
+    renderTable(allDocs);
+    renderCards(allDocs);
+  }
+
+  function renderTable(docs) {
     const tbody = document.getElementById('docTableBody');
     if (docs.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="7" class="empty-state"><p>No documents found.</p><p style="font-size:0.85rem;">Upload one from the upload page!</p></td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6" class="empty-state"><p>No documents found.</p></td></tr>';
       return;
     }
-    tbody.innerHTML = docs.map(d => `
-      <tr>
-        <td><strong>${d.filename}</strong></td>
-        <td>${d.project_name || '—'}</td>
-        <td>${d.department_name || '—'}</td>
-        <td>${d.sender_email || '—'}</td>
-        <td><span class="badge ${d.status?.toLowerCase()}">${d.status || 'Pending'}</span></td>
-        <td style="font-size:0.8rem;color:#666;">${new Date(d.created_at).toLocaleDateString()}</td>
-        <td><a class="view-btn" href="/uploads/${d.filename}" target="_blank">View</a></td>
-      </tr>
-    `).join('');
+    tbody.innerHTML = docs.map(d => {
+      const meta = `${d.project_name || '—'} · ${d.department_name || '—'} · ${d.sender_email || '—'}`;
+      const ext = d.filename.includes('.') ? '.' + d.filename.split('.').pop() : '';
+      const baseName = d.filename.replace(ext, '');
+      return `<tr>
+        <td><strong style="font-size:0.8rem;word-break:break-all;">${d.filename}</strong></td>
+        <td style="font-size:0.8rem;">${d.project_name || '—'}</td>
+        <td style="font-size:0.8rem;">${d.department_name || '—'}</td>
+        <td style="font-size:0.8rem;">${d.sender_email || '—'}</td>
+        <td style="font-size:0.75rem;color:#666;">${new Date(d.created_at).toLocaleDateString()}</td>
+        <td style="white-space:nowrap;">
+          <a class="btn btn-view" href="/uploads/${d.filename}" target="_blank" style="padding:3px 10px;font-size:0.75rem;">View</a>
+          ${canRename() ? `<button class="btn btn-rename" style="padding:3px 10px;font-size:0.75rem;" onclick="openRename(${d.id},'${baseName.replace(/'/g, "\\'")}')">Rename</button>` : ''}
+        </td>
+      </tr>`;
+    }).join('');
+  }
+
+  function renderCards(docs) {
+    const list = document.getElementById('docCardList');
+    if (docs.length === 0) {
+      list.innerHTML = '<li class="empty-state"><p>No documents found.</p></li>';
+      return;
+    }
+    list.innerHTML = docs.map(d => {
+      const ext = d.filename.includes('.') ? '.' + d.filename.split('.').pop() : '';
+      const baseName = d.filename.replace(ext, '');
+      return `<li class="doc-card">
+        <div class="doc-title">${d.filename}</div>
+        <div class="doc-meta">
+          ${d.project_name || '—'} · ${d.department_name || '—'}<br>
+          From: ${d.sender_email || '—'}<br>
+          ${new Date(d.created_at).toLocaleDateString()}
+        </div>
+        <div class="doc-actions">
+          <a class="btn btn-view" href="/uploads/${d.filename}" target="_blank">View</a>
+          ${canRename() ? `<button class="btn btn-rename" onclick="openRename(${d.id},'${baseName.replace(/'/g, "\\'")}')">Rename</button>` : ''}
+        </div>
+      </li>`;
+    }).join('');
   }
 
   function filterDocs() {
     const projectId = document.getElementById('projectFilter').value;
-    if (!projectId) {
-      renderDocs(allDocs);
+    const filtered = !projectId ? allDocs : allDocs.filter(d => d.project_id == projectId);
+    renderTable(filtered);
+    renderCards(filtered);
+  }
+
+  function openRename(docId, currentName) {
+    renameDocId = docId;
+    document.getElementById('renameCurrentName').textContent = 'Current: ' + currentName;
+    document.getElementById('renameInput').value = currentName;
+    document.getElementById('renameModal').classList.add('open');
+  }
+
+  function closeRename() {
+    renameDocId = null;
+    document.getElementById('renameModal').classList.remove('open');
+  }
+
+  async function doRename() {
+    const newName = document.getElementById('renameInput').value.trim();
+    if (!newName) { alert('Enter a filename.'); return; }
+
+    const res = await fetch(API_BASE + '/documents/' + renameDocId + '/rename', {
+      method: 'PATCH',
+      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filename: newName })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      closeRename();
+      // Reload documents
+      const docsRes = await fetch(API_BASE + '/documents/my-inbox', {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      allDocs = await docsRes.json();
+      renderAll();
     } else {
-      renderDocs(allDocs.filter(d => d.project_id == projectId));
+      alert(data.error || 'Rename failed');
     }
   }
 </script>
