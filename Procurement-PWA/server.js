@@ -2,34 +2,38 @@ const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-
+const multer = require('multer');
+const db = require('./db'); 
+const upload = multer({ dest: 'uploads/' });
 const app = express();
 const PORT = 3000;
-// ... existing imports ...
+
 const FILE_MANIFEST = path.join(__dirname, 'files.json');
 
-app.post('/upload', (req, res) => {
-    upload.single('document')(req, res, function (err) {
-        if (err) return res.status(400).send(err.message);
-        if (!req.file) return res.status(400).send('No file uploaded.');
-
-        // Add the new file to our index
-        const newEntry = {
-            filename: req.file.filename,
-            team: req.body.team,
-            timestamp: new Date().toISOString()
-        };
-
-        // Read current manifest and append
-        let manifest = [];
-        if (fs.existsSync(FILE_MANIFEST)) {
-            manifest = JSON.parse(fs.readFileSync(FILE_MANIFEST));
+app.post('/upload', upload.single('document'), async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).send('No file uploaded.');
         }
-        manifest.push(newEntry);
-        fs.writeFileSync(FILE_MANIFEST, JSON.stringify(manifest, null, 2));
 
-        res.status(200).send('Success!');
-    });
+        // Capture data from the form
+        const { senderId, recipientId, projectId, departmentId } = req.body;
+        const filename = req.file.filename;
+
+        // Save metadata to database
+        const query = `
+            INSERT INTO documents (filename, sender_id, recipient_id, project_id, department_id)
+            VALUES ($1, $2, $3, $4, $5)
+            RETURNING id;
+        `;
+        const values = [filename, senderId, recipientId, projectId, departmentId];
+        await db.query(query, values);
+
+        res.status(200).send('Document routed and saved successfully!');
+    } catch (err) {
+        console.error('Database Error:', err);
+        res.status(500).send('Error saving document metadata.');
+    }
 });
 // Serve static files from the 'public' directory
 app.use(express.static('public'));
