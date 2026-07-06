@@ -2,70 +2,63 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Document Dashboard</title>
+    <title>Document Routing Dashboard</title>
     <style>
         body { font-family: sans-serif; padding: 2rem; background: #f4f7f6; }
         .card { background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        .nav { margin-bottom: 1rem; }
-        ul { list-style: none; padding: 0; }
-        li { padding: 0.75rem; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; }
-        a { text-decoration: none; color: #0284c7; font-weight: bold; }
-        .badge { background: #e2e8f0; padding: 2px 8px; border-radius: 10px; font-size: 0.8rem; }
+        .filter-group { margin-bottom: 1rem; }
+        select { padding: 8px; margin-right: 10px; }
     </style>
 </head>
 <body>
 
-    <div class="nav">
-        <button onclick="window.location.href='/'">← Back to Upload</button>
-    </div>
-
     <div class="card">
-        <h2>Document Dashboard</h2>
+        <h2>Send Document</h2>
         
-        <div class="filter-section">
-            <label>Filter by Team:</label>
-            <select id="teamFilter" onchange="renderFiles()">
-                <option value="All">All Teams</option>
-                <option value="Engineering">Engineering</option>
-                <option value="Procurement">Procurement</option>
-                <option value="Site_Managers">Site Managers</option>
-                <option value="Project_Managers">Project Managers</option>
-                <option value="Finance">Finance</option>
-                <option value="HSE">HSE</option>
+        <div class="filter-group">
+            <label>Select Department:</label>
+            <select id="deptDropdown" onchange="loadUsers()">
+                <option value="">-- Choose Dept --</option>
+                <option value="1">Engineering</option>
+                <option value="2">Procurement</option>
+                <option value="3">Site Managers</option>
+                <option value="4">HSE</option>
+                <option value="5">Finance</option>
             </select>
         </div>
 
-        <ul id="fileList"></ul>
+        <div class="filter-group">
+            <label>Select Recipient (PIC):</label>
+            <select id="picDropdown">
+                <option value="">-- Choose Person --</option>
+            </select>
+        </div>
     </div>
 
     <script>
-        let allFiles = [];
+        // Function to fetch users when department changes
+        async function loadUsers() {
+            const deptId = document.getElementById('deptDropdown').value;
+            const picDropdown = document.getElementById('picDropdown');
+            
+            // Clear current list
+            picDropdown.innerHTML = '<option value="">-- Choose Person --</option>';
 
-        // Fetch the manifest file
-        fetch('/files')
-            .then(res => res.json())
-            .then(data => {
-                allFiles = data;
-                renderFiles();
-            });
+            if (!deptId) return;
 
-        function renderFiles() {
-            const filter = document.getElementById('teamFilter').value;
-            const list = document.getElementById('fileList');
-            list.innerHTML = '';
+            try {
+                const response = await fetch(`/users/by-department/${deptId}`);
+                const users = await response.json();
 
-            allFiles.filter(item => filter === 'All' || item.team === filter).forEach(item => {
-                const li = document.createElement('li');
-                // Construct the correct path: /uploads/TeamName/filename
-                const filePath = `/uploads/${item.team}/${item.filename}`;
-                li.innerHTML = `
-                    <div>
-                        <span class="badge">${item.team}</span> ${item.filename}
-                    </div>
-                    <a href="${filePath}" target="_blank">View PDF</a>
-                `;
-                list.appendChild(li);
-            });
+                users.forEach(user => {
+                    const option = document.createElement('option');
+                    option.value = user.id;
+                    option.textContent = user.email;
+                    picDropdown.appendChild(option);
+                });
+            } catch (err) {
+                console.error('Failed to load users:', err);
+            }
         }
     </script>
 </body>
