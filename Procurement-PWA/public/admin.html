@@ -90,15 +90,30 @@
 
   async function loadData() {
     try {
+      const authHeaders = { headers: { 'Authorization': 'Bearer ' + token } };
+
       // Fetch departments first to populate dropdowns
-      const deptRes = await fetch('/departments', { headers: { 'Authorization': 'Bearer ' + token } });
+      const deptRes = await fetch('/departments', authHeaders);
+      if (!deptRes.ok) {
+        const err = await deptRes.json().catch(() => ({}));
+        throw new Error(err.message || err.error || 'Failed to load departments.');
+      }
       departments = await deptRes.json();
 
       // Fetch requests and users in parallel
       const [requestsRes, usersRes] = await Promise.all([
-        fetch('/admin/requests', { headers: { 'Authorization': 'Bearer ' + token } }),
-        fetch('/admin/users', { headers: { 'Authorization': 'Bearer ' + token } })
+        fetch('/admin/requests', authHeaders),
+        fetch('/admin/users', authHeaders)
       ]);
+
+      if (!requestsRes.ok) {
+        const err = await requestsRes.json().catch(() => ({}));
+        throw new Error(err.message || err.error || 'Failed to load requests.');
+      }
+      if (!usersRes.ok) {
+        const err = await usersRes.json().catch(() => ({}));
+        throw new Error(err.message || err.error || 'Failed to load users.');
+      }
 
       const requests = await requestsRes.json();
       const users = await usersRes.json();
@@ -106,8 +121,8 @@
       renderRequests(requests);
       renderUsers(users);
     } catch (error) {
-      console.error('Failed to load admin data:', error);
-      alert('Could not load admin data. Please try again.');
+      console.error('Failed to load admin data:', error.message);
+      alert('Could not load admin data: ' + error.message);
     }
   }
 

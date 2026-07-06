@@ -63,14 +63,12 @@ app.post('/auth/google/login', async (req, res) => {
     try {
         const { idToken } = req.body;
         if (!idToken) {
-            return res.status(400).json({ error: 'idToken is required' });
             return res.status(400).json({ message: 'idToken is required' });
         }
         const result = await auth.handleGoogleLogin(idToken);
         res.json(result);
     } catch (error) {
         console.error('Google login error:', error);
-        res.status(401).json({ error: 'Authentication failed', details: error.message });
         res.status(401).json({ message: 'Authentication failed', details: error.message });
     }
 });
@@ -108,7 +106,6 @@ app.get('/projects', ensureAuthenticated, async (req, res) => {
         const result = await db.query('SELECT id, name FROM projects ORDER BY name ASC');
         res.json(result.rows);
     } catch (err) {
-        res.status(500).json({ error: err.message });
         res.status(500).json({ message: err.message });
     }
 });
@@ -119,7 +116,6 @@ app.get('/departments', ensureAuthenticated, async (req, res) => {
         const result = await db.query('SELECT id, name FROM departments ORDER BY name ASC');
         res.json(result.rows);
     } catch (err) {
-        res.status(500).json({ error: err.message });
         res.status(500).json({ message: err.message });
     }
 });
@@ -134,7 +130,6 @@ app.get('/users/by-department/:deptId', ensureAuthenticated, async (req, res) =>
         );
         res.json(result.rows);
     } catch (err) {
-        res.status(500).json({ error: err.message });
         res.status(500).json({ message: err.message });
     }
 });
@@ -186,7 +181,6 @@ app.get('/documents/my-inbox', ensureAuthenticated, async (req, res) => {
         );
         res.json(result.rows);
     } catch (err) {
-        res.status(500).json({ error: err.message });
         res.status(500).json({ message: err.message });
     }
 });
@@ -196,11 +190,9 @@ app.patch('/documents/:id/rename', ensureAuthenticated, async (req, res) => {
     try {
         const { id } = req.params;
         const { filename: newBaseName } = req.body;
-        if (!newBaseName) return res.status(400).json({ error: 'New filename is required.' });
         if (!newBaseName) return res.status(400).json({ message: 'New filename is required.' });
 
         const docRes = await db.query('SELECT filename FROM documents WHERE id = $1', [id]);
-        if (docRes.rows.length === 0) return res.status(404).json({ error: 'Document not found' });
         if (docRes.rows.length === 0) return res.status(404).json({ message: 'Document not found' });
         
         const ext = path.extname(docRes.rows[0].filename);
@@ -209,7 +201,6 @@ app.patch('/documents/:id/rename', ensureAuthenticated, async (req, res) => {
         await db.query('UPDATE documents SET filename = $1 WHERE id = $2', [newFilename, id]);
         res.json({ message: 'Rename successful', newFilename });
     } catch (err) {
-        res.status(500).json({ error: err.message });
         res.status(500).json({ message: err.message });
     }
 });
@@ -222,7 +213,6 @@ app.get('/admin/requests', ensureAuthenticated, ensureAdmin, async (req, res) =>
         const result = await db.query('SELECT * FROM account_requests ORDER BY created_at ASC');
         res.json(result.rows);
     } catch (err) {
-        res.status(500).json({ error: err.message });
         res.status(500).json({ message: err.message });
     }
 });
@@ -233,7 +223,6 @@ app.post('/admin/requests/:id/approve', ensureAuthenticated, ensureAdmin, async 
     const { role, department_id } = req.body;
 
     if (!role || !department_id) {
-        return res.status(400).json({ error: 'Role and department are required.' });
         return res.status(400).json({ message: 'Role and department are required.' });
     }
 
@@ -244,7 +233,6 @@ app.post('/admin/requests/:id/approve', ensureAuthenticated, ensureAdmin, async 
         const requestRes = await db.query('SELECT * FROM account_requests WHERE id = $1', [id]);
         if (requestRes.rows.length === 0) {
             await db.query('ROLLBACK');
-            return res.status(404).json({ error: 'Request not found.' });
             return res.status(404).json({ message: 'Request not found.' });
         }
         const request = requestRes.rows[0];
@@ -262,7 +250,6 @@ app.post('/admin/requests/:id/approve', ensureAuthenticated, ensureAdmin, async 
         res.status(200).json({ message: 'User approved successfully.' });
     } catch (err) {
         await db.query('ROLLBACK');
-        res.status(500).json({ error: err.message });
         res.status(500).json({ message: err.message });
     }
 });
@@ -274,7 +261,6 @@ app.delete('/admin/requests/:id', ensureAuthenticated, ensureAdmin, async (req, 
         await db.query('DELETE FROM account_requests WHERE id = $1', [id]);
         res.status(200).json({ message: 'Request denied successfully.' });
     } catch (err) {
-        res.status(500).json({ error: err.message });
         res.status(500).json({ message: err.message });
     }
 });
@@ -290,7 +276,6 @@ app.get('/admin/users', ensureAuthenticated, ensureAdmin, async (req, res) => {
         `);
         res.json(result.rows);
     } catch (err) {
-        res.status(500).json({ error: err.message });
         res.status(500).json({ message: err.message });
     }
 });
@@ -302,14 +287,12 @@ app.patch('/admin/users/:id', ensureAuthenticated, ensureAdmin, async (req, res)
         const { role, department_id } = req.body;
 
         if (!role && !department_id) {
-            return res.status(400).json({ error: 'Either role or department_id is required.' });
             return res.status(400).json({ message: 'Either role or department_id is required.' });
         }
 
         await db.query('UPDATE users SET role = $1, department_id = $2 WHERE id = $3', [role, department_id, id]);
         res.status(200).json({ message: 'User updated successfully.' });
     } catch (err) {
-        res.status(500).json({ error: err.message });
         res.status(500).json({ message: err.message });
     }
 });
