@@ -73,6 +73,19 @@ app.get('/files', (req, res) => {
     if (!fs.existsSync(FILE_MANIFEST)) return res.json([]);
     res.sendFile(FILE_MANIFEST);
 });
+// get users by department
+app.get('/users/by-department/:deptId', async (req, res) => {
+    try {
+        const { deptId } = req.params;
+        const result = await db.query(
+            'SELECT id, email FROM users WHERE department_id = $1',
+            [deptId]
+        );
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
 // Start the server
 app.listen(PORT, () => {
     console.log(`Procurement PWA Server is running on http://localhost:${PORT}`);
