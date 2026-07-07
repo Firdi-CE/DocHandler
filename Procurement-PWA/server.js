@@ -144,18 +144,25 @@ app.post('/upload', ensureAuthenticated, upload.single('document'), async (req, 
             return res.status(400).send('No file uploaded.');
         }
 
-        // Capture properties emitted from form elements matching layout targets
-        const senderId = req.user.id; // Sender is the authenticated user
-        const { recipientId, projectId, departmentId } = req.body;
+        // 1. Capture file metadata from Multer
         const filename = req.file.filename;
+        const filePath = req.file.path; // CRITICAL: Required for retrieval
+        
+        // 2. Capture user identity
+        const uploadedBy = req.user.id; 
 
-        // Perform strict table transaction sequence mapping elements cleanly to table relations
+        // 3. Capture & Sanitize Form Data (Convert empty strings to null for PG Int columns)
+        const recipientId = req.body.recipientId || null;
+        const projectId = req.body.projectId || null;
+        const departmentId = req.body.departmentId || null;
+
+        // Perform strict table transaction mapping elements cleanly to table relations
         const query = `
-            INSERT INTO documents (filename, sender_id, recipient_id, project_id, department_id)
-            VALUES ($1, $2, $3, $4, $5)
+            INSERT INTO public.documents (filename, file_path, uploaded_by, recipient_id, project_id, department_id)
+            VALUES ($1, $2, $3, $4, $5, $6)
             RETURNING id;
         `;
-        const values = [filename, senderId, recipientId, projectId, departmentId];
+        const values = [filename, filePath, uploadedBy, recipientId, projectId, departmentId];
         await db.query(query, values);
 
         console.log(`Document transaction completed successfully: ${filename}`);
@@ -166,25 +173,54 @@ app.post('/upload', ensureAuthenticated, upload.single('document'), async (req, 
     }
 });
 
-// Endpoint to capture inbox layout listings targeting single identity profile logs
+// Get documents scoped strictly by role-based permissions
 app.get('/documents/my-inbox', ensureAuthenticated, async (req, res) => {
     try {
-        const userId = req.user.id; // Securely get user ID from the authenticated token
-        const result = await db.query(
-            `SELECT d.*, p.name as project_name, u_sender.email as sender_email, dept.name as department_name
-             FROM documents d
-             LEFT JOIN projects p ON d.project_id = p.id
-             LEFT JOIN users u_sender ON d.sender_id = u_sender.id
-             LEFT JOIN departments dept ON d.department_id = dept.id
-             WHERE d.recipient_id = $1 ORDER BY d.created_at DESC`,
-            [userId]
-        );
+        const userId = req.user.id;
+        const role = req.user.role || 'Staff'; // Default fallback if null
+        const deptId = req.user.department_id;
+
+        // Base query selecting documents along with contextual project/sender strings
+        let query = `
+            SELECT d.*, p.name as project_name, u.display_name as uploader_name
+            FROM public.documents d
+            LEFT JOIN public.projects p ON d.project_id = p.id
+            LEFT JOIN public.users u ON d.uploaded_by = u.id
+            WHERE 1=1
+        `;
+        const values = [];
+
+        // Dynamic Query Adjustments depending on Role-Based Access Scoping Rules
+        if (role === 'Executive') {
+            // Rule: Executive can see ALL projects and their contents.
+            // No extra limiting WHERE conditions needed.
+        } 
+        else if (role === 'Supervisor') {
+            // Rule: Supervisor can see everything under their department 
+            // AND any project they are explicitly assigned to.
+            query += ` AND (d.department_id = $1 OR d.project_id IN (
+                SELECT project_id FROM public.user_projects WHERE user_id = $2
+            ))`;
+            values.push(deptId, userId);
+        } 
+        else {
+            // Rule: Staff can only see documents in their respective department 
+            // AND where they belong to the assigned project.
+            query += ` AND (d.department_id = $1 AND d.project_id IN (
+                SELECT project_id FROM public.user_projects WHERE user_id = $2
+            ))`;
+            values.push(deptId, userId);
+        }
+
+        query += ` ORDER BY d.created_at DESC`;
+
+        const result = await db.query(query, values);
         res.json(result.rows);
     } catch (err) {
-        res.status(500).json({ message: err.message });
+        console.error("Error running role-scoped data selection mapping:", err);
+        res.status(500).json({ error: "Failed to fetch secure inbox documents" });
     }
 });
-
 // Endpoint to rename a document
 app.patch('/documents/:id/rename', ensureAuthenticated, async (req, res) => {
     try {
