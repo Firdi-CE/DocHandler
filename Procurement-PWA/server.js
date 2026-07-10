@@ -197,9 +197,9 @@ app.get('/documents/my-inbox', ensureAuthenticated, async (req, res) => {
         } 
         else if (role === 'Supervisor') {
             // Rule: Supervisor can see everything under their department 
-            // AND any project they are explicitly assigned to.
+            // OR any project they are explicitly assigned to.
             query += ` AND (d.department_id = $1 OR d.project_id IN (
-                SELECT project_id FROM public.user_projects WHERE user_id = $2
+                SELECT project_id FROM public.project_assignments WHERE user_id = $2
             ))`;
             values.push(deptId, userId);
         } 
@@ -207,7 +207,7 @@ app.get('/documents/my-inbox', ensureAuthenticated, async (req, res) => {
             // Rule: Staff can only see documents in their respective department 
             // AND where they belong to the assigned project.
             query += ` AND (d.department_id = $1 AND d.project_id IN (
-                SELECT project_id FROM public.user_projects WHERE user_id = $2
+                SELECT project_id FROM public.project_assignments WHERE user_id = $2
             ))`;
             values.push(deptId, userId);
         }
@@ -221,6 +221,7 @@ app.get('/documents/my-inbox', ensureAuthenticated, async (req, res) => {
         res.status(500).json({ error: "Failed to fetch secure inbox documents" });
     }
 });
+
 // Endpoint to rename a document
 app.patch('/documents/:id/rename', ensureAuthenticated, async (req, res) => {
     try {
@@ -241,7 +242,37 @@ app.patch('/documents/:id/rename', ensureAuthenticated, async (req, res) => {
     }
 });
 
+
 // --- 5. ADMIN ROUTES ---
+
+// Assign a user to a specific project (Role-based data scoping mapping)
+app.post('/admin/assign-project', ensureAuthenticated, ensureAdmin, async (req, res) => {
+    try {
+        // Defensive DB rule: convert empty strings "" to null
+        const userId = req.body.user_id || null;
+        const projectId = req.body.project_id || null;
+
+        if (!userId || !projectId) {
+            return res.status(400).json({ message: 'Both user_id and project_id are required.' });
+        }
+
+        const query = `
+            INSERT INTO public.project_assignments (user_id, project_id) 
+            VALUES ($1, $2)
+        `;
+        
+        await db.query(query, [userId, projectId]);
+        res.status(200).json({ message: 'User successfully assigned to project.' });
+        
+    } catch (err) {
+        console.error('Database Project Assignment Error:', err);
+        // Specifically catch unique constraint violations if a user is already assigned
+        if (err.code === '23505') {
+            return res.status(409).json({ message: 'User is already assigned to this project.' });
+        }
+        res.status(500).json({ message: 'Error mapping user to project.' });
+    }
+});
 
 // Get all pending account requests
 app.get('/admin/requests', ensureAuthenticated, ensureAdmin, async (req, res) => {
