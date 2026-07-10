@@ -71,115 +71,156 @@
 <!-- Project Assignment Modal -->
 <div class="modal-overlay" id="projectModal">
   <div class="modal">
-    <h3>Assign Projects</h3>
+    <h3>Assign Project</h3>
     <p id="assignUserLabel" style="margin-bottom:1rem;color:#555;"></p>
-    <div id="projectCheckboxes"></div>
+    <label for="projectSelect">Select Project:</label>
+    <select id="projectSelect"></select>
     <div class="btn-group">
-      <button class="btn-save" onclick="saveAssignments()">Save</button>
+      <button class="btn-save" onclick="saveAssignment()">Save Assignment</button>
       <button class="btn-cancel" onclick="closeModal()">Cancel</button>
     </div>
   </div>
 </div>
 
 <script>
-  const API_BASE = '';
-  const token = localStorage.getItem('token');
-  if (!token) window.location.href = '/login.html';
+  let currentUserId = null; // Ensure this is declared at the top of your script
 
-  let currentUserId = null;
-  let allProjects = [];
-
-  function showStatus(msg, type) {
-    const el = document.getElementById('statusMessage');
-    el.textContent = msg; el.className = 'status-msg ' + type;
-    setTimeout(() => el.style.display = 'none', 3000);
-  }
-
-  async function loadUsers() {
-    try {
-      const res = await fetch(API_BASE + '/admin/users', {
-        headers: { 'Authorization': 'Bearer ' + token }
-      });
-      if (res.status === 403) { window.location.href = '/dashboard.html'; return; }
-      const users = await res.json();
-      const tbody = document.getElementById('usersBody');
-      tbody.innerHTML = users.map(u => `
-        <tr>
-          <td>${u.email}</td>
-          <td>${u.display_name || '—'}</td>
-          <td>${u.role}</td>
-          <td>${u.department_name || '—'}</td>
-          <td><button class="btn-assign" onclick="openAssignModal(${u.id}, '${u.email}')">Assign Projects</button></td>
-        </tr>
-      `).join('');
-    } catch (e) {
-      document.getElementById('usersBody').innerHTML =
-        '<tr><td colspan="5" style="text-align:center;padding:2rem;color:#888;">Failed to load.</td></tr>';
-    }
-  }
-
-  async function openAssignModal(userId, userEmail) {
+async function openAssignModal(userId, userEmail) {
     currentUserId = userId;
-    document.getElementById('assignUserLabel').textContent = 'Assigning projects for: ' + userEmail;
+    document.getElementById('assignUserLabel').textContent = 'Assigning project for: ' + userEmail;
     document.getElementById('projectModal').classList.add('open');
 
-    // Load projects
-    const projRes = await fetch(API_BASE + '/projects', {
-      headers: { 'Authorization': 'Bearer ' + token }
-    });
-    allProjects = await projRes.json();
+    try {
+        // Load projects
+        const projRes = await fetch('/projects', {
+            headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') } // Ensure token is fetched correctly
+        });
+        const allProjects = await projRes.json();
 
-    // Load user's current assignments
-    const assignRes = await fetch(API_BASE + '/admin/users/' + userId + '/projects', {
-      headers: { 'Authorization': 'Bearer ' + token }
-    });
-    const assignedIds = await assignRes.json();
+        const projectSelect = document.getElementById('projectSelect');
+        projectSelect.innerHTML = ''; // Clear previous options
 
-    const container = document.getElementById('projectCheckboxes');
-    if (allProjects.length === 0) {
-      container.innerHTML = '<p style="color:#888;">No projects available. Create one first.</p>';
-      return;
+        if (allProjects.length === 0) {
+            projectSelect.innerHTML = '<option value="">No projects available</option>';
+            projectSelect.disabled = true;
+            return;
+        }
+
+        projectSelect.disabled = false;
+        // FIXED: Syntax error removed
+        projectSelect.innerHTML = allProjects.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+    } catch (error) {
+        console.error("Error loading projects:", error);
     }
+}
 
-    container.innerHTML = allProjects.map(p => `
-      <label style="display:flex;align-items:center;gap:0.5rem;padding:0.3rem 0;cursor:pointer;">
-        <input type="checkbox" value="${p.id}" ${assignedIds.includes(p.id) ? 'checked' : ''}>
-        ${p.name}
-      </label>
-    `).join('');
-  }
-
-  function closeModal() {
+function closeModal() {
     document.getElementById('projectModal').classList.remove('open');
     currentUserId = null;
-  }
+}
 
-  async function saveAssignments() {
-    const checked = document.querySelectorAll('#projectCheckboxes input:checked');
-    const projectIds = Array.from(checked).map(cb => parseInt(cb.value));
+async function saveAssignment() {
+    const projectSelect = document.getElementById('projectSelect');
+    const selectedProjectId = projectSelect.value;
 
-    const res = await fetch(API_BASE + '/admin/users/' + currentUserId + '/projects', {
-      method: 'POST',
-      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ projectIds })
-    });
-    const data = await res.json();
-    if (res.ok) {
-      showStatus('Project assignments updated.', 'success');
-      closeModal();
-    } else {
-      showStatus(data.error, 'error');
+    if (!selectedProjectId) {
+        alert('Please select a project.'); // Fallback if showStatus isn't defined
+        return;
     }
-  }
 
-  function logout() {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    window.location.href = '/login.html';
-  }
-
-  loadUsers();
+    try {
+        const res = await fetch('/admin/assign-project', {
+            method: 'POST',
+            headers: { 
+                'Authorization': 'Bearer ' + localStorage.getItem('token'), 
+                'Content-Type': 'application/json' 
+            },
+            body: JSON.stringify({ user_id: currentUserId, project_id: parseInt(selectedProjectId) })
+        });
+        
+        const data = await res.json();
+        
+        if (res.ok) {
+            alert('Project assigned successfully.'); // Or use your showStatus('...', 'success') function
+            closeModal();
+            loadUsers(); // Reloads the user table to show the new mapped data
+        } else {
+            // FIXED: Target 'data.message' to catch the 409 Conflict error from the backend
+            alert(data.message || 'Failed to assign project.'); 
+        }
+    } catch (error) {
+        console.error("Assignment error:", error);
+    }
+}
 </script>
+let currentUserId = null; // Ensure this is declared at the top of your script
 
+async function openAssignModal(userId, userEmail) {
+    currentUserId = userId;
+    document.getElementById('assignUserLabel').textContent = 'Assigning project for: ' + userEmail;
+    document.getElementById('projectModal').classList.add('open');
+
+    try {
+        // Load projects
+        const projRes = await fetch('/projects', {
+            headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') } // Ensure token is fetched correctly
+        });
+        const allProjects = await projRes.json();
+
+        const projectSelect = document.getElementById('projectSelect');
+        projectSelect.innerHTML = ''; // Clear previous options
+
+        if (allProjects.length === 0) {
+            projectSelect.innerHTML = '<option value="">No projects available</option>';
+            projectSelect.disabled = true;
+            return;
+        }
+
+        projectSelect.disabled = false;
+        // FIXED: Syntax error removed
+        projectSelect.innerHTML = allProjects.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+    } catch (error) {
+        console.error("Error loading projects:", error);
+    }
+}
+
+function closeModal() {
+    document.getElementById('projectModal').classList.remove('open');
+    currentUserId = null;
+}
+
+async function saveAssignment() {
+    const projectSelect = document.getElementById('projectSelect');
+    const selectedProjectId = projectSelect.value;
+
+    if (!selectedProjectId) {
+        alert('Please select a project.'); // Fallback if showStatus isn't defined
+        return;
+    }
+
+    try {
+        const res = await fetch('/admin/assign-project', {
+            method: 'POST',
+            headers: { 
+                'Authorization': 'Bearer ' + localStorage.getItem('token'), 
+                'Content-Type': 'application/json' 
+            },
+            body: JSON.stringify({ user_id: currentUserId, project_id: parseInt(selectedProjectId) })
+        });
+        
+        const data = await res.json();
+        
+        if (res.ok) {
+            alert('Project assigned successfully.'); // Or use your showStatus('...', 'success') function
+            closeModal();
+            loadUsers(); // Reloads the user table to show the new mapped data
+        } else {
+            // FIXED: Target 'data.message' to catch the 409 Conflict error from the backend
+            alert(data.message || 'Failed to assign project.'); 
+        }
+    } catch (error) {
+        console.error("Assignment error:", error);
+    }
+}
 </body>
 </html>
