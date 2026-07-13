@@ -576,7 +576,7 @@ app.patch('/documents/:id/status', ensureAuthenticated, async (req, res) => {
 });
 // --- CRON JOB: AUTOMATED NOTIFICATION DIGEST ---
 // Runs daily at 4:00 PM server time
-cron.schedule('0 16 * * *', async () => {
+cron.schedule('* * * * *', async () => {
     console.log('Running daily Notification Digest job...');
     
     try {
@@ -584,7 +584,7 @@ cron.schedule('0 16 * * *', async () => {
             SELECT 
                 nq.id AS queue_id,
                 u.email,
-                d.original_filename,
+                d.filename,
                 d.status
             FROM notification_queue nq
             JOIN users u ON nq.recipient_id = u.id
@@ -605,7 +605,7 @@ cron.schedule('0 16 * * *', async () => {
             }
             acc[alert.email].queueIds.push(alert.queue_id);
             acc[alert.email].documents.push({
-                filename: alert.original_filename,
+                filename: alert.filename,
                 status: alert.status
             });
             return acc;
