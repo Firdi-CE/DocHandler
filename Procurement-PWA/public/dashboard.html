@@ -131,7 +131,7 @@
     }
     .empty-state p { margin-bottom: 0.5rem; }
 
-    /* Rename modal */
+    /* Modal Framework */
     .modal-overlay {
       display: none;
       position: fixed;
@@ -149,9 +149,13 @@
       border-radius: 16px;
       box-shadow: 8px 8px 0 #111;
       padding: 1.5rem;
-      max-width: 400px;
       width: 100%;
     }
+    
+    /* Specific Modal Sizes */
+    .modal-sm { max-width: 400px; }
+    .modal-lg { max-width: 95%; height: 90vh; display: flex; flex-direction: column; }
+
     .modal h3 { margin-bottom: 1rem; font-size: 1rem; }
     .modal input {
       width: 100%;
@@ -206,7 +210,7 @@
 <div class="card">
   <div class="nav-links">
     <a href="/index.html">← Upload</a>
-    <a href="/admin.html" id="adminLink" style="display:none;">⚙ Admin</a>
+    <a href="/admin/users.html" id="adminLink" style="display:none;">⚙ Admin</a>
   </div>
 
   <div class="project-filter">
@@ -216,7 +220,6 @@
     </select>
   </div>
 
-  <!-- Desktop table -->
   <table class="doc-table">
     <thead>
       <tr>
@@ -233,15 +236,23 @@
     </tbody>
   </table>
 
-  <!-- Mobile cards -->
   <ul class="doc-list" id="docCardList">
     <li class="empty-state"><p>Loading...</p></li>
   </ul>
 </div>
 
-<!-- Rename Modal -->
+<div class="modal-overlay" id="pdfModal">
+  <div class="modal modal-lg">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+      <h3 id="pdfModalTitle" style="margin: 0; font-size: 1.2rem; word-break: break-all;">Document Preview</h3>
+      <button onclick="closePdfModal()" style="background: #e5e7eb; border: 2px solid #111; border-radius: 8px; padding: 6px 16px; cursor: pointer; font-weight: bold;">Close</button>
+    </div>
+    <iframe id="pdfIframe" style="flex: 1; width: 100%; border: 2px solid #111; border-radius: 8px; background: #eee;"></iframe>
+  </div>
+</div>
+
 <div class="modal-overlay" id="renameModal">
-  <div class="modal">
+  <div class="modal modal-sm">
     <h3>Rename Document</h3>
     <p style="font-size:0.8rem;color:#666;margin-bottom:0.5rem;" id="renameCurrentName"></p>
     <input type="text" id="renameInput" placeholder="New filename (without extension)">
@@ -269,6 +280,7 @@
   let projects = [];
   let currentUser = null;
   let renameDocId = null;
+  let currentPdfUrl = null; // Memory management for Object URLs
 
   // Load user info
   (async () => {
@@ -320,6 +332,7 @@
     renderCards(allDocs);
   }
 
+  // --- HTML RENDERING (Replaced <a> tags with secure JS Buttons) ---
   function renderTable(docs) {
     const tbody = document.getElementById('docTableBody');
     if (docs.length === 0) {
@@ -330,6 +343,7 @@
       const meta = `${d.project_name || '—'} · ${d.department_name || '—'} · ${d.sender_email || '—'}`;
       const ext = d.filename.includes('.') ? '.' + d.filename.split('.').pop() : '';
       const baseName = d.filename.replace(ext, '');
+      const safeName = d.filename.replace(/'/g, "\\'");
       return `<tr>
         <td><strong style="font-size:0.8rem;word-break:break-all;">${d.filename}</strong></td>
         <td style="font-size:0.8rem;">${d.project_name || '—'}</td>
@@ -337,7 +351,7 @@
         <td style="font-size:0.8rem;">${d.sender_email || '—'}</td>
         <td style="font-size:0.75rem;color:#666;">${new Date(d.created_at).toLocaleDateString()}</td>
         <td style="white-space:nowrap;">
-          <a class="btn btn-view" href="/uploads/${d.filename}" target="_blank" style="padding:3px 10px;font-size:0.75rem;">View</a>
+          <button class="btn btn-view" style="padding:3px 10px;font-size:0.75rem;" onclick="viewDocument(${d.id}, '${safeName}')">View</button>
           ${canRename() ? `<button class="btn btn-rename" style="padding:3px 10px;font-size:0.75rem;" onclick="openRename(${d.id},'${baseName.replace(/'/g, "\\'")}')">Rename</button>` : ''}
         </td>
       </tr>`;
@@ -353,6 +367,7 @@
     list.innerHTML = docs.map(d => {
       const ext = d.filename.includes('.') ? '.' + d.filename.split('.').pop() : '';
       const baseName = d.filename.replace(ext, '');
+      const safeName = d.filename.replace(/'/g, "\\'");
       return `<li class="doc-card">
         <div class="doc-title">${d.filename}</div>
         <div class="doc-meta">
@@ -361,7 +376,7 @@
           ${new Date(d.created_at).toLocaleDateString()}
         </div>
         <div class="doc-actions">
-          <a class="btn btn-view" href="/uploads/${d.filename}" target="_blank">View</a>
+          <button class="btn btn-view" onclick="viewDocument(${d.id}, '${safeName}')">View</button>
           ${canRename() ? `<button class="btn btn-rename" onclick="openRename(${d.id},'${baseName.replace(/'/g, "\\'")}')">Rename</button>` : ''}
         </div>
       </li>`;
@@ -375,6 +390,49 @@
     renderCards(filtered);
   }
 
+  // --- SECURE PDF BLOB FETCHING ---
+  async function viewDocument(docId, filename) {
+    try {
+      document.getElementById('pdfModalTitle').textContent = "Authenticating & Loading...";
+      document.getElementById('pdfModal').classList.add('open');
+      document.getElementById('pdfIframe').src = ""; // Clear out previous view
+
+      // Fetch file directly as a Blob stream, passing the JWT explicitly
+      const res = await fetch(`${API_BASE}/documents/${docId}/stream`, {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.message || 'Access Denied: You do not have clearance to view this document.');
+      }
+
+      const blob = await res.blob();
+      
+      // Clean up previous memory allocations to prevent browser lag
+      if (currentPdfUrl) URL.revokeObjectURL(currentPdfUrl); 
+      currentPdfUrl = URL.createObjectURL(blob);
+
+      // Inject the secure local blob object into the iframe
+      document.getElementById('pdfIframe').src = currentPdfUrl;
+      document.getElementById('pdfModalTitle').textContent = filename;
+
+    } catch (err) {
+      closePdfModal();
+      alert(err.message);
+    }
+  }
+
+  function closePdfModal() {
+    document.getElementById('pdfModal').classList.remove('open');
+    document.getElementById('pdfIframe').src = "";
+    if (currentPdfUrl) {
+      URL.revokeObjectURL(currentPdfUrl);
+      currentPdfUrl = null;
+    }
+  }
+
+  // --- RENAME UTILITIES ---
   function openRename(docId, currentName) {
     renameDocId = docId;
     document.getElementById('renameCurrentName').textContent = 'Current: ' + currentName;
@@ -399,14 +457,13 @@
     const data = await res.json();
     if (res.ok) {
       closeRename();
-      // Reload documents
       const docsRes = await fetch(API_BASE + '/documents/my-inbox', {
         headers: { 'Authorization': 'Bearer ' + token }
       });
       allDocs = await docsRes.json();
       renderAll();
     } else {
-      alert(data.error || 'Rename failed');
+      alert(data.message || 'Rename failed');
     }
   }
 </script>
