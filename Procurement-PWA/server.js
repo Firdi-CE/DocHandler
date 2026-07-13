@@ -52,7 +52,7 @@ const storage = multer.diskStorage({
 const upload = multer({ storage: storage });
 
 // Serve uploaded PDFs so they can be viewed/downloaded via the client dashboard link
-app.use('/uploads', express.static(uploadDir));
+//app.use('/uploads', express.static(uploadDir));
 
 
 // --- 3. AUTHENTICATION ROUTES & MIDDLEWARE ---
@@ -136,7 +136,49 @@ app.get('/users/by-department/:deptId', ensureAuthenticated, async (req, res) =>
 
 
 // --- 5. DOCUMENT TRANSACTION MANAGEMENT ---
+// Secure Endpoint to stream a document only to cleared personnel
+app.get('/documents/:id/stream', ensureAuthenticated, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const userId = req.user.id;
+        const role = req.user.role || 'Staff';
+        const deptId = req.user.department_id;
 
+        // 1. Fetch document ownership metadata
+        const docRes = await db.query('SELECT * FROM documents WHERE id = $1', [id]);
+        if (docRes.rows.length === 0) {
+            return res.status(404).json({ message: 'Document not found or moved.' });
+        }
+        const doc = docRes.rows[0];
+
+        // 2. Defensive Scoping Re-Verification (Never trust the frontend request blindly)
+        let isAuthorized = false;
+        
+        if (role === 'Executive') {
+            isAuthorized = true; // Execs see everything
+        } else if (role === 'Supervisor' || role === 'Staff') {
+            // Check if the user is mapped to the project holding this document
+            const projCheck = await db.query('SELECT 1 FROM project_assignments WHERE user_id = $1 AND project_id = $2', [userId, doc.project_id]);
+            
+            if (role === 'Supervisor') {
+                if (doc.department_id === deptId || projCheck.rows.length > 0) isAuthorized = true;
+            } else {
+                if (doc.department_id === deptId && projCheck.rows.length > 0) isAuthorized = true;
+            }
+        }
+
+        if (!isAuthorized) {
+            return res.status(403).json({ message: 'Unauthorized: You lack clearance for this project payload.' });
+        }
+
+        // 3. Serve the physical file absolutely and securely via Express
+        res.sendFile(doc.file_path);
+
+    } catch (err) {
+        console.error('File streaming security error:', err);
+        res.status(500).json({ message: 'Internal error resolving secure document.' });
+    }
+});
 // Endpoint handling physical multi-part upload write transactions and relational database linking
 app.post('/upload', ensureAuthenticated, upload.single('document'), async (req, res) => {
     try {
