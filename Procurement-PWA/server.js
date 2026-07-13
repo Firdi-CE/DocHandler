@@ -51,10 +51,6 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage: storage });
 
-// Serve uploaded PDFs so they can be viewed/downloaded via the client dashboard link
-//app.use('/uploads', express.static(uploadDir));
-
-
 // --- 3. AUTHENTICATION ROUTES & MIDDLEWARE ---
 
 // New endpoint for client-side Google Sign-In.
@@ -136,47 +132,98 @@ app.get('/users/by-department/:deptId', ensureAuthenticated, async (req, res) =>
 
 
 // --- 5. DOCUMENT TRANSACTION MANAGEMENT ---
-// Secure Endpoint to stream a document only to cleared personnel
+// Secure PDF Streamer (Data-Level Scoped)
 app.get('/documents/:id/stream', ensureAuthenticated, async (req, res) => {
     try {
-        const { id } = req.params;
+        const docId = req.params.id;
         const userId = req.user.id;
-        const role = req.user.role || 'Staff';
+        const userRole = req.user.role;
         const deptId = req.user.department_id;
 
-        // 1. Fetch document ownership metadata
-        const docRes = await db.query('SELECT * FROM documents WHERE id = $1', [id]);
-        if (docRes.rows.length === 0) {
-            return res.status(404).json({ message: 'Document not found or moved.' });
-        }
+        // 1. Verify Document Exists & Fetch Metadata
+        const docRes = await db.query(`SELECT * FROM documents WHERE id = $1`, [docId]);
+        if (docRes.rows.length === 0) return res.status(404).json({ error: 'Document not found.' });
+        
         const doc = docRes.rows[0];
 
-        // 2. Defensive Scoping Re-Verification (Never trust the frontend request blindly)
-        let isAuthorized = false;
-        
-        if (role === 'Executive') {
-            isAuthorized = true; // Execs see everything
-        } else if (role === 'Supervisor' || role === 'Staff') {
-            // Check if the user is mapped to the project holding this document
-            const projCheck = await db.query('SELECT 1 FROM project_assignments WHERE user_id = $1 AND project_id = $2', [userId, doc.project_id]);
-            
-            if (role === 'Supervisor') {
-                if (doc.department_id === deptId || projCheck.rows.length > 0) isAuthorized = true;
-            } else {
-                if (doc.department_id === deptId && projCheck.rows.length > 0) isAuthorized = true;
-            }
+        // 2. Enforce Role-Based Scoping
+        let hasAccess = false;
+        if (userRole === 'Executive') {
+            hasAccess = true;
+        } else if (userRole === 'Supervisor') {
+            const projCheck = await db.query(`SELECT 1 FROM project_assignments WHERE user_id = $1 AND project_id = $2`, [userId, doc.project_id]);
+            if (doc.department_id === deptId || projCheck.rows.length > 0) hasAccess = true;
+        } else { // Staff
+            const projCheck = await db.query(`SELECT 1 FROM project_assignments WHERE user_id = $1 AND project_id = $2`, [userId, doc.project_id]);
+            if (doc.sender_id === userId || doc.recipient_id === userId || projCheck.rows.length > 0) hasAccess = true;
         }
 
-        if (!isAuthorized) {
-            return res.status(403).json({ message: 'Unauthorized: You lack clearance for this project payload.' });
+        if (!hasAccess) {
+            return res.status(403).json({ error: 'Access denied to this document.' });
         }
 
-        // 3. Serve the physical file absolutely and securely via Express
-        res.sendFile(doc.file_path);
+        // 3. Stream File
+        const filePath = path.join(__dirname, 'uploads', doc.filename);
+        if (!fs.existsSync(filePath)) {
+            return res.status(404).json({ error: 'Physical file missing from server.' });
+        }
+
+        // Serve file as a stream so the browser can render it in an iframe
+        const fileStream = fs.createReadStream(filePath);
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `inline; filename="${doc.filename}"`);
+        fileStream.pipe(res);
 
     } catch (err) {
-        console.error('File streaming security error:', err);
-        res.status(500).json({ message: 'Internal error resolving secure document.' });
+        console.error('Streaming Error:', err);
+        res.status(500).json({ error: 'Server error while streaming document.' });
+    }
+});
+// Secure PDF Streamer (Data-Level Scoped)
+app.get('/documents/:id/stream', ensureAuthenticated, async (req, res) => {
+    try {
+        const docId = req.params.id;
+        const userId = req.user.id;
+        const userRole = req.user.role;
+        const deptId = req.user.department_id;
+
+        // 1. Verify Document Exists & Fetch Metadata
+        const docRes = await db.query(`SELECT * FROM documents WHERE id = $1`, [docId]);
+        if (docRes.rows.length === 0) return res.status(404).json({ error: 'Document not found.' });
+        
+        const doc = docRes.rows[0];
+
+        // 2. Enforce Role-Based Scoping
+        let hasAccess = false;
+        if (userRole === 'Executive') {
+            hasAccess = true;
+        } else if (userRole === 'Supervisor') {
+            const projCheck = await db.query(`SELECT 1 FROM project_assignments WHERE user_id = $1 AND project_id = $2`, [userId, doc.project_id]);
+            if (doc.department_id === deptId || projCheck.rows.length > 0) hasAccess = true;
+        } else { // Staff
+            const projCheck = await db.query(`SELECT 1 FROM project_assignments WHERE user_id = $1 AND project_id = $2`, [userId, doc.project_id]);
+            if (doc.sender_id === userId || doc.recipient_id === userId || projCheck.rows.length > 0) hasAccess = true;
+        }
+
+        if (!hasAccess) {
+            return res.status(403).json({ error: 'Access denied to this document.' });
+        }
+
+        // 3. Stream File
+        const filePath = path.join(__dirname, 'uploads', doc.filename);
+        if (!fs.existsSync(filePath)) {
+            return res.status(404).json({ error: 'Physical file missing from server.' });
+        }
+
+        // Serve file as a stream so the browser can render it in an iframe
+        const fileStream = fs.createReadStream(filePath);
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `inline; filename="${doc.filename}"`);
+        fileStream.pipe(res);
+
+    } catch (err) {
+        console.error('Streaming Error:', err);
+        res.status(500).json({ error: 'Server error while streaming document.' });
     }
 });
 // Endpoint handling physical multi-part upload write transactions and relational database linking
@@ -200,11 +247,11 @@ app.post('/upload', ensureAuthenticated, upload.single('document'), async (req, 
 
         // Perform strict table transaction mapping elements cleanly to table relations
         const query = `
-            INSERT INTO public.documents (filename, file_path, sender_id, recipient_id, project_id, department_id)
-            VALUES ($1, $2, $3, $4, $5, $6)
+            INSERT INTO public.documents (filename, sender_id, recipient_id, project_id, department_id)
+            VALUES ($1, $2, $3, $4, $5)
             RETURNING id;
         `;
-        const values = [filename, filePath, uploadedBy, recipientId, projectId, departmentId];
+        const values = [filename, uploadedBy, recipientId, projectId, departmentId];
         await db.query(query, values);
 
         console.log(`Document transaction completed successfully: ${filename}`);
@@ -456,8 +503,44 @@ app.get('/auth/me', ensureAuthenticated, (req, res) => {
     // If ensureAuthenticated passes, req.user is guaranteed to exist.
     res.json(req.user);
 });
+// --- 6. EXECUTIVE APPROVAL WORKFLOW ---
 
-// --- 6. START SERVER ENGINE ---
+// Endpoint to toggle document status (Pending, Approved, Rejected)
+app.patch('/documents/:id/status', ensureAuthenticated, ensureAdmin, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { status } = req.body;
+
+        // Strict state enforcement
+        const validStatuses = ['pending', 'approved', 'rejected'];
+        if (!validStatuses.includes(status)) {
+            return res.status(400).json({ message: 'Invalid status value. Must be pending, approved, or rejected.' });
+        }
+
+        const query = `
+            UPDATE documents 
+            SET status = $1 
+            WHERE id = $2 
+            RETURNING id, filename, status
+        `;
+        
+        const result = await db.query(query, [status, id]);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ message: 'Document not found.' });
+        }
+
+        res.json({ 
+            message: `Document status updated to ${status}`, 
+            document: result.rows[0] 
+        });
+        
+    } catch (err) {
+        console.error('Approval Workflow Error:', err);
+        res.status(500).json({ message: 'Database error updating document status.' });
+    }
+});
+// --- 7. START SERVER ENGINE ---
 app.listen(PORT, () => {
     console.log(`PBE OneForAll active application server streaming live at http://localhost:${PORT}`);
 });
