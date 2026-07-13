@@ -200,15 +200,15 @@ app.post('/upload', ensureAuthenticated, upload.single('document'), async (req, 
 
         // Perform strict table transaction mapping elements cleanly to table relations
         const query = `
-            INSERT INTO public.documents (filename, uploaded_by, recipient_id, project_id, department_id)
-            VALUES ($1, $2, $3, $4, $5, $6)
+            INSERT INTO public.documents (filename, sender_id, recipient_id, project_id, department_id)
+            VALUES ($1, $2, $3, $4, $5)
             RETURNING id;
         `;
-        const values = [filename, filePath, uploadedBy, recipientId, projectId, departmentId];
+        const values = [filename, uploadedBy, recipientId, projectId, departmentId];
         await db.query(query, values);
 
         console.log(`Document transaction completed successfully: ${filename}`);
-        res.status(200).send('Document routed and saved successfully!');
+        res.status(200).send('Document sent!');
     } catch (err) {
         console.error('Database Upload Route Error:', err);
         res.status(500).send('Error saving document metadata relation fields.');
