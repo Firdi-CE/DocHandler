@@ -83,7 +83,7 @@
 </div>
 
 <script>
-  let currentUserId = null; // Ensure this is declared at the top of your script
+  let currentUserId = null; 
 
 async function openAssignModal(userId, userEmail) {
     currentUserId = userId;
@@ -91,14 +91,11 @@ async function openAssignModal(userId, userEmail) {
     document.getElementById('projectModal').classList.add('open');
 
     try {
-        // Load projects
         const projRes = await fetch('/projects', {
-            headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') } // Ensure token is fetched correctly
+            headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
         });
         const allProjects = await projRes.json();
-
         const projectSelect = document.getElementById('projectSelect');
-        projectSelect.innerHTML = ''; // Clear previous options
 
         if (allProjects.length === 0) {
             projectSelect.innerHTML = '<option value="">No projects available</option>';
@@ -107,8 +104,12 @@ async function openAssignModal(userId, userEmail) {
         }
 
         projectSelect.disabled = false;
-        // FIXED: Syntax error removed
-        projectSelect.innerHTML = allProjects.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+        
+        // FIXED: Populated the template literal with actual HTML option tags and variables.
+        // Note: Adjusted to map p.id and p.name (or p.project_name depending on your DB schema).
+        projectSelect.innerHTML = '<option value="" disabled selected>-- Select a Project --</option>' + 
+            allProjects.map(p => `<option value="${p.id}">${p.name || p.project_name}</option>`).join('');
+
     } catch (error) {
         console.error("Error loading projects:", error);
     }
@@ -153,7 +154,8 @@ async function saveAssignment() {
     }
 }
 </script>
-let currentUserId = null; // Ensure this is declared at the top of your script
+<script>
+let currentUserId = null; 
 
 async function openAssignModal(userId, userEmail) {
     currentUserId = userId;
@@ -221,6 +223,7 @@ async function saveAssignment() {
     } catch (error) {
         console.error("Assignment error:", error);
     }
-}
+}</script>
+
 </body>
 </html>

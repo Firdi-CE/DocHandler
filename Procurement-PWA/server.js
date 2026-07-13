@@ -200,7 +200,7 @@ app.post('/upload', ensureAuthenticated, upload.single('document'), async (req, 
 
         // Perform strict table transaction mapping elements cleanly to table relations
         const query = `
-            INSERT INTO public.documents (filename, file_path, uploaded_by, recipient_id, project_id, department_id)
+            INSERT INTO public.documents (filename, uploaded_by, recipient_id, project_id, department_id)
             VALUES ($1, $2, $3, $4, $5, $6)
             RETURNING id;
         `;
@@ -227,7 +227,7 @@ app.get('/documents/my-inbox', ensureAuthenticated, async (req, res) => {
             SELECT d.*, p.name as project_name, u.display_name as uploader_name
             FROM public.documents d
             LEFT JOIN public.projects p ON d.project_id = p.id
-            LEFT JOIN public.users u ON d.uploaded_by = u.id
+            LEFT JOIN public.users u ON d.sender_id = u.id
             WHERE 1=1
         `;
         const values = [];
