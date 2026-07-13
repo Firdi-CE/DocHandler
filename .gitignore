@@ -17,3 +17,6 @@ Procurement-PWA/public/uploads/
 .DS_Store
 Thumbs.db
 Procurement-PWA/.env.example
+Procurement-PWA/.env
+package-lock.json
+node_modules/.package-lock.json
