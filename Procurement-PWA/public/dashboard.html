@@ -15,7 +15,7 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      max-width: 900px;
+      max-width: 1000px;
       margin: 0 auto 1rem;
       flex-wrap: wrap;
       gap: 0.5rem;
@@ -44,7 +44,7 @@
       border-radius: 16px;
       box-shadow: 8px 8px 0 #111;
       padding: 1rem;
-      max-width: 900px;
+      max-width: 1000px;
       margin: auto;
     }
     .nav-links {
@@ -100,6 +100,7 @@
       display: flex;
       gap: 0.5rem;
       flex-wrap: wrap;
+      margin-top: 0.5rem;
     }
     .btn {
       display: inline-block;
@@ -115,15 +116,25 @@
     .btn-view { background: #10b981; color: white; }
     .btn-rename { background: #f59e0b; color: white; }
     .btn-rename:hover { background: #d97706; }
+    .btn-approve { background: #3b82f6; color: white; }
+    .btn-approve:hover { background: #2563eb; }
+    .btn-reject { background: #ef4444; color: white; }
+    .btn-reject:hover { background: #dc2828; }
+    
+    /* Status Badges */
     .badge {
       display: inline-block;
-      padding: 2px 8px;
+      padding: 3px 8px;
       border-radius: 12px;
       font-size: 0.7rem;
-      font-weight: 600;
-      background: #fef3c7;
-      color: #92400e;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
     }
+    .badge-pending { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
+    .badge-approved { background: #d1fae5; color: #065f46; border: 1px solid #6ee7b7; }
+    .badge-rejected { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+
     .empty-state {
       text-align: center;
       padding: 2rem 1rem;
@@ -131,7 +142,7 @@
     }
     .empty-state p { margin-bottom: 0.5rem; }
 
-    /* Rename modal */
+    /* Rename & PDF Modals */
     .modal-overlay {
       display: none;
       position: fixed;
@@ -164,6 +175,44 @@
     .modal .btn-group { display: flex; gap: 0.5rem; }
     .modal .btn-save { background: #10b981; color: white; border: 2px solid #111; border-radius: 8px; padding: 8px 16px; cursor: pointer; font-weight: 600; flex: 1; }
     .modal .btn-cancel { background: #e5e7eb; border: 2px solid #111; border-radius: 8px; padding: 8px 16px; cursor: pointer; font-weight: 600; flex: 1; }
+
+    .pdf-modal {
+      background: white;
+      border: 3px solid #111;
+      border-radius: 16px;
+      box-shadow: 8px 8px 0 #111;
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      max-width: 900px;
+      height: 85vh;
+      overflow: hidden;
+    }
+    .pdf-modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 15px;
+      background: #f9fafb;
+      border-bottom: 2px solid #111;
+    }
+    .pdf-modal-header h3 {
+      font-size: 1rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 80%;
+    }
+    .pdf-modal-body {
+      flex: 1;
+      width: 100%;
+      background: #e5e7eb;
+    }
+    .pdf-modal-body iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
 
     /* Desktop: show table, hide cards */
     @media (min-width: 768px) {
@@ -216,7 +265,6 @@
     </select>
   </div>
 
-  <!-- Desktop table -->
   <table class="doc-table">
     <thead>
       <tr>
@@ -225,21 +273,20 @@
         <th>Dept</th>
         <th>From</th>
         <th>Date</th>
-        <th></th>
+        <th>Status</th>
+        <th>Actions</th>
       </tr>
     </thead>
     <tbody id="docTableBody">
-      <tr><td colspan="6" class="empty-state"><p>Loading...</p></td></tr>
+      <tr><td colspan="7" class="empty-state"><p>Loading...</p></td></tr>
     </tbody>
   </table>
 
-  <!-- Mobile cards -->
   <ul class="doc-list" id="docCardList">
     <li class="empty-state"><p>Loading...</p></li>
   </ul>
 </div>
 
-<!-- Rename Modal -->
 <div class="modal-overlay" id="renameModal">
   <div class="modal">
     <h3>Rename Document</h3>
@@ -248,6 +295,18 @@
     <div class="btn-group">
       <button class="btn-save" onclick="doRename()">Save</button>
       <button class="btn-cancel" onclick="closeRename()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="pdfModal">
+  <div class="pdf-modal">
+    <div class="pdf-modal-header">
+      <h3 id="pdfModalTitle">Document Viewer</h3>
+      <button class="btn btn-cancel" onclick="closePdfModal()" style="border: 2px solid #111;">Close</button>
+    </div>
+    <div class="pdf-modal-body">
+      <iframe id="pdfFrame"></iframe>
     </div>
   </div>
 </div>
@@ -269,6 +328,7 @@
   let projects = [];
   let currentUser = null;
   let renameDocId = null;
+  let currentBlobUrl = null;
 
   // Load user info
   (async () => {
@@ -307,12 +367,20 @@
       renderAll();
     } catch (e) {
       document.getElementById('docTableBody').innerHTML =
-        '<tr><td colspan="6" class="empty-state"><p>Failed to load.</p></td></tr>';
+        '<tr><td colspan="7" class="empty-state"><p>Failed to load.</p></td></tr>';
     }
   })();
 
   function canRename() {
     return currentUser && (currentUser.role === 'Supervisor' || currentUser.role === 'Executive');
+  }
+
+  function getStatusBadge(status) {
+    const s = status || 'pending';
+    let cssClass = 'badge-pending';
+    if (s === 'approved') cssClass = 'badge-approved';
+    if (s === 'rejected') cssClass = 'badge-rejected';
+    return `<span class="badge ${cssClass}">${s}</span>`;
   }
 
   function renderAll() {
@@ -323,23 +391,33 @@
   function renderTable(docs) {
     const tbody = document.getElementById('docTableBody');
     if (docs.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6" class="empty-state"><p>No documents found.</p></td></tr>';
+      tbody.innerHTML = '<tr><td colspan="7" class="empty-state"><p>No documents found.</p></td></tr>';
       return;
     }
     tbody.innerHTML = docs.map(d => {
-      const meta = `${d.project_name || '—'} · ${d.department_name || '—'} · ${d.sender_email || '—'}`;
       const ext = d.filename.includes('.') ? '.' + d.filename.split('.').pop() : '';
       const baseName = d.filename.replace(ext, '');
+      
+      let actionBtns = `<button class="btn btn-view" style="padding:3px 10px;font-size:0.75rem;" onclick="viewDocument(${d.id}, '${d.filename.replace(/'/g, "\\'")}')">View</button>`;
+      
+      if (canRename()) {
+        actionBtns += ` <button class="btn btn-rename" style="padding:3px 10px;font-size:0.75rem;" onclick="openRename(${d.id},'${baseName.replace(/'/g, "\\'")}')">Rename</button>`;
+      }
+
+      // Executive Approval Buttons
+      if (currentUser && currentUser.role === 'Executive' && (!d.status || d.status === 'pending')) {
+        actionBtns += ` <button class="btn btn-approve" style="padding:3px 10px;font-size:0.75rem;" onclick="updateStatus(${d.id}, 'approved')">Approve</button>`;
+        actionBtns += ` <button class="btn btn-reject" style="padding:3px 10px;font-size:0.75rem;" onclick="updateStatus(${d.id}, 'rejected')">Reject</button>`;
+      }
+
       return `<tr>
         <td><strong style="font-size:0.8rem;word-break:break-all;">${d.filename}</strong></td>
         <td style="font-size:0.8rem;">${d.project_name || '—'}</td>
         <td style="font-size:0.8rem;">${d.department_name || '—'}</td>
         <td style="font-size:0.8rem;">${d.sender_email || '—'}</td>
         <td style="font-size:0.75rem;color:#666;">${new Date(d.created_at).toLocaleDateString()}</td>
-        <td style="white-space:nowrap;">
-          <a class="btn btn-view" href="/uploads/${d.filename}" target="_blank" style="padding:3px 10px;font-size:0.75rem;">View</a>
-          ${canRename() ? `<button class="btn btn-rename" style="padding:3px 10px;font-size:0.75rem;" onclick="openRename(${d.id},'${baseName.replace(/'/g, "\\'")}')">Rename</button>` : ''}
-        </td>
+        <td>${getStatusBadge(d.status)}</td>
+        <td style="white-space:nowrap;">${actionBtns}</td>
       </tr>`;
     }).join('');
   }
@@ -353,16 +431,27 @@
     list.innerHTML = docs.map(d => {
       const ext = d.filename.includes('.') ? '.' + d.filename.split('.').pop() : '';
       const baseName = d.filename.replace(ext, '');
+      
+      let actionBtns = `<button class="btn btn-view" onclick="viewDocument(${d.id}, '${d.filename.replace(/'/g, "\\'")}')">View</button>`;
+      
+      if (canRename()) {
+        actionBtns += ` <button class="btn btn-rename" onclick="openRename(${d.id},'${baseName.replace(/'/g, "\\'")}')">Rename</button>`;
+      }
+
+      if (currentUser && currentUser.role === 'Executive' && (!d.status || d.status === 'pending')) {
+        actionBtns += ` <button class="btn btn-approve" onclick="updateStatus(${d.id}, 'approved')">Approve</button>`;
+        actionBtns += ` <button class="btn btn-reject" onclick="updateStatus(${d.id}, 'rejected')">Reject</button>`;
+      }
+
       return `<li class="doc-card">
         <div class="doc-title">${d.filename}</div>
         <div class="doc-meta">
           ${d.project_name || '—'} · ${d.department_name || '—'}<br>
           From: ${d.sender_email || '—'}<br>
-          ${new Date(d.created_at).toLocaleDateString()}
+          ${new Date(d.created_at).toLocaleDateString()} · ${getStatusBadge(d.status)}
         </div>
         <div class="doc-actions">
-          <a class="btn btn-view" href="/uploads/${d.filename}" target="_blank">View</a>
-          ${canRename() ? `<button class="btn btn-rename" onclick="openRename(${d.id},'${baseName.replace(/'/g, "\\'")}')">Rename</button>` : ''}
+          ${actionBtns}
         </div>
       </li>`;
     }).join('');
@@ -374,6 +463,8 @@
     renderTable(filtered);
     renderCards(filtered);
   }
+
+  // --- Actions ---
 
   function openRename(docId, currentName) {
     renameDocId = docId;
@@ -399,7 +490,6 @@
     const data = await res.json();
     if (res.ok) {
       closeRename();
-      // Reload documents
       const docsRes = await fetch(API_BASE + '/documents/my-inbox', {
         headers: { 'Authorization': 'Bearer ' + token }
       });
@@ -407,6 +497,75 @@
       renderAll();
     } else {
       alert(data.error || 'Rename failed');
+    }
+  }
+
+  async function updateStatus(docId, newStatus) {
+    if (!confirm(`Are you sure you want to mark this document as ${newStatus}?`)) return;
+    try {
+      const res = await fetch(API_BASE + '/documents/' + docId + '/status', {
+        method: 'PATCH',
+        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus })
+      });
+      
+      const data = await res.json();
+      if (res.ok) {
+        // Refresh the documents payload seamlessly
+        const docsRes = await fetch(API_BASE + '/documents/my-inbox', {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        allDocs = await docsRes.json();
+        renderAll();
+      } else {
+        alert(data.message || 'Failed to update status');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Network error while updating status.');
+    }
+  }
+
+  // --- Secure PDF Viewer ---
+  async function viewDocument(docId, filename) {
+    document.getElementById('pdfModalTitle').textContent = 'Loading ' + filename + '...';
+    document.getElementById('pdfModal').classList.add('open');
+    const frame = document.getElementById('pdfFrame');
+    frame.src = ''; 
+
+    try {
+      const res = await fetch(API_BASE + '/documents/' + docId + '/stream', {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        alert('Error: ' + (err.error || 'Failed to load document'));
+        closePdfModal();
+        return;
+      }
+
+      const blob = await res.blob();
+      if (currentBlobUrl) {
+        URL.revokeObjectURL(currentBlobUrl); // Memory cleanup
+      }
+      currentBlobUrl = URL.createObjectURL(blob);
+      frame.src = currentBlobUrl;
+      document.getElementById('pdfModalTitle').textContent = filename;
+    } catch (err) {
+      console.error('Streaming error:', err);
+      alert('Failed to securely fetch document.');
+      closePdfModal();
+    }
+  }
+
+  function closePdfModal() {
+    document.getElementById('pdfModal').classList.remove('open');
+    const frame = document.getElementById('pdfFrame');
+    frame.src = '';
+    if (currentBlobUrl) {
+      URL.revokeObjectURL(currentBlobUrl);
+      currentBlobUrl = null;
     }
   }
 </script>

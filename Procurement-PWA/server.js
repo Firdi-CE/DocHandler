@@ -5,7 +5,7 @@ const fs = require('fs');
 const multer = require('multer');
 const auth = require('./auth'); // Imports JWT auth helpers
 const db = require('./db');         // Imports PostgreSQL connection pool from db.js
-
+const { sendMail } = require('./utils/mailer');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -50,10 +50,6 @@ const storage = multer.diskStorage({
     }
 });
 const upload = multer({ storage: storage });
-
-// Serve uploaded PDFs so they can be viewed/downloaded via the client dashboard link
-app.use('/uploads', express.static(uploadDir));
-
 
 // --- 3. AUTHENTICATION ROUTES & MIDDLEWARE ---
 
@@ -136,7 +132,100 @@ app.get('/users/by-department/:deptId', ensureAuthenticated, async (req, res) =>
 
 
 // --- 5. DOCUMENT TRANSACTION MANAGEMENT ---
+// Secure PDF Streamer (Data-Level Scoped)
+app.get('/documents/:id/stream', ensureAuthenticated, async (req, res) => {
+    try {
+        const docId = req.params.id;
+        const userId = req.user.id;
+        const userRole = req.user.role;
+        const deptId = req.user.department_id;
 
+        // 1. Verify Document Exists & Fetch Metadata
+        const docRes = await db.query(`SELECT * FROM documents WHERE id = $1`, [docId]);
+        if (docRes.rows.length === 0) return res.status(404).json({ error: 'Document not found.' });
+        
+        const doc = docRes.rows[0];
+
+        // 2. Enforce Role-Based Scoping
+        let hasAccess = false;
+        if (userRole === 'Executive') {
+            hasAccess = true;
+        } else if (userRole === 'Supervisor') {
+            const projCheck = await db.query(`SELECT 1 FROM project_assignments WHERE user_id = $1 AND project_id = $2`, [userId, doc.project_id]);
+            if (doc.department_id === deptId || projCheck.rows.length > 0) hasAccess = true;
+        } else { // Staff
+            const projCheck = await db.query(`SELECT 1 FROM project_assignments WHERE user_id = $1 AND project_id = $2`, [userId, doc.project_id]);
+            if (doc.sender_id === userId || doc.recipient_id === userId || projCheck.rows.length > 0) hasAccess = true;
+        }
+
+        if (!hasAccess) {
+            return res.status(403).json({ error: 'Access denied to this document.' });
+        }
+
+        // 3. Stream File
+        const filePath = path.join(__dirname, 'uploads', doc.filename);
+        if (!fs.existsSync(filePath)) {
+            return res.status(404).json({ error: 'Physical file missing from server.' });
+        }
+
+        // Serve file as a stream so the browser can render it in an iframe
+        const fileStream = fs.createReadStream(filePath);
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `inline; filename="${doc.filename}"`);
+        fileStream.pipe(res);
+
+    } catch (err) {
+        console.error('Streaming Error:', err);
+        res.status(500).json({ error: 'Server error while streaming document.' });
+    }
+});
+// Secure PDF Streamer (Data-Level Scoped)
+app.get('/documents/:id/stream', ensureAuthenticated, async (req, res) => {
+    try {
+        const docId = req.params.id;
+        const userId = req.user.id;
+        const userRole = req.user.role;
+        const deptId = req.user.department_id;
+
+        // 1. Verify Document Exists & Fetch Metadata
+        const docRes = await db.query(`SELECT * FROM documents WHERE id = $1`, [docId]);
+        if (docRes.rows.length === 0) return res.status(404).json({ error: 'Document not found.' });
+        
+        const doc = docRes.rows[0];
+
+        // 2. Enforce Role-Based Scoping
+        let hasAccess = false;
+        if (userRole === 'Executive') {
+            hasAccess = true;
+        } else if (userRole === 'Supervisor') {
+            const projCheck = await db.query(`SELECT 1 FROM project_assignments WHERE user_id = $1 AND project_id = $2`, [userId, doc.project_id]);
+            if (doc.department_id === deptId || projCheck.rows.length > 0) hasAccess = true;
+        } else { // Staff
+            const projCheck = await db.query(`SELECT 1 FROM project_assignments WHERE user_id = $1 AND project_id = $2`, [userId, doc.project_id]);
+            if (doc.sender_id === userId || doc.recipient_id === userId || projCheck.rows.length > 0) hasAccess = true;
+        }
+
+        if (!hasAccess) {
+            return res.status(403).json({ error: 'Access denied to this document.' });
+        }
+
+        // 3. Stream File
+        const filePath = path.join(__dirname, 'uploads', doc.filename);
+        if (!fs.existsSync(filePath)) {
+            return res.status(404).json({ error: 'Physical file missing from server.' });
+        }
+
+        // Serve file as a stream so the browser can render it in an iframe
+        const fileStream = fs.createReadStream(filePath);
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `inline; filename="${doc.filename}"`);
+        fileStream.pipe(res);
+
+    } catch (err) {
+        console.error('Streaming Error:', err);
+        res.status(500).json({ error: 'Server error while streaming document.' });
+    }
+});
 // Endpoint handling physical multi-part upload write transactions and relational database linking
 app.post('/upload', ensureAuthenticated, upload.single('document'), async (req, res) => {
     try {
@@ -144,22 +233,45 @@ app.post('/upload', ensureAuthenticated, upload.single('document'), async (req, 
             return res.status(400).send('No file uploaded.');
         }
 
-        // Capture properties emitted from form elements matching layout targets
-        const senderId = req.user.id; // Sender is the authenticated user
-        const { recipientId, projectId, departmentId } = req.body;
+        // 1. Capture file metadata from Multer
         const filename = req.file.filename;
+        const filePath = req.file.path; // CRITICAL: Required for retrieval
+        
+        // 2. Capture user identity
+        const uploadedBy = req.user.id; 
 
-        // Perform strict table transaction sequence mapping elements cleanly to table relations
+        // 3. Capture & Sanitize Form Data (Convert empty strings to null for PG Int columns)
+        const recipientId = req.body.recipientId || null;
+        const projectId = req.body.projectId || null;
+        const departmentId = req.body.departmentId || null;
+
+        // Perform strict table transaction mapping elements cleanly to table relations
         const query = `
-            INSERT INTO documents (filename, sender_id, recipient_id, project_id, department_id)
+            INSERT INTO public.documents (filename, sender_id, recipient_id, project_id, department_id)
             VALUES ($1, $2, $3, $4, $5)
             RETURNING id;
         `;
-        const values = [filename, senderId, recipientId, projectId, departmentId];
+        const values = [filename, uploadedBy, recipientId, projectId, departmentId];
         await db.query(query, values);
 
         console.log(`Document transaction completed successfully: ${filename}`);
-        res.status(200).send('Document routed and saved successfully!');
+
+        // --- TRIGGER EMAIL ALERT TO RECIPIENT ---
+        if (recipientId) {
+            const userRes = await db.query('SELECT email, display_name FROM users WHERE id = $1', [recipientId]);
+            if (userRes.rows.length > 0) {
+                const targetEmail = userRes.rows[0].email;
+                const targetName = userRes.rows[0].display_name;
+                const subject = `New Document Assigned: ${filename}`;
+                const body = `Hello ${targetName},\n\nA new document "${filename}" has been uploaded and routed to your inbox by ${req.user.display_name}. Please log into DocHandler to review it.`;
+                
+                // Fire and forget
+                sendMail(targetEmail, subject, body); 
+            }
+        }
+        // ---------------------------------------------
+
+        res.status(200).send('Document sent!');
     } catch (err) {
         console.error('Database Upload Route Error:', err);
         res.status(500).send('Error saving document metadata relation fields.');
@@ -169,18 +281,46 @@ app.post('/upload', ensureAuthenticated, upload.single('document'), async (req, 
 // Endpoint to capture inbox layout listings targeting single identity profile logs
 app.get('/documents/my-inbox', ensureAuthenticated, async (req, res) => {
     try {
-        const userId = req.user.id; // Securely get user ID from the authenticated token
-        const result = await db.query(
-            `SELECT d.*, p.name as project_name, u_sender.email as sender_email, dept.name as department_name
-             FROM documents d
-             LEFT JOIN projects p ON d.project_id = p.id
-             LEFT JOIN users u_sender ON d.sender_id = u_sender.id
-             LEFT JOIN departments dept ON d.department_id = dept.id
-             WHERE d.recipient_id = $1 ORDER BY d.created_at DESC`,
-            [userId]
-        );
+        const userId = req.user.id;
+        const userRole = req.user.role;
+        const deptId = req.user.department_id; // Securely extracted from JWT payload
+
+        let baseQuery = `
+            SELECT d.*, p.name as project_name, u_sender.email as sender_email, dept.name as department_name
+            FROM documents d
+            LEFT JOIN projects p ON d.project_id = p.id
+            LEFT JOIN users u_sender ON d.sender_id = u_sender.id
+            LEFT JOIN departments dept ON d.department_id = dept.id
+        `;
+
+        let queryParams = [];
+
+        if (userRole === 'Executive') {
+            // God Mode: View all documents across the entire company
+            baseQuery += ` ORDER BY d.created_at DESC`;
+        } else if (userRole === 'Supervisor') {
+            // Department Level: View all dept documents OR explicitly assigned projects
+            baseQuery += `
+                WHERE d.department_id = $1 
+                   OR d.project_id IN (SELECT project_id FROM project_assignments WHERE user_id = $2)
+                ORDER BY d.created_at DESC
+            `;
+            queryParams = [deptId, userId];
+        } else {
+            // Staff Level: View personal (sender/recipient) OR explicitly assigned projects
+            baseQuery += `
+                WHERE d.recipient_id = $1 
+                   OR d.sender_id = $1 
+                   OR d.project_id IN (SELECT project_id FROM project_assignments WHERE user_id = $1)
+                ORDER BY d.created_at DESC
+            `;
+            queryParams = [userId];
+        }
+
+        const result = await db.query(baseQuery, queryParams);
         res.json(result.rows);
     } catch (err) {
+        console.error('Inbox Scoping Error:', err);
         res.status(500).json({ message: err.message });
     }
 });
@@ -205,7 +345,84 @@ app.patch('/documents/:id/rename', ensureAuthenticated, async (req, res) => {
     }
 });
 
+
 // --- 5. ADMIN ROUTES ---
+
+// Assign a user to a specific project (Role-based data scoping mapping)
+app.post('/admin/assign-project', ensureAuthenticated, ensureAdmin, async (req, res) => {
+    try {
+        // Defensive DB rule: convert empty strings "" to null
+        const userId = req.body.user_id || null;
+        const projectId = req.body.project_id || null;
+
+        if (!userId || !projectId) {
+            return res.status(400).json({ message: 'Both user_id and project_id are required.' });
+        }
+
+        const query = `
+            INSERT INTO public.project_assignments (user_id, project_id) 
+            VALUES ($1, $2)
+        `;
+        
+        await db.query(query, [userId, projectId]);
+        res.status(200).json({ message: 'User successfully assigned to project.' });
+        
+    } catch (err) {
+        console.error('Database Project Assignment Error:', err);
+        // Specifically catch unique constraint violations if a user is already assigned
+        if (err.code === '23505') {
+            return res.status(409).json({ message: 'User is already assigned to this project.' });
+        }
+        res.status(500).json({ message: 'Error mapping user to project.' });
+    }
+});
+// --- PROJECT MANAGEMENT (ADMIN) ---
+
+// Create a new project
+app.post('/admin/projects', ensureAuthenticated, ensureAdmin, async (req, res) => {
+    const { name } = req.body;
+    if (!name) return res.status(400).json({ error: 'Project name is required.' });
+
+    try {
+        const result = await db.query(
+            'INSERT INTO projects (name) VALUES ($1) RETURNING *',
+            [name]
+        );
+        res.status(201).json(result.rows[0]);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Rename a project
+app.patch('/admin/projects/:id', ensureAuthenticated, ensureAdmin, async (req, res) => {
+    const { id } = req.params;
+    const { name } = req.body;
+    if (!name) return res.status(400).json({ error: 'New project name is required.' });
+
+    try {
+        const result = await db.query(
+            'UPDATE projects SET name = $1 WHERE id = $2 RETURNING *',
+            [name, id]
+        );
+        if (result.rows.length === 0) return res.status(404).json({ error: 'Project not found.' });
+        res.json(result.rows[0]);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Delete a project
+app.delete('/admin/projects/:id', ensureAuthenticated, ensureAdmin, async (req, res) => {
+    const { id } = req.params;
+    try {
+        const result = await db.query('DELETE FROM projects WHERE id = $1 RETURNING id', [id]);
+        if (result.rows.length === 0) return res.status(404).json({ error: 'Project not found.' });
+        res.json({ message: 'Project deleted successfully.' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
 
 // Get all pending account requests
 app.get('/admin/requests', ensureAuthenticated, ensureAdmin, async (req, res) => {
@@ -302,8 +519,59 @@ app.get('/auth/me', ensureAuthenticated, (req, res) => {
     // If ensureAuthenticated passes, req.user is guaranteed to exist.
     res.json(req.user);
 });
+// --- 6. EXECUTIVE APPROVAL WORKFLOW ---
 
-// --- 6. START SERVER ENGINE ---
+// Endpoint to toggle document status (Pending, Approved, Rejected)
+app.patch('/documents/:id/status', ensureAuthenticated, ensureAdmin, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { status } = req.body;
+
+        // Strict state enforcement
+        const validStatuses = ['pending', 'approved', 'rejected'];
+        if (!validStatuses.includes(status)) {
+            return res.status(400).json({ message: 'Invalid status value. Must be pending, approved, or rejected.' });
+        }
+
+        const query = `
+            UPDATE documents 
+            SET status = $1 
+            WHERE id = $2 
+            RETURNING id, filename, status, sender_id
+        `;
+        const result = await db.query(query, [status, id]);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ message: 'Document not found.' });
+        }
+
+        const doc = result.rows[0];
+
+        // --- TRIGGER EMAIL ALERT TO SENDER ---
+        const senderRes = await db.query('SELECT email, display_name FROM users WHERE id = $1', [doc.sender_id]);
+        if (senderRes.rows.length > 0) {
+            const senderEmail = senderRes.rows[0].email;
+            const senderName = senderRes.rows[0].display_name;
+            const subject = `Document Status Updated: ${doc.status.toUpperCase()}`;
+            const htmlBody = `
+                <h3>DocHandler Update</h3>
+                <p>Hello ${senderName},</p>
+                <p>Your document <strong>${doc.filename}</strong> has been marked as <strong style="color: ${doc.status === 'approved' ? 'green' : 'red'};">${doc.status.toUpperCase()}</strong> by an Executive.</p>
+                <p>Please log in to your dashboard for details.</p>
+            `;
+            sendMail(senderEmail, subject, `Your document ${doc.filename} was ${doc.status}.`, htmlBody);
+        }
+
+        res.json({ 
+            message: `Document status updated to ${status}`, 
+            document: doc 
+        });
+    } catch (err) {
+        console.error('Approval Workflow Error:', err);
+        res.status(500).json({ message: 'Database error updating document status.' });
+    }
+});
+// --- 7. START SERVER ENGINE ---
 app.listen(PORT, () => {
     console.log(`PBE OneForAll active application server streaming live at http://localhost:${PORT}`);
 });
