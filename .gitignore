@@ -18,5 +18,4 @@ Procurement-PWA/public/uploads/
 Thumbs.db
 Procurement-PWA/.env.example
 package-lock.json
-
 node_modules/.package-lock.json
