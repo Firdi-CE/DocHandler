@@ -5,7 +5,7 @@ const fs = require('fs');
 const multer = require('multer');
 const auth = require('./auth'); // Imports JWT auth helpers
 const db = require('./db');         // Imports PostgreSQL connection pool from db.js
-
+const { sendMail } = require('./utils/mailer');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -255,6 +255,22 @@ app.post('/upload', ensureAuthenticated, upload.single('document'), async (req, 
         await db.query(query, values);
 
         console.log(`Document transaction completed successfully: ${filename}`);
+
+        // --- TRIGGER EMAIL ALERT TO RECIPIENT ---
+        if (recipientId) {
+            const userRes = await db.query('SELECT email, display_name FROM users WHERE id = $1', [recipientId]);
+            if (userRes.rows.length > 0) {
+                const targetEmail = userRes.rows[0].email;
+                const targetName = userRes.rows[0].display_name;
+                const subject = `New Document Assigned: ${filename}`;
+                const body = `Hello ${targetName},\n\nA new document "${filename}" has been uploaded and routed to your inbox by ${req.user.display_name}. Please log into DocHandler to review it.`;
+                
+                // Fire and forget
+                sendMail(targetEmail, subject, body); 
+            }
+        }
+        // ---------------------------------------------
+
         res.status(200).send('Document sent!');
     } catch (err) {
         console.error('Database Upload Route Error:', err);
@@ -521,20 +537,35 @@ app.patch('/documents/:id/status', ensureAuthenticated, ensureAdmin, async (req,
             UPDATE documents 
             SET status = $1 
             WHERE id = $2 
-            RETURNING id, filename, status
+            RETURNING id, filename, status, sender_id
         `;
-        
         const result = await db.query(query, [status, id]);
 
         if (result.rows.length === 0) {
             return res.status(404).json({ message: 'Document not found.' });
         }
 
+        const doc = result.rows[0];
+
+        // --- TRIGGER EMAIL ALERT TO SENDER ---
+        const senderRes = await db.query('SELECT email, display_name FROM users WHERE id = $1', [doc.sender_id]);
+        if (senderRes.rows.length > 0) {
+            const senderEmail = senderRes.rows[0].email;
+            const senderName = senderRes.rows[0].display_name;
+            const subject = `Document Status Updated: ${doc.status.toUpperCase()}`;
+            const htmlBody = `
+                <h3>DocHandler Update</h3>
+                <p>Hello ${senderName},</p>
+                <p>Your document <strong>${doc.filename}</strong> has been marked as <strong style="color: ${doc.status === 'approved' ? 'green' : 'red'};">${doc.status.toUpperCase()}</strong> by an Executive.</p>
+                <p>Please log in to your dashboard for details.</p>
+            `;
+            sendMail(senderEmail, subject, `Your document ${doc.filename} was ${doc.status}.`, htmlBody);
+        }
+
         res.json({ 
             message: `Document status updated to ${status}`, 
-            document: result.rows[0] 
+            document: doc 
         });
-        
     } catch (err) {
         console.error('Approval Workflow Error:', err);
         res.status(500).json({ message: 'Database error updating document status.' });
