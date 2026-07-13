@@ -83,147 +83,120 @@
 </div>
 
 <script>
-  let currentUserId = null; 
+  const API_BASE = '';
+  const token = localStorage.getItem('token');
+  if (!token) window.location.href = '/login.html';
 
-async function openAssignModal(userId, userEmail) {
+  let currentUserId = null;
+
+  function showStatus(msg, type) {
+    const el = document.getElementById('statusMessage');
+    el.textContent = msg; el.className = 'status-msg ' + type;
+    el.style.display = 'block';
+    setTimeout(() => el.style.display = 'none', 3000);
+  }
+
+  function logout() {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    window.location.href = '/login.html';
+  }
+
+  async function loadUsers() {
+    try {
+      const res = await fetch(API_BASE + '/admin/users', {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      if (res.status === 403) { window.location.href = '/dashboard.html'; return; }
+      const users = await res.json();
+      const tbody = document.getElementById('usersBody');
+      if (users.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:2rem;color:#888;">No users found.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = users.map(u => `
+        <tr>
+          <td>${u.email}</td>
+          <td>${u.display_name || '—'}</td>
+          <td>${u.role}</td>
+          <td>${u.department_name || '—'}</td>
+          <td><button class="btn-assign" onclick="openAssignModal(${u.id}, '${u.email.replace(/'/g, "\\'")}')">Assign Project</button></td>
+        </tr>
+      `).join('');
+    } catch (e) {
+      document.getElementById('usersBody').innerHTML =
+        '<tr><td colspan="5" style="text-align:center;padding:2rem;color:#888;">Failed to load.</td></tr>';
+    }
+  }
+
+  async function openAssignModal(userId, userEmail) {
     currentUserId = userId;
     document.getElementById('assignUserLabel').textContent = 'Assigning project for: ' + userEmail;
     document.getElementById('projectModal').classList.add('open');
 
     try {
-        const projRes = await fetch('/projects', {
-            headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
-        });
-        const allProjects = await projRes.json();
-        const projectSelect = document.getElementById('projectSelect');
+      const projRes = await fetch(API_BASE + '/projects', {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      const allProjects = await projRes.json();
+      const projectSelect = document.getElementById('projectSelect');
 
-        if (allProjects.length === 0) {
-            projectSelect.innerHTML = '<option value="">No projects available</option>';
-            projectSelect.disabled = true;
-            return;
-        }
+      if (allProjects.length === 0) {
+        projectSelect.innerHTML = '<option value="">No projects available</option>';
+        projectSelect.disabled = true;
+        return;
+      }
 
-        projectSelect.disabled = false;
-        
-        // FIXED: Populated the template literal with actual HTML option tags and variables.
-        // Note: Adjusted to map p.id and p.name (or p.project_name depending on your DB schema).
-        projectSelect.innerHTML = '<option value="" disabled selected>-- Select a Project --</option>' + 
-            allProjects.map(p => `<option value="${p.id}">${p.name || p.project_name}</option>`).join('');
-
+      projectSelect.disabled = false;
+      projectSelect.innerHTML = '<option value="" disabled selected>-- Select a Project --</option>' +
+        allProjects.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
     } catch (error) {
-        console.error("Error loading projects:", error);
+      console.error('Error loading projects:', error);
+      showStatus('Failed to load projects.', 'error');
     }
-}
+  }
 
-function closeModal() {
+  function closeModal() {
     document.getElementById('projectModal').classList.remove('open');
     currentUserId = null;
-}
+  }
 
-async function saveAssignment() {
+  async function saveAssignment() {
     const projectSelect = document.getElementById('projectSelect');
     const selectedProjectId = projectSelect.value;
 
     if (!selectedProjectId) {
-        alert('Please select a project.'); // Fallback if showStatus isn't defined
-        return;
+      showStatus('Please select a project.', 'error');
+      return;
     }
 
     try {
-        const res = await fetch('/admin/assign-project', {
-            method: 'POST',
-            headers: { 
-                'Authorization': 'Bearer ' + localStorage.getItem('token'), 
-                'Content-Type': 'application/json' 
-            },
-            body: JSON.stringify({ user_id: currentUserId, project_id: parseInt(selectedProjectId) })
-        });
-        
-        const data = await res.json();
-        
-        if (res.ok) {
-            alert('Project assigned successfully.'); // Or use your showStatus('...', 'success') function
-            closeModal();
-            loadUsers(); // Reloads the user table to show the new mapped data
-        } else {
-            // FIXED: Target 'data.message' to catch the 409 Conflict error from the backend
-            alert(data.message || 'Failed to assign project.'); 
-        }
+      const res = await fetch(API_BASE + '/admin/assign-project', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + token,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ user_id: currentUserId, project_id: parseInt(selectedProjectId) })
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        showStatus('Project assigned successfully.', 'success');
+        closeModal();
+        loadUsers();
+      } else {
+        showStatus(data.message || 'Failed to assign project.', 'error');
+      }
     } catch (error) {
-        console.error("Assignment error:", error);
+      console.error('Assignment error:', error);
+      showStatus('Failed to assign project.', 'error');
     }
-}
+  }
+
+  loadUsers();
 </script>
-<script>
-let currentUserId = null; 
-
-async function openAssignModal(userId, userEmail) {
-    currentUserId = userId;
-    document.getElementById('assignUserLabel').textContent = 'Assigning project for: ' + userEmail;
-    document.getElementById('projectModal').classList.add('open');
-
-    try {
-        // Load projects
-        const projRes = await fetch('/projects', {
-            headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') } // Ensure token is fetched correctly
-        });
-        const allProjects = await projRes.json();
-
-        const projectSelect = document.getElementById('projectSelect');
-        projectSelect.innerHTML = ''; // Clear previous options
-
-        if (allProjects.length === 0) {
-            projectSelect.innerHTML = '<option value="">No projects available</option>';
-            projectSelect.disabled = true;
-            return;
-        }
-
-        projectSelect.disabled = false;
-        // FIXED: Syntax error removed
-        projectSelect.innerHTML = allProjects.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
-    } catch (error) {
-        console.error("Error loading projects:", error);
-    }
-}
-
-function closeModal() {
-    document.getElementById('projectModal').classList.remove('open');
-    currentUserId = null;
-}
-
-async function saveAssignment() {
-    const projectSelect = document.getElementById('projectSelect');
-    const selectedProjectId = projectSelect.value;
-
-    if (!selectedProjectId) {
-        alert('Please select a project.'); // Fallback if showStatus isn't defined
-        return;
-    }
-
-    try {
-        const res = await fetch('/admin/assign-project', {
-            method: 'POST',
-            headers: { 
-                'Authorization': 'Bearer ' + localStorage.getItem('token'), 
-                'Content-Type': 'application/json' 
-            },
-            body: JSON.stringify({ user_id: currentUserId, project_id: parseInt(selectedProjectId) })
-        });
-        
-        const data = await res.json();
-        
-        if (res.ok) {
-            alert('Project assigned successfully.'); // Or use your showStatus('...', 'success') function
-            closeModal();
-            loadUsers(); // Reloads the user table to show the new mapped data
-        } else {
-            // FIXED: Target 'data.message' to catch the 409 Conflict error from the backend
-            alert(data.message || 'Failed to assign project.'); 
-        }
-    } catch (error) {
-        console.error("Assignment error:", error);
-    }
-}</script>
 
 </body>
 </html>

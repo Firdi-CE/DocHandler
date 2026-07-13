@@ -200,11 +200,11 @@ app.post('/upload', ensureAuthenticated, upload.single('document'), async (req, 
 
         // Perform strict table transaction mapping elements cleanly to table relations
         const query = `
-            INSERT INTO public.documents (filename, sender_id, recipient_id, project_id, department_id)
-            VALUES ($1, $2, $3, $4, $5)
+            INSERT INTO public.documents (filename, file_path, sender_id, recipient_id, project_id, department_id)
+            VALUES ($1, $2, $3, $4, $5, $6)
             RETURNING id;
         `;
-        const values = [filename, uploadedBy, recipientId, projectId, departmentId];
+        const values = [filename, filePath, uploadedBy, recipientId, projectId, departmentId];
         await db.query(query, values);
 
         console.log(`Document transaction completed successfully: ${filename}`);
@@ -224,10 +224,12 @@ app.get('/documents/my-inbox', ensureAuthenticated, async (req, res) => {
 
         // Base query selecting documents along with contextual project/sender strings
         let query = `
-            SELECT d.*, p.name as project_name, u.display_name as uploader_name
+            SELECT d.*, p.name as project_name, u.display_name as uploader_name,
+                   u.email as sender_email, dept.name as department_name
             FROM public.documents d
             LEFT JOIN public.projects p ON d.project_id = p.id
             LEFT JOIN public.users u ON d.sender_id = u.id
+            LEFT JOIN public.departments dept ON d.department_id = dept.id
             WHERE 1=1
         `;
         const values = [];
