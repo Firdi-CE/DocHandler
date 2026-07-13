@@ -1,3 +1,5 @@
+const cron = require('node-cron');
+const nodemailer = require('nodemailer');
 require('dotenv').config();
 const express = require('express');
 const path = require('path');
@@ -7,6 +9,16 @@ const auth = require('./auth'); // Imports JWT auth helpers
 const db = require('./db');         // Imports PostgreSQL connection pool from db.js
 const { sendMail } = require('./utils/mailer');
 const app = express();
+// Configure the Mail Transporter for Notification Digest
+const transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST || 'smtp.gmail.com',
+    port: process.env.SMTP_PORT || 587,
+    secure: false, // Use true if port is 465
+    auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS
+    }
+});
 const PORT = process.env.PORT || 3000;
 
 // --- 1. MIDDLEWARE CONFIGURATION ---
@@ -522,24 +534,24 @@ app.get('/auth/me', ensureAuthenticated, (req, res) => {
 // --- 6. EXECUTIVE APPROVAL WORKFLOW ---
 
 // Endpoint to toggle document status (Pending, Approved, Rejected)
-app.patch('/documents/:id/status', ensureAuthenticated, ensureAdmin, async (req, res) => {
+// --- EXECUTIVE APPROVAL WORKFLOW ---
+app.patch('/documents/:id/status', ensureAuthenticated, async (req, res) => {
     try {
-        const { id } = req.params;
-        const { status } = req.body;
-
-        // Strict state enforcement
-        const validStatuses = ['pending', 'approved', 'rejected'];
-        if (!validStatuses.includes(status)) {
-            return res.status(400).json({ message: 'Invalid status value. Must be pending, approved, or rejected.' });
+        if (req.user.role !== 'executive') {
+            return res.status(403).json({ message: 'Only Executives can approve or reject documents.' });
         }
 
-        const query = `
-            UPDATE documents 
-            SET status = $1 
-            WHERE id = $2 
-            RETURNING id, filename, status, sender_id
-        `;
-        const result = await db.query(query, [status, id]);
+        const documentId = req.params.id;
+        const { status } = req.body; 
+
+        if (!['approved', 'rejected', 'pending'].includes(status)) {
+            return res.status(400).json({ message: 'Invalid status provided.' });
+        }
+
+        const result = await db.query(
+            'UPDATE documents SET status = $1 WHERE id = $2 RETURNING *',
+            [status, documentId]
+        );
 
         if (result.rows.length === 0) {
             return res.status(404).json({ message: 'Document not found.' });
@@ -547,28 +559,86 @@ app.patch('/documents/:id/status', ensureAuthenticated, ensureAdmin, async (req,
 
         const doc = result.rows[0];
 
-        // --- TRIGGER EMAIL ALERT TO SENDER ---
-        const senderRes = await db.query('SELECT email, display_name FROM users WHERE id = $1', [doc.sender_id]);
-        if (senderRes.rows.length > 0) {
-            const senderEmail = senderRes.rows[0].email;
-            const senderName = senderRes.rows[0].display_name;
-            const subject = `Document Status Updated: ${doc.status.toUpperCase()}`;
-            const htmlBody = `
-                <h3>DocHandler Update</h3>
-                <p>Hello ${senderName},</p>
-                <p>Your document <strong>${doc.filename}</strong> has been marked as <strong style="color: ${doc.status === 'approved' ? 'green' : 'red'};">${doc.status.toUpperCase()}</strong> by an Executive.</p>
-                <p>Please log in to your dashboard for details.</p>
-            `;
-            sendMail(senderEmail, subject, `Your document ${doc.filename} was ${doc.status}.`, htmlBody);
-        }
+        // --- BATCH NOTIFICATION QUEUE INJECTION ---
+        await db.query(
+            'INSERT INTO notification_queue (document_id, recipient_id, created_at) VALUES ($1, $2, NOW())',
+            [doc.id, doc.sender_id] 
+        );
 
         res.json({ 
-            message: `Document status updated to ${status}`, 
+            message: `Document status updated to ${status}. Notification queued.`, 
             document: doc 
         });
     } catch (err) {
         console.error('Approval Workflow Error:', err);
         res.status(500).json({ message: 'Database error updating document status.' });
+    }
+});
+// --- CRON JOB: AUTOMATED NOTIFICATION DIGEST ---
+// Runs daily at 4:00 PM server time
+cron.schedule('0 16 * * *', async () => {
+    console.log('Running daily Notification Digest job...');
+    
+    try {
+        const queueResult = await db.query(`
+            SELECT 
+                nq.id AS queue_id,
+                u.email,
+                d.original_filename,
+                d.status
+            FROM notification_queue nq
+            JOIN users u ON nq.recipient_id = u.id
+            JOIN documents d ON nq.document_id = d.id
+            WHERE nq.sent_at IS NULL
+        `);
+
+        const pendingAlerts = queueResult.rows;
+
+        if (pendingAlerts.length === 0) {
+            console.log('No pending alerts. Digest skipped.');
+            return;
+        }
+
+        const userDigests = pendingAlerts.reduce((acc, alert) => {
+            if (!acc[alert.email]) {
+                acc[alert.email] = { queueIds: [], documents: [] };
+            }
+            acc[alert.email].queueIds.push(alert.queue_id);
+            acc[alert.email].documents.push({
+                filename: alert.original_filename,
+                status: alert.status
+            });
+            return acc;
+        }, {});
+
+        for (const email in userDigests) {
+            const digest = userDigests[email];
+            
+            let htmlBody = `<h3>DocHandler: Daily Activity Digest</h3><ul>`;
+            digest.documents.forEach(doc => {
+                const color = doc.status === 'approved' ? 'green' : (doc.status === 'rejected' ? 'red' : 'black');
+                htmlBody += `<li>Document <strong>${doc.filename}</strong> is now <strong style="color:${color}">${doc.status.toUpperCase()}</strong>.</li>`;
+            });
+            htmlBody += `</ul>`;
+
+            await transporter.sendMail({
+                from: '"DocHandler" <no-reply@dochandler.com>',
+                to: email,
+                subject: 'Your Daily Document Digest',
+                html: htmlBody
+            });
+
+            console.log(`Sent digest to ${email} for ${digest.documents.length} updates.`);
+
+            await db.query(
+                `UPDATE notification_queue SET sent_at = NOW() WHERE id = ANY($1::int[])`,
+                [digest.queueIds]
+            );
+        }
+
+        console.log('Daily digest job completed successfully.');
+    } catch (error) {
+        console.error('Error running daily digest job:', error);
     }
 });
 // --- 7. START SERVER ENGINE ---
