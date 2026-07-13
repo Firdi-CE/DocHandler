@@ -317,6 +317,53 @@ app.post('/admin/assign-project', ensureAuthenticated, ensureAdmin, async (req, 
         res.status(500).json({ message: 'Error mapping user to project.' });
     }
 });
+// --- PROJECT MANAGEMENT (ADMIN) ---
+
+// Create a new project
+app.post('/admin/projects', ensureAuthenticated, ensureAdmin, async (req, res) => {
+    const { name } = req.body;
+    if (!name) return res.status(400).json({ error: 'Project name is required.' });
+
+    try {
+        const result = await db.query(
+            'INSERT INTO projects (name) VALUES ($1) RETURNING *',
+            [name]
+        );
+        res.status(201).json(result.rows[0]);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Rename a project
+app.patch('/admin/projects/:id', ensureAuthenticated, ensureAdmin, async (req, res) => {
+    const { id } = req.params;
+    const { name } = req.body;
+    if (!name) return res.status(400).json({ error: 'New project name is required.' });
+
+    try {
+        const result = await db.query(
+            'UPDATE projects SET name = $1 WHERE id = $2 RETURNING *',
+            [name, id]
+        );
+        if (result.rows.length === 0) return res.status(404).json({ error: 'Project not found.' });
+        res.json(result.rows[0]);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Delete a project
+app.delete('/admin/projects/:id', ensureAuthenticated, ensureAdmin, async (req, res) => {
+    const { id } = req.params;
+    try {
+        const result = await db.query('DELETE FROM projects WHERE id = $1 RETURNING id', [id]);
+        if (result.rows.length === 0) return res.status(404).json({ error: 'Project not found.' });
+        res.json({ message: 'Project deleted successfully.' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
 
 // Get all pending account requests
 app.get('/admin/requests', ensureAuthenticated, ensureAdmin, async (req, res) => {
