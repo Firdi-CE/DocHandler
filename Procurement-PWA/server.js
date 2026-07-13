@@ -215,54 +215,50 @@ app.post('/upload', ensureAuthenticated, upload.single('document'), async (req, 
     }
 });
 
-// Get documents scoped strictly by role-based permissions
+// Endpoint to capture inbox layout listings targeting single identity profile logs
 app.get('/documents/my-inbox', ensureAuthenticated, async (req, res) => {
     try {
         const userId = req.user.id;
-        const role = req.user.role || 'Staff'; // Default fallback if null
-        const deptId = req.user.department_id;
+        const userRole = req.user.role;
+        const deptId = req.user.department_id; // Securely extracted from JWT payload
 
-        // Base query selecting documents along with contextual project/sender strings
-        let query = `
-            SELECT d.*, p.name as project_name, u.display_name as uploader_name,
-                   u.email as sender_email, dept.name as department_name
-            FROM public.documents d
-            LEFT JOIN public.projects p ON d.project_id = p.id
-            LEFT JOIN public.users u ON d.sender_id = u.id
-            LEFT JOIN public.departments dept ON d.department_id = dept.id
-            WHERE 1=1
+        let baseQuery = `
+            SELECT d.*, p.name as project_name, u_sender.email as sender_email, dept.name as department_name
+            FROM documents d
+            LEFT JOIN projects p ON d.project_id = p.id
+            LEFT JOIN users u_sender ON d.sender_id = u_sender.id
+            LEFT JOIN departments dept ON d.department_id = dept.id
         `;
-        const values = [];
 
-        // Dynamic Query Adjustments depending on Role-Based Access Scoping Rules
-        if (role === 'Executive') {
-            // Rule: Executive can see ALL projects and their contents.
-            // No extra limiting WHERE conditions needed.
-        } 
-        else if (role === 'Supervisor') {
-            // Rule: Supervisor can see everything under their department 
-            // OR any project they are explicitly assigned to.
-            query += ` AND (d.department_id = $1 OR d.project_id IN (
-                SELECT project_id FROM public.project_assignments WHERE user_id = $2
-            ))`;
-            values.push(deptId, userId);
-        } 
-        else {
-            // Rule: Staff can only see documents in their respective department 
-            // AND where they belong to the assigned project.
-            query += ` AND (d.department_id = $1 AND d.project_id IN (
-                SELECT project_id FROM public.project_assignments WHERE user_id = $2
-            ))`;
-            values.push(deptId, userId);
+        let queryParams = [];
+
+        if (userRole === 'Executive') {
+            // God Mode: View all documents across the entire company
+            baseQuery += ` ORDER BY d.created_at DESC`;
+        } else if (userRole === 'Supervisor') {
+            // Department Level: View all dept documents OR explicitly assigned projects
+            baseQuery += `
+                WHERE d.department_id = $1 
+                   OR d.project_id IN (SELECT project_id FROM project_assignments WHERE user_id = $2)
+                ORDER BY d.created_at DESC
+            `;
+            queryParams = [deptId, userId];
+        } else {
+            // Staff Level: View personal (sender/recipient) OR explicitly assigned projects
+            baseQuery += `
+                WHERE d.recipient_id = $1 
+                   OR d.sender_id = $1 
+                   OR d.project_id IN (SELECT project_id FROM project_assignments WHERE user_id = $1)
+                ORDER BY d.created_at DESC
+            `;
+            queryParams = [userId];
         }
 
-        query += ` ORDER BY d.created_at DESC`;
-
-        const result = await db.query(query, values);
+        const result = await db.query(baseQuery, queryParams);
         res.json(result.rows);
     } catch (err) {
-        console.error("Error running role-scoped data selection mapping:", err);
-        res.status(500).json({ error: "Failed to fetch secure inbox documents" });
+        console.error('Inbox Scoping Error:', err);
+        res.status(500).json({ message: err.message });
     }
 });
 
