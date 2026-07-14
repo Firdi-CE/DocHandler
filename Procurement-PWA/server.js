@@ -434,31 +434,52 @@ app.patch('/documents/:id/rename', ensureAuthenticated, async (req, res) => {
 // --- 5. ADMIN ROUTES ---
 
 // Assign a user to a specific project (Role-based data scoping mapping)
-app.post('/admin/assign-project', ensureAuthenticated, ensureAdmin, async (req, res) => {
+// Get a user's current project assignments (used to pre-select in the modal)
+app.get('/admin/users/:id/projects', ensureAuthenticated, ensureAdmin, async (req, res) => {
     try {
-        // Defensive DB rule: convert empty strings "" to null
-        const userId = req.body.user_id || null;
-        const projectId = req.body.project_id || null;
-
-        if (!userId || !projectId) {
-            return res.status(400).json({ message: 'Both user_id and project_id are required.' });
-        }
-
-        const query = `
-            INSERT INTO public.project_assignments (user_id, project_id) 
-            VALUES ($1, $2)
-        `;
-        
-        await db.query(query, [userId, projectId]);
-        res.status(200).json({ message: 'User successfully assigned to project.' });
-        
+        const result = await db.query(
+            'SELECT project_id FROM project_assignments WHERE user_id = $1',
+            [req.params.id]
+        );
+        res.json(result.rows);
     } catch (err) {
-        console.error('Database Project Assignment Error:', err);
-        // Specifically catch unique constraint violations if a user is already assigned
-        if (err.code === '23505') {
-            return res.status(409).json({ message: 'User is already assigned to this project.' });
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// Replace a user's project assignments atomically (delete all, re-insert selected)
+app.post('/admin/assign-project', ensureAuthenticated, ensureAdmin, async (req, res) => {
+    const userId = req.body.user_id || null;
+    const projectIds = req.body.project_ids; // array from multi-select
+
+    if (!userId) {
+        return res.status(400).json({ message: 'user_id is required.' });
+    }
+    if (!Array.isArray(projectIds)) {
+        return res.status(400).json({ message: 'project_ids must be an array.' });
+    }
+
+    try {
+        await db.query('BEGIN');
+
+        // Wipe existing assignments for this user so we start clean
+        await db.query('DELETE FROM public.project_assignments WHERE user_id = $1', [userId]);
+
+        // Re-insert each selected project in a single loop
+        for (const projectId of projectIds) {
+            await db.query(
+                'INSERT INTO public.project_assignments (user_id, project_id) VALUES ($1, $2)',
+                [userId, projectId]
+            );
         }
-        res.status(500).json({ message: 'Error mapping user to project.' });
+
+        await db.query('COMMIT');
+        res.status(200).json({ message: `User assigned to ${projectIds.length} project(s) successfully.` });
+
+    } catch (err) {
+        await db.query('ROLLBACK');
+        console.error('Project Assignment Error:', err);
+        res.status(500).json({ message: 'Error updating project assignments.' });
     }
 });
 // --- PROJECT MANAGEMENT (ADMIN) ---

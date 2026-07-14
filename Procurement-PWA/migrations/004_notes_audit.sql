@@ -3,6 +3,9 @@
 -- ==========================================
 
 -- Req 2: Executive can attach a note when approving/rejecting
+-- Run this manually in DBeaver if the documents table already existed
+-- before this migration was written (ALTER TABLE is a no-op if the
+-- column already exists, so it is safe to run more than once).
 ALTER TABLE public.documents ADD COLUMN IF NOT EXISTS notes TEXT;
 
 -- Req 6: Lean audit trail for state-changing events
