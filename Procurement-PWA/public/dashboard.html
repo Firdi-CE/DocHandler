@@ -411,7 +411,7 @@
       }
 
       return `<tr>
-        <td><strong style="font-size:0.8rem;word-break:break-all;">${d.filename}</strong></td>
+        <td><strong style="font-size:0.8rem;word-break:break-all;">${d.is_urgent ? '🔴 ' : ''}${d.filename}</strong></td>
         <td style="font-size:0.8rem;">${d.project_name || '—'}</td>
         <td style="font-size:0.8rem;">${d.department_name || '—'}</td>
         <td style="font-size:0.8rem;">${d.sender_email || '—'}</td>
@@ -444,7 +444,7 @@
       }
 
       return `<li class="doc-card">
-        <div class="doc-title">${d.filename}</div>
+        <div class="doc-title">${d.is_urgent ? '🔴 ' : ''}${d.filename}</div>
         <div class="doc-meta">
           ${d.project_name || '—'} · ${d.department_name || '—'}<br>
           From: ${d.sender_email || '—'}<br>

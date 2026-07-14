@@ -6,6 +6,8 @@ const multer = require('multer');
 const auth = require('./auth'); // Imports JWT auth helpers
 const db = require('./db');         // Imports PostgreSQL connection pool from db.js
 const { sendMail } = require('./utils/mailer');
+const cron = require('node-cron');
+const { runDigest } = require('./utils/digest');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -197,29 +199,46 @@ app.post('/upload', ensureAuthenticated, upload.single('document'), async (req, 
         const recipientId = req.body.recipientId || null;
         const projectId = req.body.projectId || null;
         const departmentId = req.body.departmentId || null;
+        // Checkboxes are omitted from multipart form data entirely when unchecked,
+        // and arrive as the string 'true'/'on' when checked -- never a real boolean.
+        const isUrgent = req.body.isUrgent === 'true' || req.body.isUrgent === 'on';
 
         // Perform strict table transaction mapping elements cleanly to table relations
         const query = `
-            INSERT INTO public.documents (filename, sender_id, recipient_id, project_id, department_id)
-            VALUES ($1, $2, $3, $4, $5)
+            INSERT INTO public.documents (filename, sender_id, recipient_id, project_id, department_id, is_urgent)
+            VALUES ($1, $2, $3, $4, $5, $6)
             RETURNING id;
         `;
-        const values = [filename, uploadedBy, recipientId, projectId, departmentId];
-        await db.query(query, values);
+        const values = [filename, uploadedBy, recipientId, projectId, departmentId, isUrgent];
+        const insertRes = await db.query(query, values);
+        const newDocId = insertRes.rows[0].id;
 
         console.log(`Document transaction completed successfully: ${filename}`);
 
-        // --- TRIGGER EMAIL ALERT TO RECIPIENT ---
+        // --- NOTIFY RECIPIENT: urgent bypasses the digest and emails immediately;
+        //     everything else queues for the next digest run. ---
         if (recipientId) {
-            const userRes = await db.query('SELECT email, display_name FROM users WHERE id = $1', [recipientId]);
-            if (userRes.rows.length > 0) {
-                const targetEmail = userRes.rows[0].email;
-                const targetName = userRes.rows[0].display_name;
-                const subject = `New Document Assigned: ${filename}`;
-                const body = `Hello ${targetName},\n\nA new document "${filename}" has been uploaded and routed to your inbox by ${req.user.display_name}. Please log into DocHandler to review it.`;
-                
-                // Fire and forget
-                sendMail(targetEmail, subject, body); 
+            if (isUrgent) {
+                const userRes = await db.query('SELECT email, display_name FROM users WHERE id = $1', [recipientId]);
+                if (userRes.rows.length > 0) {
+                    const targetEmail = userRes.rows[0].email;
+                    const targetName = userRes.rows[0].display_name;
+                    const subject = `🔴 URGENT Document: ${filename}`;
+                    const text = `Hello ${targetName},\n\nAn URGENT document "${filename}" has been uploaded and routed to your inbox by ${req.user.display_name}. Please log into DocHandler to review it immediately.`;
+                    const html = `
+                        <h3 style="color:#b91c1c;">🔴 Urgent Document</h3>
+                        <p>Hello ${targetName},</p>
+                        <p>An <strong style="color:#b91c1c;">URGENT</strong> document <strong>${filename}</strong> has been routed to your inbox by ${req.user.display_name}.</p>
+                        <p>Please log in to review it immediately.</p>
+                    `;
+                    // Fire and forget
+                    sendMail(targetEmail, subject, text, html);
+                }
+            } else {
+                await db.query(
+                    `INSERT INTO public.notification_queue (document_id, recipient_id) VALUES ($1, $2)`,
+                    [newDocId, recipientId]
+                );
             }
         }
         // ---------------------------------------------
@@ -524,7 +543,33 @@ app.patch('/documents/:id/status', ensureAuthenticated, ensureAdmin, async (req,
         res.status(500).json({ message: 'Database error updating document status.' });
     }
 });
-// --- 7. START SERVER ENGINE ---
+// --- 7. DIGEST NOTIFICATION SCHEDULING ---
+
+// Manually trigger a digest run on demand -- useful for testing without
+// waiting for the cron schedule, and gives an Executive a way to force a
+// send if needed.
+app.post('/admin/digest/run', ensureAuthenticated, ensureAdmin, async (req, res) => {
+    try {
+        const summary = await runDigest();
+        res.json({ message: 'Digest run complete.', summary });
+    } catch (err) {
+        console.error('Manual digest trigger error:', err);
+        res.status(500).json({ message: 'Failed to run digest.' });
+    }
+});
+
+// Scheduled digest run. Defaults to every 4 hours; override with
+// DIGEST_CRON_SCHEDULE in .env using standard cron syntax (e.g. '0 9,17 * * *'
+// for twice daily at 9am/5pm). Urgent documents never wait on this -- they're
+// emailed immediately at upload time.
+const digestSchedule = process.env.DIGEST_CRON_SCHEDULE || '0 */4 * * *';
+cron.schedule(digestSchedule, async () => {
+    console.log(`Running scheduled digest (${digestSchedule})...`);
+    const summary = await runDigest();
+    console.log('Digest run complete:', summary);
+});
+
+// --- 8. START SERVER ENGINE ---
 app.listen(PORT, () => {
     console.log(`PBE OneForAll active application server streaming live at http://localhost:${PORT}`);
 });
