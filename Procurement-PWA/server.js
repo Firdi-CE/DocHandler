@@ -142,7 +142,7 @@ app.get('/documents/:id/stream', ensureAuthenticated, async (req, res) => {
 
         // 1. Verify Document Exists & Fetch Metadata
         const docRes = await db.query(`SELECT * FROM documents WHERE id = $1`, [docId]);
-        if (docRes.rows.length === 0) return res.status(404).json({ error: 'Document not found.' });
+        if (docRes.rows.length === 0) return res.status(404).json({ message: 'Document not found.' });
         
         const doc = docRes.rows[0];
 
@@ -159,13 +159,13 @@ app.get('/documents/:id/stream', ensureAuthenticated, async (req, res) => {
         }
 
         if (!hasAccess) {
-            return res.status(403).json({ error: 'Access denied to this document.' });
+            return res.status(403).json({ message: 'Access denied to this document.' });
         }
 
         // 3. Stream File
         const filePath = path.join(__dirname, 'uploads', doc.filename);
         if (!fs.existsSync(filePath)) {
-            return res.status(404).json({ error: 'Physical file missing from server.' });
+            return res.status(404).json({ message: 'Physical file missing from server.' });
         }
 
         // Serve file as a stream so the browser can render it in an iframe
@@ -176,54 +176,7 @@ app.get('/documents/:id/stream', ensureAuthenticated, async (req, res) => {
 
     } catch (err) {
         console.error('Streaming Error:', err);
-        res.status(500).json({ error: 'Server error while streaming document.' });
-    }
-});
-// Secure PDF Streamer (Data-Level Scoped)
-app.get('/documents/:id/stream', ensureAuthenticated, async (req, res) => {
-    try {
-        const docId = req.params.id;
-        const userId = req.user.id;
-        const userRole = req.user.role;
-        const deptId = req.user.department_id;
-
-        // 1. Verify Document Exists & Fetch Metadata
-        const docRes = await db.query(`SELECT * FROM documents WHERE id = $1`, [docId]);
-        if (docRes.rows.length === 0) return res.status(404).json({ error: 'Document not found.' });
-        
-        const doc = docRes.rows[0];
-
-        // 2. Enforce Role-Based Scoping
-        let hasAccess = false;
-        if (userRole === 'Executive') {
-            hasAccess = true;
-        } else if (userRole === 'Supervisor') {
-            const projCheck = await db.query(`SELECT 1 FROM project_assignments WHERE user_id = $1 AND project_id = $2`, [userId, doc.project_id]);
-            if (doc.department_id === deptId || projCheck.rows.length > 0) hasAccess = true;
-        } else { // Staff
-            const projCheck = await db.query(`SELECT 1 FROM project_assignments WHERE user_id = $1 AND project_id = $2`, [userId, doc.project_id]);
-            if (doc.sender_id === userId || doc.recipient_id === userId || projCheck.rows.length > 0) hasAccess = true;
-        }
-
-        if (!hasAccess) {
-            return res.status(403).json({ error: 'Access denied to this document.' });
-        }
-
-        // 3. Stream File
-        const filePath = path.join(__dirname, 'uploads', doc.filename);
-        if (!fs.existsSync(filePath)) {
-            return res.status(404).json({ error: 'Physical file missing from server.' });
-        }
-
-        // Serve file as a stream so the browser can render it in an iframe
-        const fileStream = fs.createReadStream(filePath);
-        res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', `inline; filename="${doc.filename}"`);
-        fileStream.pipe(res);
-
-    } catch (err) {
-        console.error('Streaming Error:', err);
-        res.status(500).json({ error: 'Server error while streaming document.' });
+        res.status(500).json({ message: 'Server error while streaming document.' });
     }
 });
 // Endpoint handling physical multi-part upload write transactions and relational database linking
