@@ -99,12 +99,22 @@ const ensureAuthenticated = (req, res, next) => {
     }
 };
 
-// Middleware to ensure user is an admin
-const ensureAdmin = (req, res, next) => {
-    if (req.user && req.user.role === 'Executive') {
-        return next();
+// Middleware to ensure user is an admin/executive.
+// Accepts both 'Executive' and 'Admin' roles (Req 7).
+// Re-verifies role against the DB so stale JWTs can't exploit cached role values.
+const ensureAdmin = async (req, res, next) => {
+    try {
+        const dbRes = await db.query('SELECT role FROM users WHERE id = $1', [req.user.id]);
+        if (dbRes.rows.length === 0) return res.status(403).json({ message: 'Forbidden: User not found.' });
+        const liveRole = dbRes.rows[0].role;
+        if (liveRole === 'Executive' || liveRole === 'Admin') {
+            req.user.role = liveRole; // keep req.user in sync with DB truth
+            return next();
+        }
+        res.status(403).json({ message: 'Forbidden: Requires Executive or Admin privileges.' });
+    } catch (err) {
+        res.status(500).json({ message: 'Authorization check failed.' });
     }
-    res.status(403).json({ message: 'Forbidden: Requires admin privileges' });
 };
 
 // --- 4. DATA SELECT DROPDOWN ENDPOINTS ---
@@ -145,6 +155,92 @@ app.get('/users/by-department/:deptId', ensureAuthenticated, async (req, res) =>
 
 
 // --- 5. DOCUMENT TRANSACTION MANAGEMENT ---
+// --- AUDIT LOG HELPER ---
+async function auditLog(userId, actionType, entityId) {
+    try {
+        await db.query(
+            'INSERT INTO public.audit_logs (user_id, action_type, entity_id) VALUES ($1, $2, $3)',
+            [userId, actionType, entityId]
+        );
+    } catch (err) {
+        // Never let audit failures crash a real operation
+        console.error('Audit log write failed:', err.message);
+    }
+}
+
+// --- Req 4: OUTBOX ---
+app.get('/documents/my-outbox', ensureAuthenticated, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const result = await db.query(`
+            SELECT d.*, p.name as project_name,
+                   recipient.email as recipient_email, recipient.display_name as recipient_name,
+                   dept.name as department_name
+            FROM documents d
+            LEFT JOIN projects p ON d.project_id = p.id
+            LEFT JOIN users recipient ON d.recipient_id = recipient.id
+            LEFT JOIN departments dept ON d.department_id = dept.id
+            WHERE d.sender_id = $1
+            ORDER BY d.created_at DESC
+        `, [userId]);
+        res.json(result.rows);
+    } catch (err) {
+        console.error('Outbox Error:', err);
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// --- Req 4: DOWNLOAD (forces attachment, same access rules as /stream) ---
+app.get('/documents/:id/download', async (req, res) => {
+    // Accept token from Authorization header OR ?token= query param
+    // (download uses an <a> tag which can't set headers, so we need the query param path)
+    let token = null;
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+        token = authHeader.split(' ')[1];
+    } else if (req.query.token) {
+        token = req.query.token;
+    }
+    if (!token) return res.status(401).json({ message: 'Not authenticated.' });
+
+    let user;
+    try {
+        const decoded = auth.verifyToken(token);
+        user = { id: decoded.userId, role: decoded.role, department_id: decoded.departmentId };
+    } catch(e) {
+        return res.status(401).json({ message: 'Invalid token.' });
+    }
+
+    try {
+        const docRes = await db.query('SELECT * FROM documents WHERE id = $1', [req.params.id]);
+        if (docRes.rows.length === 0) return res.status(404).json({ message: 'Document not found.' });
+        const doc = docRes.rows[0];
+
+        let hasAccess = false;
+        if (user.role === 'Executive' || user.role === 'Admin') {
+            hasAccess = true;
+        } else if (user.role === 'Supervisor') {
+            const projCheck = await db.query('SELECT 1 FROM project_assignments WHERE user_id = $1 AND project_id = $2', [user.id, doc.project_id]);
+            if (doc.department_id === user.department_id || projCheck.rows.length > 0) hasAccess = true;
+        } else {
+            const projCheck = await db.query('SELECT 1 FROM project_assignments WHERE user_id = $1 AND project_id = $2', [user.id, doc.project_id]);
+            if (doc.sender_id === user.id || doc.recipient_id === user.id || projCheck.rows.length > 0) hasAccess = true;
+        }
+
+        if (!hasAccess) return res.status(403).json({ message: 'Access denied.' });
+
+        const filePath = path.join(__dirname, 'uploads', doc.filename);
+        if (!fs.existsSync(filePath)) return res.status(404).json({ message: 'Physical file missing from server.' });
+
+        res.setHeader('Content-Disposition', `attachment; filename="${doc.filename}"`);
+        fs.createReadStream(filePath).pipe(res);
+
+    } catch (err) {
+        console.error('Download Error:', err);
+        res.status(500).json({ message: 'Server error during download.' });
+    }
+});
+
 // Secure PDF Streamer (Data-Level Scoped)
 app.get('/documents/:id/stream', ensureAuthenticated, async (req, res) => {
     try {
@@ -161,7 +257,7 @@ app.get('/documents/:id/stream', ensureAuthenticated, async (req, res) => {
 
         // 2. Enforce Role-Based Scoping
         let hasAccess = false;
-        if (userRole === 'Executive') {
+        if (userRole === 'Executive' || userRole === 'Admin') {
             hasAccess = true;
         } else if (userRole === 'Supervisor') {
             const projCheck = await db.query(`SELECT 1 FROM project_assignments WHERE user_id = $1 AND project_id = $2`, [userId, doc.project_id]);
@@ -225,6 +321,9 @@ app.post('/upload', ensureAuthenticated, upload.single('document'), async (req, 
         const newDocId = insertRes.rows[0].id;
 
         console.log(`Document transaction completed successfully: ${filename}`);
+
+        // Req 6: Audit trail
+        await auditLog(uploadedBy, 'DOCUMENT_UPLOAD', newDocId);
 
         // --- NOTIFY RECIPIENT: urgent bypasses the digest and emails immediately;
         //     everything else queues for the next digest run. ---
@@ -291,10 +390,12 @@ app.get('/documents/my-inbox', ensureAuthenticated, async (req, res) => {
             `;
             queryParams = [deptId, userId];
         } else {
-            // Staff Level: View personal (sender/recipient) OR explicitly assigned projects
+            // Staff Level: Always show docs where the user is the named recipient
+            // (Req 3: bypasses project silo entirely for direct recipients),
+            // plus docs they sent or are in their assigned projects.
             baseQuery += `
-                WHERE d.recipient_id = $1 
-                   OR d.sender_id = $1 
+                WHERE d.recipient_id = $1
+                   OR d.sender_id = $1
                    OR d.project_id IN (SELECT project_id FROM project_assignments WHERE user_id = $1)
                 ORDER BY d.created_at DESC
             `;
@@ -506,41 +607,79 @@ app.get('/auth/me', ensureAuthenticated, (req, res) => {
 // --- 6. EXECUTIVE APPROVAL WORKFLOW ---
 
 // Endpoint to toggle document status (Pending, Approved, Rejected)
-// --- EXECUTIVE APPROVAL WORKFLOW ---
+// --- 6. EXECUTIVE APPROVAL WORKFLOW ---
+// Req 1: fires immediate email to sender on approve/reject
+// Req 2: accepts optional notes, saves to documents.notes
+// Req 6: writes audit log
+// Req 7: accepts Admin role in addition to Executive
 app.patch('/documents/:id/status', ensureAuthenticated, async (req, res) => {
     try {
-        if (req.user.role !== 'executive') {
-            return res.status(403).json({ message: 'Only Executives can approve or reject documents.' });
+        // Req 7: re-check live role from DB to handle stale JWTs
+        const liveRoleRes = await db.query('SELECT role FROM users WHERE id = $1', [req.user.id]);
+        if (liveRoleRes.rows.length === 0) return res.status(403).json({ message: 'User not found.' });
+        const liveRole = liveRoleRes.rows[0].role;
+
+        if (liveRole !== 'Executive' && liveRole !== 'Admin') {
+            return res.status(403).json({ message: 'Only Executives or Admins can approve or reject documents.' });
         }
 
         const documentId = req.params.id;
-        const { status } = req.body; 
+        const { status, notes } = req.body;
 
         if (!['approved', 'rejected', 'pending'].includes(status)) {
-            return res.status(400).json({ message: 'Invalid status provided.' });
+            return res.status(400).json({ message: 'Invalid status. Must be approved, rejected, or pending.' });
         }
 
+        // Req 2: persist notes alongside the status update
         const result = await db.query(
-            'UPDATE documents SET status = $1 WHERE id = $2 RETURNING *',
-            [status, documentId]
+            'UPDATE documents SET status = $1, notes = $2 WHERE id = $3 RETURNING *',
+            [status, notes || null, documentId]
         );
 
-        if (result.rows.length === 0) {
-            return res.status(404).json({ message: 'Document not found.' });
-        }
-
+        if (result.rows.length === 0) return res.status(404).json({ message: 'Document not found.' });
         const doc = result.rows[0];
 
-        // --- BATCH NOTIFICATION QUEUE INJECTION ---
-        await db.query(
-            'INSERT INTO notification_queue (document_id, recipient_id, created_at) VALUES ($1, $2, NOW())',
-            [doc.id, doc.sender_id] 
-        );
+        // Req 6: audit log
+        await auditLog(req.user.id, `STATUS_CHANGE:${status.toUpperCase()}`, doc.id);
 
-        res.json({ 
-            message: `Document status updated to ${status}. Notification queued.`, 
-            document: doc 
-        });
+        // Req 1: immediate email to the original sender (not digest queued)
+        if (doc.sender_id && status !== 'pending') {
+            const senderRes = await db.query('SELECT email, display_name FROM users WHERE id = $1', [doc.sender_id]);
+            if (senderRes.rows.length > 0) {
+                const sender = senderRes.rows[0];
+                const isApproved = status === 'approved';
+                const statusLabel = isApproved ? 'Approved' : 'Rejected';
+                const statusColor = isApproved ? '#10b981' : '#ef4444';
+                const subject = `Document ${statusLabel}: ${doc.filename}`;
+                const text = `Hello ${sender.display_name},\n\nYour document "${doc.filename}" has been ${statusLabel.toLowerCase()} by ${req.user.display_name}.${notes ? `\n\nNote: ${notes}` : ''}\n\nLog in to DocHandler to view the full status.`;
+                const html = `
+                    <div style="font-family:sans-serif;max-width:500px;">
+                        <h3 style="color:${statusColor};border-bottom:2px solid ${statusColor};padding-bottom:8px;">
+                            ${isApproved ? '✅' : '❌'} Document ${statusLabel}
+                        </h3>
+                        <p>Hello <strong>${sender.display_name}</strong>,</p>
+                        <p>Your document has been <strong style="color:${statusColor};">${statusLabel.toLowerCase()}</strong> by ${req.user.display_name}.</p>
+                        <table style="border-collapse:collapse;width:100%;margin:1rem 0;">
+                            <tr style="background:#f9fafb;">
+                                <td style="padding:8px;border:1px solid #e5e7eb;font-weight:600;">File</td>
+                                <td style="padding:8px;border:1px solid #e5e7eb;">${doc.filename}</td>
+                            </tr>
+                            <tr>
+                                <td style="padding:8px;border:1px solid #e5e7eb;font-weight:600;">Status</td>
+                                <td style="padding:8px;border:1px solid #e5e7eb;color:${statusColor};font-weight:700;">${statusLabel}</td>
+                            </tr>
+                            ${notes ? `<tr style="background:#f9fafb;"><td style="padding:8px;border:1px solid #e5e7eb;font-weight:600;">Note</td><td style="padding:8px;border:1px solid #e5e7eb;">${notes}</td></tr>` : ''}
+                        </table>
+                        <p style="color:#888;font-size:0.85em;">Log in to DocHandler to view the full document history.</p>
+                    </div>
+                `;
+                // Fire-and-forget — don't let email failure block the response
+                sendMail(sender.email, subject, text, html);
+            }
+        }
+
+        res.json({ message: `Document ${status}. Sender notified.`, document: doc });
+
     } catch (err) {
         console.error('Approval Workflow Error:', err);
         res.status(500).json({ message: 'Database error updating document status.' });

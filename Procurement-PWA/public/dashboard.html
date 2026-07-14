@@ -107,10 +107,44 @@
       line-height: 1.4;
     }
     .doc-card .doc-actions {
-      display: flex;
-      gap: 0.5rem;
-      flex-wrap: wrap;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.4rem;
       margin-top: 0.5rem;
+    }
+    /* Req 4: Tab toggle */
+    .tab-bar {
+      display: flex;
+      gap: 0;
+      margin-bottom: 1rem;
+      border-bottom: 2px solid #111;
+    }
+    .tab-btn {
+      padding: 8px 18px;
+      background: none;
+      border: none;
+      border-bottom: 3px solid transparent;
+      margin-bottom: -2px;
+      font-weight: 600;
+      font-size: 0.9rem;
+      cursor: pointer;
+      color: #888;
+    }
+    .tab-btn.active {
+      color: #111;
+      border-bottom-color: #111;
+    }
+    /* Req 2: Approval notes modal textarea */
+    .modal textarea {
+      width: 100%;
+      padding: 10px;
+      border: 2px solid #111;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-family: inherit;
+      resize: vertical;
+      min-height: 80px;
+      margin-bottom: 0.75rem;
     }
 
     /* Standardized Buttons */
@@ -261,7 +295,7 @@
 <body>
 
 <div class="topbar">
-  <h2>📥 My Inbox</h2>
+  <h2 id="pageTitle">📥 My Inbox</h2>
   <div class="user-info">
     <span id="userDisplay">Loading...</span>
     <button onclick="logout()">Sign Out</button>
@@ -274,7 +308,13 @@
     <a href="/admin.html" id="adminLink" style="display:none;">⚙ Admin</a>
   </div>
 
-  <div class="filter-bar">
+  <!-- Req 4: Tab toggle -->
+  <div class="tab-bar">
+    <button class="tab-btn active" id="tabInbox" onclick="switchTab('inbox')">📥 Inbox</button>
+    <button class="tab-btn" id="tabSent" onclick="switchTab('sent')">📤 Sent</button>
+  </div>
+
+  <div class="filter-bar" id="filterBar">
     <label>Filter:</label>
     <select id="projectFilter" onchange="filterDocs()">
       <option value="">All Projects</option>
@@ -288,13 +328,13 @@
     <button class="btn-clear-filters" onclick="clearFilters()">Clear</button>
   </div>
 
-  <table class="doc-table">
-    <thead>
+  <table class="doc-table" id="docTable">
+    <thead id="docTableHead">
       <tr>
         <th>File</th>
         <th>Project</th>
         <th>Dept</th>
-        <th>From</th>
+        <th id="thFromTo">From</th>
         <th>Date</th>
         <th>Status</th>
         <th>Actions</th>
@@ -322,7 +362,18 @@
   </div>
 </div>
 
-<div class="modal-overlay" id="pdfModal">
+<!-- Req 2: Approval notes modal -->
+<div class="modal-overlay" id="approvalModal">
+  <div class="modal">
+    <h3 id="approvalModalTitle">Add a Note (Optional)</h3>
+    <p style="font-size:0.8rem;color:#666;margin-bottom:0.5rem;" id="approvalDocName"></p>
+    <textarea id="approvalNotes" placeholder="Add an optional note for the sender..."></textarea>
+    <div class="btn-group">
+      <button class="btn-save" id="approvalConfirmBtn" onclick="confirmApproval()">Confirm</button>
+      <button class="btn-cancel" onclick="closeApprovalModal()">Cancel</button>
+    </div>
+  </div>
+</div>
   <div class="pdf-modal">
     <div class="pdf-modal-header">
       <h3 id="pdfModalTitle">Document Viewer</h3>
@@ -335,21 +386,23 @@
 </div>
 
 <script>
-  // Decode JWT to get user role globally
-let userRole = null;
-const token = localStorage.getItem('token');
-
-if (token) {
-    try {
-        // Decode the middle part (payload) of the JWT
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        userRole = payload.role; 
-    } catch (error) {
-        console.error('Failed to decode user role from token:', error);
-    }
-}
   const API_BASE = '';
-  function getToken() { return localStorage.getItem('token'); }
+  const token = localStorage.getItem('token');
+  if (!token) window.location.href = '/login.html';
+
+  // Req 7: decode JWT for initial role-based UI (backed up by DB re-check on the server)
+  let jwtRole = null;
+  try { jwtRole = JSON.parse(atob(token.split('.')[1])).role; } catch(e) {}
+
+  let allDocs = [];
+  let currentUser = null;
+  let renameDocId = null;
+  let currentBlobUrl = null;
+  let currentTab = 'inbox'; // Req 4
+
+  // Req 2: approval modal state
+  let pendingApprovalDocId = null;
+  let pendingApprovalStatus = null;
 
   function logout() {
     localStorage.removeItem('token');
@@ -357,46 +410,33 @@ if (token) {
     window.location.href = '/login.html';
   }
 
-
-  if (!token) window.location.href = '/login.html';
-
-  let allDocs = [];
-  let projects = [];
-  let currentUser = null;
-  let renameDocId = null;
-  let currentBlobUrl = null;
-
   // Load user info
   (async () => {
     try {
       const res = await fetch(API_BASE + '/auth/me', { headers: { 'Authorization': 'Bearer ' + token } });
       currentUser = await res.json();
       document.getElementById('userDisplay').textContent = currentUser.display_name || currentUser.email;
-      if (currentUser.role === 'Executive') {
+      const isAdmin = currentUser.role === 'Executive' || currentUser.role === 'Admin';
+      if (isAdmin) {
         document.getElementById('adminLink').style.display = 'inline';
+        // Req 7: dynamic admin nav for Admin role
+        const topbar = document.querySelector('.topbar');
+        const adminNav = document.createElement('div');
+        adminNav.style.cssText = 'display:flex;gap:10px;';
+        adminNav.innerHTML = `
+          <button onclick="window.location.href='/admin.html'" style="background:#111;color:white;padding:6px 12px;border-radius:6px;cursor:pointer;border:none;">Admin Portal</button>
+          <button onclick="window.location.href='/admin/projects.html'" style="background:#111;color:white;padding:6px 12px;border-radius:6px;cursor:pointer;border:none;">Projects</button>
+        `;
+        topbar.appendChild(adminNav);
       }
     } catch (e) { logout(); }
   })();
-  // Grab the topbar container (ensure your top bar has class="topbar")
-const topbar = document.querySelector('.topbar');
 
-// Create dynamic nav buttons based on role
-if (userRole === 'Admin' || userRole === 'Executive') {
-    const adminNav = document.createElement('div');
-    adminNav.style.display = 'flex';
-    adminNav.style.gap = '10px';
-    adminNav.innerHTML = `
-        <button onclick="window.location.href='/admin.html'" style="background: #111; color: white; padding: 6px 12px; border-radius: 6px; cursor: pointer;">Admin Portal</button>
-        <button onclick="window.location.href='/admin/projects.html'" style="background: #111; color: white; padding: 6px 12px; border-radius: 6px; cursor: pointer;">Manage Projects</button>
-    `;
-    topbar.appendChild(adminNav);
-}
-
-  // Load projects
+  // Load projects for filter dropdown
   (async () => {
     try {
       const res = await fetch(API_BASE + '/projects', { headers: { 'Authorization': 'Bearer ' + token } });
-      projects = await res.json();
+      const projects = await res.json();
       const filter = document.getElementById('projectFilter');
       projects.forEach(p => {
         const opt = document.createElement('option');
@@ -406,21 +446,33 @@ if (userRole === 'Admin' || userRole === 'Executive') {
     } catch (e) {}
   })();
 
-  // Load documents
-  (async () => {
+  // Req 4: tab switching
+  async function switchTab(tab) {
+    currentTab = tab;
+    document.getElementById('tabInbox').classList.toggle('active', tab === 'inbox');
+    document.getElementById('tabSent').classList.toggle('active', tab === 'sent');
+    document.getElementById('pageTitle').textContent = tab === 'inbox' ? '📥 My Inbox' : '📤 Sent';
+    document.getElementById('thFromTo').textContent = tab === 'inbox' ? 'From' : 'To';
+    document.getElementById('filterBar').style.display = tab === 'inbox' ? 'flex' : 'none';
+    await loadDocs();
+  }
+
+  async function loadDocs() {
+    const endpoint = currentTab === 'inbox' ? '/documents/my-inbox' : '/documents/my-outbox';
     try {
-      const res = await fetch(API_BASE + '/documents/my-inbox', {
-        headers: { 'Authorization': 'Bearer ' + token }
-      });
+      const res = await fetch(API_BASE + endpoint, { headers: { 'Authorization': 'Bearer ' + token } });
       if (res.status === 401) { logout(); return; }
       allDocs = await res.json();
-      populateFilterOptions();
+      if (currentTab === 'inbox') populateFilterOptions();
       renderAll();
     } catch (e) {
       document.getElementById('docTableBody').innerHTML =
         '<tr><td colspan="7" class="empty-state"><p>Failed to load.</p></td></tr>';
     }
-  })();
+  }
+
+  // Initial load
+  loadDocs();
 
   function getFileExt(filename) {
     if (!filename || !filename.includes('.')) return 'Other';
@@ -431,15 +483,12 @@ if (userRole === 'Admin' || userRole === 'Executive') {
     const senderFilter = document.getElementById('senderFilter');
     const seenSenders = new Map();
     allDocs.forEach(d => {
-      if (d.sender_email && !seenSenders.has(d.sender_email)) {
+      if (d.sender_email && !seenSenders.has(d.sender_email))
         seenSenders.set(d.sender_email, d.sender_name || d.sender_email);
-      }
     });
     senderFilter.innerHTML = '<option value="">All Senders</option>' +
-      [...seenSenders.entries()]
-        .sort((a, b) => a[1].localeCompare(b[1]))
-        .map(([email, label]) => `<option value="${email}">${label}</option>`)
-        .join('');
+      [...seenSenders.entries()].sort((a,b) => a[1].localeCompare(b[1]))
+        .map(([email, label]) => `<option value="${email}">${label}</option>`).join('');
 
     const fileTypeFilter = document.getElementById('fileTypeFilter');
     const seenTypes = new Set(allDocs.map(d => getFileExt(d.filename)));
@@ -448,43 +497,43 @@ if (userRole === 'Admin' || userRole === 'Executive') {
   }
 
   function canRename() {
-    return currentUser && (currentUser.role === 'Supervisor' || currentUser.role === 'Executive');
+    return currentUser && (currentUser.role === 'Supervisor' || currentUser.role === 'Executive' || currentUser.role === 'Admin');
+  }
+
+  function isApprover() {
+    // Req 7: Admin inherits Executive rights for approval
+    return currentUser && (currentUser.role === 'Executive' || currentUser.role === 'Admin');
   }
 
   function getStatusBadge(status) {
-    const s = status || 'pending';
-    let cssClass = 'badge-pending';
-    if (s === 'approved') cssClass = 'badge-approved';
-    if (s === 'rejected') cssClass = 'badge-rejected';
-    return `<span class="badge ${cssClass}">${s}</span>`;
+    const s = (status || 'pending').toLowerCase();
+    const cls = s === 'approved' ? 'badge-approved' : s === 'rejected' ? 'badge-rejected' : 'badge-pending';
+    return `<span class="badge ${cls}">${s}</span>`;
   }
 
   function buildActionButtons(d, baseName) {
-    let actionBtns = `<button class="btn btn-view" onclick="viewDocument(${d.id}, '${d.filename.replace(/'/g, "\\'")}')">View</button>`;
-    
-    if (canRename()) {
-      actionBtns += ` <button class="btn btn-rename" onclick="openRename(${d.id},'${baseName.replace(/'/g, "\\'")}')">Rename</button>`;
+    // Req 4: Download button added alongside View
+    let btns = `<button class="btn btn-view" onclick="viewDocument(${d.id}, '${d.filename.replace(/'/g, "\\'")}')">View</button>`;
+    btns += ` <button class="btn btn-rename" style="background:#6366f1;color:white;" onclick="downloadDocument(${d.id})">Download</button>`;
+
+    if (canRename() && currentTab === 'inbox') {
+      btns += ` <button class="btn btn-rename" onclick="openRename(${d.id},'${baseName.replace(/'/g, "\\'")}')">Rename</button>`;
     }
 
-    if (currentUser && currentUser.role === 'Executive') {
-      const currentStatus = d.status || 'pending';
-      if (currentStatus !== 'approved') {
-        actionBtns += ` <button class="btn btn-approve" onclick="updateStatus(${d.id}, 'approved')">Approve</button>`;
-      }
-      if (currentStatus !== 'rejected') {
-        actionBtns += ` <button class="btn btn-reject" onclick="updateStatus(${d.id}, 'rejected')">Reject</button>`;
-      }
-      if (currentStatus !== 'pending') {
-        actionBtns += ` <button class="btn btn-undo" onclick="updateStatus(${d.id}, 'pending')">Undo</button>`;
-      }
+    // Req 2+7: approval buttons open the notes modal
+    if (isApprover() && currentTab === 'inbox') {
+      const st = (d.status || 'pending').toLowerCase();
+      if (st !== 'approved')
+        btns += ` <button class="btn btn-approve" onclick="openApprovalModal(${d.id}, '${d.filename.replace(/'/g,"\\'")}', 'approved')">Approve</button>`;
+      if (st !== 'rejected')
+        btns += ` <button class="btn btn-reject" onclick="openApprovalModal(${d.id}, '${d.filename.replace(/'/g,"\\'")}', 'rejected')">Reject</button>`;
+      if (st !== 'pending')
+        btns += ` <button class="btn btn-undo" onclick="openApprovalModal(${d.id}, '${d.filename.replace(/'/g,"\\'")}', 'pending')">Undo</button>`;
     }
-    return actionBtns;
+    return btns;
   }
 
-  function renderAll() {
-    renderTable(allDocs);
-    renderCards(allDocs);
-  }
+  function renderAll() { renderTable(allDocs); renderCards(allDocs); }
 
   function renderTable(docs) {
     const tbody = document.getElementById('docTableBody');
@@ -496,15 +545,18 @@ if (userRole === 'Admin' || userRole === 'Executive') {
       const ext = d.filename.includes('.') ? '.' + d.filename.split('.').pop() : '';
       const baseName = d.filename.replace(ext, '');
       const actionBtns = buildActionButtons(d, baseName);
-
+      // Req 4: outbox shows recipient instead of sender
+      const personCol = currentTab === 'inbox'
+        ? (d.sender_email || '—')
+        : (d.recipient_name || d.recipient_email || '—');
       return `<tr>
         <td><strong style="font-size:0.8rem;word-break:break-all;">${d.is_urgent ? '🔴 ' : ''}${d.filename}</strong></td>
         <td style="font-size:0.8rem;">${d.project_name || '—'}</td>
         <td style="font-size:0.8rem;">${d.department_name || '—'}</td>
-        <td style="font-size:0.8rem;">${d.sender_email || '—'}</td>
+        <td style="font-size:0.8rem;">${personCol}</td>
         <td style="font-size:0.75rem;color:#666;">${new Date(d.created_at).toLocaleDateString()}</td>
         <td>${getStatusBadge(d.status)}</td>
-        <td style="white-space:nowrap;">${actionBtns}</td>
+        <td>${actionBtns}</td>
       </tr>`;
     }).join('');
   }
@@ -519,12 +571,14 @@ if (userRole === 'Admin' || userRole === 'Executive') {
       const ext = d.filename.includes('.') ? '.' + d.filename.split('.').pop() : '';
       const baseName = d.filename.replace(ext, '');
       const actionBtns = buildActionButtons(d, baseName);
-
+      const personCol = currentTab === 'inbox'
+        ? `From: ${d.sender_email || '—'}`
+        : `To: ${d.recipient_name || d.recipient_email || '—'}`;
       return `<li class="doc-card">
         <div class="doc-title">${d.is_urgent ? '🔴 ' : ''}${d.filename}</div>
         <div class="doc-meta">
           ${d.project_name || '—'} · ${d.department_name || '—'}<br>
-          From: ${d.sender_email || '—'}<br>
+          ${personCol}<br>
           ${new Date(d.created_at).toLocaleDateString()} · ${getStatusBadge(d.status)}
         </div>
         <div class="doc-actions">${actionBtns}</div>
@@ -536,14 +590,12 @@ if (userRole === 'Admin' || userRole === 'Executive') {
     const projectId = document.getElementById('projectFilter').value;
     const sender = document.getElementById('senderFilter').value;
     const fileType = document.getElementById('fileTypeFilter').value;
-
     const filtered = allDocs.filter(d => {
       if (projectId && d.project_id != projectId) return false;
       if (sender && d.sender_email !== sender) return false;
       if (fileType && getFileExt(d.filename) !== fileType) return false;
       return true;
     });
-
     renderTable(filtered);
     renderCards(filtered);
   }
@@ -555,67 +607,71 @@ if (userRole === 'Admin' || userRole === 'Executive') {
     filterDocs();
   }
 
-  // --- Actions ---
+  // --- Rename ---
   function openRename(docId, currentName) {
     renameDocId = docId;
     document.getElementById('renameCurrentName').textContent = 'Current: ' + currentName;
     document.getElementById('renameInput').value = currentName;
     document.getElementById('renameModal').classList.add('open');
   }
-
-  function closeRename() {
-    renameDocId = null;
-    document.getElementById('renameModal').classList.remove('open');
-  }
+  function closeRename() { renameDocId = null; document.getElementById('renameModal').classList.remove('open'); }
 
   async function doRename() {
     const newName = document.getElementById('renameInput').value.trim();
     if (!newName) { alert('Enter a filename.'); return; }
-
     const res = await fetch(API_BASE + '/documents/' + renameDocId + '/rename', {
       method: 'PATCH',
       headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
       body: JSON.stringify({ filename: newName })
     });
     const data = await res.json();
-    if (res.ok) {
-      closeRename();
-      const docsRes = await fetch(API_BASE + '/documents/my-inbox', {
-        headers: { 'Authorization': 'Bearer ' + token }
+    if (res.ok) { closeRename(); await loadDocs(); }
+    else alert(data.error || 'Rename failed');
+  }
+
+  // --- Req 2: Approval notes modal ---
+  function openApprovalModal(docId, filename, status) {
+    pendingApprovalDocId = docId;
+    pendingApprovalStatus = status;
+    const isUndo = status === 'pending';
+    document.getElementById('approvalModalTitle').textContent = isUndo ? 'Undo Status' : `${status === 'approved' ? 'Approve' : 'Reject'} Document`;
+    document.getElementById('approvalDocName').textContent = filename;
+    document.getElementById('approvalNotes').value = '';
+    document.getElementById('approvalNotes').style.display = isUndo ? 'none' : 'block';
+    document.getElementById('approvalConfirmBtn').style.background = status === 'rejected' ? '#ef4444' : status === 'approved' ? '#10b981' : '#f59e0b';
+    document.getElementById('approvalModal').classList.add('open');
+  }
+  function closeApprovalModal() {
+    document.getElementById('approvalModal').classList.remove('open');
+    pendingApprovalDocId = null;
+    pendingApprovalStatus = null;
+  }
+
+  async function confirmApproval() {
+    const notes = document.getElementById('approvalNotes').value.trim();
+    try {
+      const res = await fetch(API_BASE + '/documents/' + pendingApprovalDocId + '/status', {
+        method: 'PATCH',
+        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: pendingApprovalStatus, notes })
       });
-      allDocs = await docsRes.json();
-      renderAll();
-    } else {
-      alert(data.error || 'Rename failed');
+      const data = await res.json();
+      if (res.ok) { closeApprovalModal(); await loadDocs(); }
+      else alert(data.message || 'Failed to update status.');
+    } catch (err) {
+      alert('Network error while updating status.');
     }
   }
 
-  async function updateStatus(docId, newStatus) {
-    let actionText = newStatus === 'pending' ? 'undo the status of' : newStatus;
-    if (!confirm(`Are you sure you want to ${actionText} this document?`)) return;
-    
-    try {
-      const res = await fetch(API_BASE + '/documents/' + docId + '/status', {
-        method: 'PATCH',
-        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus })
-      });
-      
-      const data = await res.json();
-      if (res.ok) {
-        // Refresh the documents payload seamlessly instead of refreshing the whole page
-        const docsRes = await fetch(API_BASE + '/documents/my-inbox', {
-          headers: { 'Authorization': 'Bearer ' + token }
-        });
-        allDocs = await docsRes.json();
-        renderAll();
-      } else {
-        alert(data.message || 'Failed to update status');
-      }
-    } catch (err) {
-      console.error(err);
-      alert('Network error while updating status.');
-    }
+  // --- Req 4: Download ---
+  function downloadDocument(docId) {
+    // Open the download endpoint in a hidden anchor — browser handles Save-As
+    const a = document.createElement('a');
+    a.href = API_BASE + '/documents/' + docId + '/download?token=' + encodeURIComponent(token);
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   }
 
   // --- Secure PDF Viewer ---
@@ -623,29 +679,22 @@ if (userRole === 'Admin' || userRole === 'Executive') {
     document.getElementById('pdfModalTitle').textContent = 'Loading ' + filename + '...';
     document.getElementById('pdfModal').classList.add('open');
     const frame = document.getElementById('pdfFrame');
-    frame.src = ''; 
-
+    frame.src = '';
     try {
       const res = await fetch(API_BASE + '/documents/' + docId + '/stream', {
         headers: { 'Authorization': 'Bearer ' + token }
       });
-
       if (!res.ok) {
         const err = await res.json();
-        alert('Error: ' + (err.error || 'Failed to load document'));
-        closePdfModal();
-        return;
+        alert('Error: ' + (err.message || 'Failed to load document'));
+        closePdfModal(); return;
       }
-
       const blob = await res.blob();
-      if (currentBlobUrl) {
-        URL.revokeObjectURL(currentBlobUrl); // Memory cleanup
-      }
+      if (currentBlobUrl) URL.revokeObjectURL(currentBlobUrl);
       currentBlobUrl = URL.createObjectURL(blob);
       frame.src = currentBlobUrl;
       document.getElementById('pdfModalTitle').textContent = filename;
     } catch (err) {
-      console.error('Streaming error:', err);
       alert('Failed to securely fetch document.');
       closePdfModal();
     }
@@ -653,12 +702,8 @@ if (userRole === 'Admin' || userRole === 'Executive') {
 
   function closePdfModal() {
     document.getElementById('pdfModal').classList.remove('open');
-    const frame = document.getElementById('pdfFrame');
-    frame.src = '';
-    if (currentBlobUrl) {
-      URL.revokeObjectURL(currentBlobUrl);
-      currentBlobUrl = null;
-    }
+    document.getElementById('pdfFrame').src = '';
+    if (currentBlobUrl) { URL.revokeObjectURL(currentBlobUrl); currentBlobUrl = null; }
   }
 </script>
 </body>
