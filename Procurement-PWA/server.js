@@ -565,7 +565,8 @@ app.post('/admin/digest/run', ensureAuthenticated, ensureAdmin, async (req, res)
 // DIGEST_CRON_SCHEDULE in .env using standard cron syntax (e.g. '0 9,17 * * *'
 // for twice daily at 9am/5pm). Urgent documents never wait on this -- they're
 // emailed immediately at upload time.
-const digestSchedule = process.env.DIGEST_CRON_SCHEDULE || '0 */4 * * *';
+console.log("Manual Digest Triggered!");
+const digestSchedule = process.env.DIGEST_CRON_SCHEDULE || '* */4 * * *';
 cron.schedule(digestSchedule, async () => {
     console.log(`Running scheduled digest (${digestSchedule})...`);
     const summary = await runDigest();

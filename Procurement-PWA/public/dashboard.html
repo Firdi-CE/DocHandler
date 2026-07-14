@@ -335,6 +335,19 @@
 </div>
 
 <script>
+  // Decode JWT to get user role globally
+let userRole = null;
+const token = localStorage.getItem('token');
+
+if (token) {
+    try {
+        // Decode the middle part (payload) of the JWT
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        userRole = payload.role; 
+    } catch (error) {
+        console.error('Failed to decode user role from token:', error);
+    }
+}
   const API_BASE = '';
   function getToken() { return localStorage.getItem('token'); }
 
@@ -344,7 +357,7 @@
     window.location.href = '/login.html';
   }
 
-  const token = getToken();
+
   if (!token) window.location.href = '/login.html';
 
   let allDocs = [];
@@ -364,6 +377,20 @@
       }
     } catch (e) { logout(); }
   })();
+  // Grab the topbar container (ensure your top bar has class="topbar")
+const topbar = document.querySelector('.topbar');
+
+// Create dynamic nav buttons based on role
+if (userRole === 'Admin' || userRole === 'Executive') {
+    const adminNav = document.createElement('div');
+    adminNav.style.display = 'flex';
+    adminNav.style.gap = '10px';
+    adminNav.innerHTML = `
+        <button onclick="window.location.href='/admin.html'" style="background: #111; color: white; padding: 6px 12px; border-radius: 6px; cursor: pointer;">Admin Portal</button>
+        <button onclick="window.location.href='/admin/projects.html'" style="background: #111; color: white; padding: 6px 12px; border-radius: 6px; cursor: pointer;">Manage Projects</button>
+    `;
+    topbar.appendChild(adminNav);
+}
 
   // Load projects
   (async () => {
