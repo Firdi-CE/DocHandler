@@ -8,7 +8,6 @@ const multer = require('multer');
 const auth = require('./auth'); // Imports JWT auth helpers
 const db = require('./db');         // Imports PostgreSQL connection pool from db.js
 const { sendMail } = require('./utils/mailer');
-const cron = require('node-cron');
 const { runDigest } = require('./utils/digest');
 const app = express();
 // Configure the Mail Transporter for Notification Digest

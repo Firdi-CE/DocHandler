@@ -112,11 +112,13 @@
       flex-wrap: wrap;
       margin-top: 0.5rem;
     }
+
+    /* Standardized Buttons */
     .btn {
       display: inline-block;
-      padding: 6px 14px;
-      border-radius: 8px;
-      font-size: 0.8rem;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 0.75rem;
       font-weight: 600;
       text-decoration: none;
       border: 2px solid #111;
@@ -126,10 +128,14 @@
     .btn-view { background: #10b981; color: white; }
     .btn-rename { background: #f59e0b; color: white; }
     .btn-rename:hover { background: #d97706; }
-    .btn-approve { background: #3b82f6; color: white; }
-    .btn-approve:hover { background: #2563eb; }
+    
+    /* Executive Action Buttons */
+    .btn-approve { background: #10b981; color: white; }
+    .btn-approve:hover { background: #059669; }
     .btn-reject { background: #ef4444; color: white; }
     .btn-reject:hover { background: #dc2828; }
+    .btn-undo { background: #f59e0b; color: white; }
+    .btn-undo:hover { background: #d97706; }
     
     /* Status Badges */
     .badge {
@@ -395,9 +401,8 @@
   }
 
   function populateFilterOptions() {
-    // Sender dropdown: unique senders present in the current inbox
     const senderFilter = document.getElementById('senderFilter');
-    const seenSenders = new Map(); // email -> display label
+    const seenSenders = new Map();
     allDocs.forEach(d => {
       if (d.sender_email && !seenSenders.has(d.sender_email)) {
         seenSenders.set(d.sender_email, d.sender_name || d.sender_email);
@@ -409,7 +414,6 @@
         .map(([email, label]) => `<option value="${email}">${label}</option>`)
         .join('');
 
-    // File type dropdown: unique extensions present in the current inbox
     const fileTypeFilter = document.getElementById('fileTypeFilter');
     const seenTypes = new Set(allDocs.map(d => getFileExt(d.filename)));
     fileTypeFilter.innerHTML = '<option value="">All File Types</option>' +
@@ -428,6 +432,28 @@
     return `<span class="badge ${cssClass}">${s}</span>`;
   }
 
+  function buildActionButtons(d, baseName) {
+    let actionBtns = `<button class="btn btn-view" onclick="viewDocument(${d.id}, '${d.filename.replace(/'/g, "\\'")}')">View</button>`;
+    
+    if (canRename()) {
+      actionBtns += ` <button class="btn btn-rename" onclick="openRename(${d.id},'${baseName.replace(/'/g, "\\'")}')">Rename</button>`;
+    }
+
+    if (currentUser && currentUser.role === 'Executive') {
+      const currentStatus = d.status || 'pending';
+      if (currentStatus !== 'approved') {
+        actionBtns += ` <button class="btn btn-approve" onclick="updateStatus(${d.id}, 'approved')">Approve</button>`;
+      }
+      if (currentStatus !== 'rejected') {
+        actionBtns += ` <button class="btn btn-reject" onclick="updateStatus(${d.id}, 'rejected')">Reject</button>`;
+      }
+      if (currentStatus !== 'pending') {
+        actionBtns += ` <button class="btn btn-undo" onclick="updateStatus(${d.id}, 'pending')">Undo</button>`;
+      }
+    }
+    return actionBtns;
+  }
+
   function renderAll() {
     renderTable(allDocs);
     renderCards(allDocs);
@@ -442,18 +468,7 @@
     tbody.innerHTML = docs.map(d => {
       const ext = d.filename.includes('.') ? '.' + d.filename.split('.').pop() : '';
       const baseName = d.filename.replace(ext, '');
-      
-      let actionBtns = `<button class="btn btn-view" style="padding:3px 10px;font-size:0.75rem;" onclick="viewDocument(${d.id}, '${d.filename.replace(/'/g, "\\'")}')">View</button>`;
-      
-      if (canRename()) {
-        actionBtns += ` <button class="btn btn-rename" style="padding:3px 10px;font-size:0.75rem;" onclick="openRename(${d.id},'${baseName.replace(/'/g, "\\'")}')">Rename</button>`;
-      }
-
-      // Executive Approval Buttons
-      if (currentUser && currentUser.role === 'Executive' && (!d.status || d.status === 'pending')) {
-        actionBtns += ` <button class="btn btn-approve" style="padding:3px 10px;font-size:0.75rem;" onclick="updateStatus(${d.id}, 'approved')">Approve</button>`;
-        actionBtns += ` <button class="btn btn-reject" style="padding:3px 10px;font-size:0.75rem;" onclick="updateStatus(${d.id}, 'rejected')">Reject</button>`;
-      }
+      const actionBtns = buildActionButtons(d, baseName);
 
       return `<tr>
         <td><strong style="font-size:0.8rem;word-break:break-all;">${d.is_urgent ? '🔴 ' : ''}${d.filename}</strong></td>
@@ -462,18 +477,9 @@
         <td style="font-size:0.8rem;">${d.sender_email || '—'}</td>
         <td style="font-size:0.75rem;color:#666;">${new Date(d.created_at).toLocaleDateString()}</td>
         <td>${getStatusBadge(d.status)}</td>
-        <td style="white-space:nowrap;">
-            ${actionBtns}
-            ${(token && JSON.parse(atob(token.split('.')[1])).role === 'executive') ? `
-                <div style="margin-top: 5px;">
-                    ${d.status !== 'approved' ? `<button style="background:#4CAF50; color:white; padding:2px 5px; font-size:0.7rem;" onclick="updateDocStatus(${d.id}, 'approved')">Approve</button>` : ''}
-                    ${d.status !== 'rejected' ? `<button style="background:#f44336; color:white; padding:2px 5px; font-size:0.7rem;" onclick="updateDocStatus(${d.id}, 'rejected')">Reject</button>` : ''}
-                    ${d.status !== 'pending' ? `<button style="background:#ff9800; color:white; padding:2px 5px; font-size:0.7rem;" onclick="updateDocStatus(${d.id}, 'pending')">Undo</button>` : ''}
-                </div>
-            ` : ''}
-        </td>
-    </tr>`;
-}).join('');
+        <td style="white-space:nowrap;">${actionBtns}</td>
+      </tr>`;
+    }).join('');
   }
 
   function renderCards(docs) {
@@ -485,17 +491,7 @@
     list.innerHTML = docs.map(d => {
       const ext = d.filename.includes('.') ? '.' + d.filename.split('.').pop() : '';
       const baseName = d.filename.replace(ext, '');
-      
-      let actionBtns = `<button class="btn btn-view" onclick="viewDocument(${d.id}, '${d.filename.replace(/'/g, "\\'")}')">View</button>`;
-      
-      if (canRename()) {
-        actionBtns += ` <button class="btn btn-rename" onclick="openRename(${d.id},'${baseName.replace(/'/g, "\\'")}')">Rename</button>`;
-      }
-
-      if (currentUser && currentUser.role === 'Executive' && (!d.status || d.status === 'pending')) {
-        actionBtns += ` <button class="btn btn-approve" onclick="updateStatus(${d.id}, 'approved')">Approve</button>`;
-        actionBtns += ` <button class="btn btn-reject" onclick="updateStatus(${d.id}, 'rejected')">Reject</button>`;
-      }
+      const actionBtns = buildActionButtons(d, baseName);
 
       return `<li class="doc-card">
         <div class="doc-title">${d.is_urgent ? '🔴 ' : ''}${d.filename}</div>
@@ -504,9 +500,7 @@
           From: ${d.sender_email || '—'}<br>
           ${new Date(d.created_at).toLocaleDateString()} · ${getStatusBadge(d.status)}
         </div>
-        <div class="doc-actions">
-          ${actionBtns}
-        </div>
+        <div class="doc-actions">${actionBtns}</div>
       </li>`;
     }).join('');
   }
@@ -535,7 +529,6 @@
   }
 
   // --- Actions ---
-
   function openRename(docId, currentName) {
     renameDocId = docId;
     document.getElementById('renameCurrentName').textContent = 'Current: ' + currentName;
@@ -571,7 +564,9 @@
   }
 
   async function updateStatus(docId, newStatus) {
-    if (!confirm(`Are you sure you want to mark this document as ${newStatus}?`)) return;
+    let actionText = newStatus === 'pending' ? 'undo the status of' : newStatus;
+    if (!confirm(`Are you sure you want to ${actionText} this document?`)) return;
+    
     try {
       const res = await fetch(API_BASE + '/documents/' + docId + '/status', {
         method: 'PATCH',
@@ -581,7 +576,7 @@
       
       const data = await res.json();
       if (res.ok) {
-        // Refresh the documents payload seamlessly
+        // Refresh the documents payload seamlessly instead of refreshing the whole page
         const docsRes = await fetch(API_BASE + '/documents/my-inbox', {
           headers: { 'Authorization': 'Bearer ' + token }
         });
@@ -638,27 +633,6 @@
       currentBlobUrl = null;
     }
   }
-  async function updateDocStatus(documentId, newStatus) {
-    if (newStatus === 'rejected' && !confirm('Reject this document?')) return;
-    try {
-        const response = await fetch(`/documents/${documentId}/status`, {
-            method: 'PATCH',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': 'Bearer ' + localStorage.getItem('token')
-            },
-            body: JSON.stringify({ status: newStatus })
-        });
-        if (response.ok) {
-            location.reload(); // Quick refresh to update the UI
-        } else {
-            const data = await response.json();
-            alert(data.message || 'Error updating document status.');
-        }
-    } catch (error) {
-        console.error('Error:', error);
-    }
-}
 </script>
 </body>
 </html>
