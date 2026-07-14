@@ -1,3 +1,5 @@
+const cron = require('node-cron');
+const nodemailer = require('nodemailer');
 require('dotenv').config();
 const express = require('express');
 const path = require('path');
@@ -9,6 +11,16 @@ const { sendMail } = require('./utils/mailer');
 const cron = require('node-cron');
 const { runDigest } = require('./utils/digest');
 const app = express();
+// Configure the Mail Transporter for Notification Digest
+const transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST || 'smtp.gmail.com',
+    port: process.env.SMTP_PORT || 587,
+    secure: false, // Use true if port is 465
+    auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS
+    }
+});
 const PORT = process.env.PORT || 3000;
 
 // --- 1. MIDDLEWARE CONFIGURATION ---
@@ -495,24 +507,24 @@ app.get('/auth/me', ensureAuthenticated, (req, res) => {
 // --- 6. EXECUTIVE APPROVAL WORKFLOW ---
 
 // Endpoint to toggle document status (Pending, Approved, Rejected)
-app.patch('/documents/:id/status', ensureAuthenticated, ensureAdmin, async (req, res) => {
+// --- EXECUTIVE APPROVAL WORKFLOW ---
+app.patch('/documents/:id/status', ensureAuthenticated, async (req, res) => {
     try {
-        const { id } = req.params;
-        const { status } = req.body;
-
-        // Strict state enforcement
-        const validStatuses = ['pending', 'approved', 'rejected'];
-        if (!validStatuses.includes(status)) {
-            return res.status(400).json({ message: 'Invalid status value. Must be pending, approved, or rejected.' });
+        if (req.user.role !== 'executive') {
+            return res.status(403).json({ message: 'Only Executives can approve or reject documents.' });
         }
 
-        const query = `
-            UPDATE documents 
-            SET status = $1 
-            WHERE id = $2 
-            RETURNING id, filename, status, sender_id
-        `;
-        const result = await db.query(query, [status, id]);
+        const documentId = req.params.id;
+        const { status } = req.body; 
+
+        if (!['approved', 'rejected', 'pending'].includes(status)) {
+            return res.status(400).json({ message: 'Invalid status provided.' });
+        }
+
+        const result = await db.query(
+            'UPDATE documents SET status = $1 WHERE id = $2 RETURNING *',
+            [status, documentId]
+        );
 
         if (result.rows.length === 0) {
             return res.status(404).json({ message: 'Document not found.' });
@@ -520,23 +532,14 @@ app.patch('/documents/:id/status', ensureAuthenticated, ensureAdmin, async (req,
 
         const doc = result.rows[0];
 
-        // --- TRIGGER EMAIL ALERT TO SENDER ---
-        const senderRes = await db.query('SELECT email, display_name FROM users WHERE id = $1', [doc.sender_id]);
-        if (senderRes.rows.length > 0) {
-            const senderEmail = senderRes.rows[0].email;
-            const senderName = senderRes.rows[0].display_name;
-            const subject = `Document Status Updated: ${doc.status.toUpperCase()}`;
-            const htmlBody = `
-                <h3>DocHandler Update</h3>
-                <p>Hello ${senderName},</p>
-                <p>Your document <strong>${doc.filename}</strong> has been marked as <strong style="color: ${doc.status === 'approved' ? 'green' : 'red'};">${doc.status.toUpperCase()}</strong> by an Executive.</p>
-                <p>Please log in to your dashboard for details.</p>
-            `;
-            sendMail(senderEmail, subject, `Your document ${doc.filename} was ${doc.status}.`, htmlBody);
-        }
+        // --- BATCH NOTIFICATION QUEUE INJECTION ---
+        await db.query(
+            'INSERT INTO notification_queue (document_id, recipient_id, created_at) VALUES ($1, $2, NOW())',
+            [doc.id, doc.sender_id] 
+        );
 
         res.json({ 
-            message: `Document status updated to ${status}`, 
+            message: `Document status updated to ${status}. Notification queued.`, 
             document: doc 
         });
     } catch (err) {

@@ -20,3 +20,8 @@ Procurement-PWA/.env.example
 Procurement-PWA/.env
 package-lock.json
 node_modules/.package-lock.json
+package-lock.json
+Procurement-PWA/.env.example
+node_modules/.package-lock.json
+package.json
+package-lock.json

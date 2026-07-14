@@ -462,9 +462,18 @@
         <td style="font-size:0.8rem;">${d.sender_email || '—'}</td>
         <td style="font-size:0.75rem;color:#666;">${new Date(d.created_at).toLocaleDateString()}</td>
         <td>${getStatusBadge(d.status)}</td>
-        <td style="white-space:nowrap;">${actionBtns}</td>
-      </tr>`;
-    }).join('');
+        <td style="white-space:nowrap;">
+            ${actionBtns}
+            ${(token && JSON.parse(atob(token.split('.')[1])).role === 'executive') ? `
+                <div style="margin-top: 5px;">
+                    ${d.status !== 'approved' ? `<button style="background:#4CAF50; color:white; padding:2px 5px; font-size:0.7rem;" onclick="updateDocStatus(${d.id}, 'approved')">Approve</button>` : ''}
+                    ${d.status !== 'rejected' ? `<button style="background:#f44336; color:white; padding:2px 5px; font-size:0.7rem;" onclick="updateDocStatus(${d.id}, 'rejected')">Reject</button>` : ''}
+                    ${d.status !== 'pending' ? `<button style="background:#ff9800; color:white; padding:2px 5px; font-size:0.7rem;" onclick="updateDocStatus(${d.id}, 'pending')">Undo</button>` : ''}
+                </div>
+            ` : ''}
+        </td>
+    </tr>`;
+}).join('');
   }
 
   function renderCards(docs) {
@@ -629,6 +638,27 @@
       currentBlobUrl = null;
     }
   }
+  async function updateDocStatus(documentId, newStatus) {
+    if (newStatus === 'rejected' && !confirm('Reject this document?')) return;
+    try {
+        const response = await fetch(`/documents/${documentId}/status`, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + localStorage.getItem('token')
+            },
+            body: JSON.stringify({ status: newStatus })
+        });
+        if (response.ok) {
+            location.reload(); // Quick refresh to update the UI
+        } else {
+            const data = await response.json();
+            alert(data.message || 'Error updating document status.');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+    }
+}
 </script>
 </body>
 </html>
