@@ -58,21 +58,31 @@
       font-size: 0.85rem;
       font-weight: 600;
     }
-    .project-filter {
+    .filter-bar {
       margin-bottom: 1rem;
       display: flex;
       gap: 0.5rem;
       align-items: center;
       flex-wrap: wrap;
     }
-    .project-filter label { font-size: 0.85rem; font-weight: 600; }
-    .project-filter select {
+    .filter-bar label { font-size: 0.85rem; font-weight: 600; }
+    .filter-bar select {
       padding: 6px 10px;
       border: 2px solid #111;
       border-radius: 6px;
       font-size: 0.85rem;
       flex: 1;
       min-width: 140px;
+    }
+    .filter-bar .btn-clear-filters {
+      background: #e5e7eb;
+      border: 2px solid #111;
+      border-radius: 6px;
+      padding: 6px 12px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
     }
 
     /* Mobile-friendly document list */
@@ -258,11 +268,18 @@
     <a href="/admin.html" id="adminLink" style="display:none;">⚙ Admin</a>
   </div>
 
-  <div class="project-filter">
+  <div class="filter-bar">
     <label>Filter:</label>
     <select id="projectFilter" onchange="filterDocs()">
       <option value="">All Projects</option>
     </select>
+    <select id="senderFilter" onchange="filterDocs()">
+      <option value="">All Senders</option>
+    </select>
+    <select id="fileTypeFilter" onchange="filterDocs()">
+      <option value="">All File Types</option>
+    </select>
+    <button class="btn-clear-filters" onclick="clearFilters()">Clear</button>
   </div>
 
   <table class="doc-table">
@@ -364,12 +381,40 @@
       });
       if (res.status === 401) { logout(); return; }
       allDocs = await res.json();
+      populateFilterOptions();
       renderAll();
     } catch (e) {
       document.getElementById('docTableBody').innerHTML =
         '<tr><td colspan="7" class="empty-state"><p>Failed to load.</p></td></tr>';
     }
   })();
+
+  function getFileExt(filename) {
+    if (!filename || !filename.includes('.')) return 'Other';
+    return filename.split('.').pop().toUpperCase();
+  }
+
+  function populateFilterOptions() {
+    // Sender dropdown: unique senders present in the current inbox
+    const senderFilter = document.getElementById('senderFilter');
+    const seenSenders = new Map(); // email -> display label
+    allDocs.forEach(d => {
+      if (d.sender_email && !seenSenders.has(d.sender_email)) {
+        seenSenders.set(d.sender_email, d.sender_name || d.sender_email);
+      }
+    });
+    senderFilter.innerHTML = '<option value="">All Senders</option>' +
+      [...seenSenders.entries()]
+        .sort((a, b) => a[1].localeCompare(b[1]))
+        .map(([email, label]) => `<option value="${email}">${label}</option>`)
+        .join('');
+
+    // File type dropdown: unique extensions present in the current inbox
+    const fileTypeFilter = document.getElementById('fileTypeFilter');
+    const seenTypes = new Set(allDocs.map(d => getFileExt(d.filename)));
+    fileTypeFilter.innerHTML = '<option value="">All File Types</option>' +
+      [...seenTypes].sort().map(ext => `<option value="${ext}">${ext}</option>`).join('');
+  }
 
   function canRename() {
     return currentUser && (currentUser.role === 'Supervisor' || currentUser.role === 'Executive');
@@ -411,7 +456,7 @@
       }
 
       return `<tr>
-        <td><strong style="font-size:0.8rem;word-break:break-all;">${d.filename}</strong></td>
+        <td><strong style="font-size:0.8rem;word-break:break-all;">${d.is_urgent ? '🔴 ' : ''}${d.filename}</strong></td>
         <td style="font-size:0.8rem;">${d.project_name || '—'}</td>
         <td style="font-size:0.8rem;">${d.department_name || '—'}</td>
         <td style="font-size:0.8rem;">${d.sender_email || '—'}</td>
@@ -444,7 +489,7 @@
       }
 
       return `<li class="doc-card">
-        <div class="doc-title">${d.filename}</div>
+        <div class="doc-title">${d.is_urgent ? '🔴 ' : ''}${d.filename}</div>
         <div class="doc-meta">
           ${d.project_name || '—'} · ${d.department_name || '—'}<br>
           From: ${d.sender_email || '—'}<br>
@@ -459,9 +504,25 @@
 
   function filterDocs() {
     const projectId = document.getElementById('projectFilter').value;
-    const filtered = !projectId ? allDocs : allDocs.filter(d => d.project_id == projectId);
+    const sender = document.getElementById('senderFilter').value;
+    const fileType = document.getElementById('fileTypeFilter').value;
+
+    const filtered = allDocs.filter(d => {
+      if (projectId && d.project_id != projectId) return false;
+      if (sender && d.sender_email !== sender) return false;
+      if (fileType && getFileExt(d.filename) !== fileType) return false;
+      return true;
+    });
+
     renderTable(filtered);
     renderCards(filtered);
+  }
+
+  function clearFilters() {
+    document.getElementById('projectFilter').value = '';
+    document.getElementById('senderFilter').value = '';
+    document.getElementById('fileTypeFilter').value = '';
+    filterDocs();
   }
 
   // --- Actions ---

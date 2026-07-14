@@ -28,6 +28,25 @@
     .status-msg { padding: 0.75rem; border-radius: 8px; margin-bottom: 1rem; display: none; }
     .status-msg.success { display: block; background: #ecfdf5; border: 2px solid #10b981; color: #065f46; }
     .status-msg.error { display: block; background: #fef2f2; border: 2px solid #ef4444; color: #b91c1c; }
+    .btn-rename { background: #f59e0b; color: white; border: 2px solid #111; border-radius: 6px; padding: 4px 12px; cursor: pointer; font-weight: 600; font-size: 0.8rem; }
+    .btn-rename:hover { background: #d97706; }
+    .btn-delete { background: #ef4444; color: white; border: 2px solid #111; border-radius: 6px; padding: 4px 12px; cursor: pointer; font-weight: 600; font-size: 0.8rem; }
+    .btn-delete:hover { background: #b91c1c; }
+    .modal-overlay {
+      display: none; position: fixed; top:0; left:0; width:100%; height:100%;
+      background: rgba(0,0,0,0.4); justify-content: center; align-items: center;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: white; border: 3px solid #111; border-radius: 16px;
+      box-shadow: 8px 8px 0 #111; padding: 2rem; max-width: 500px; width: 90%;
+    }
+    .modal h3 { margin-bottom: 1rem; }
+    .modal label { display: block; font-weight: 600; margin: 0.5rem 0 0.25rem; }
+    .modal input { width: 100%; padding: 8px; border: 2px solid #111; border-radius: 6px; margin-bottom: 0.5rem; }
+    .modal .btn-group { display: flex; gap: 0.5rem; margin-top: 1rem; }
+    .modal .btn-save { background: #10b981; color: white; border: 2px solid #111; border-radius: 6px; padding: 8px 16px; cursor: pointer; font-weight: 600; }
+    .modal .btn-cancel { background: #e5e7eb; border: 2px solid #111; border-radius: 6px; padding: 8px 16px; cursor: pointer; font-weight: 600; }
   </style>
 </head>
 <body>
@@ -55,17 +74,32 @@
 
   <h3 style="margin-bottom:1rem;">Existing Projects</h3>
   <table>
-    <thead><tr><th>ID</th><th>Name</th></tr></thead>
+    <thead><tr><th>ID</th><th>Name</th><th>Actions</th></tr></thead>
     <tbody id="projectsBody">
-      <tr><td colspan="2" style="text-align:center;padding:2rem;color:#888;">Loading...</td></tr>
+      <tr><td colspan="3" style="text-align:center;padding:2rem;color:#888;">Loading...</td></tr>
     </tbody>
   </table>
+</div>
+
+<!-- Rename Project Modal -->
+<div class="modal-overlay" id="renameModal">
+  <div class="modal">
+    <h3>Rename Project</h3>
+    <label for="renameInput">New Name:</label>
+    <input type="text" id="renameInput" placeholder="Project name">
+    <div class="btn-group">
+      <button class="btn-save" onclick="saveRename()">Save</button>
+      <button class="btn-cancel" onclick="closeRenameModal()">Cancel</button>
+    </div>
+  </div>
 </div>
 
 <script>
   const API_BASE = '';
   const token = localStorage.getItem('token');
   if (!token) window.location.href = '/login.html';
+
+  let renameProjectId = null;
 
   function showStatus(msg, type) {
     const el = document.getElementById('statusMessage');
@@ -82,15 +116,22 @@
       const projects = await res.json();
       const tbody = document.getElementById('projectsBody');
       if (projects.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="2" style="text-align:center;padding:2rem;color:#888;">No projects yet.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;padding:2rem;color:#888;">No projects yet.</td></tr>';
         return;
       }
       tbody.innerHTML = projects.map(p => `
-        <tr><td style="color:#888;">${p.id}</td><td><strong>${p.name}</strong></td></tr>
+        <tr>
+          <td style="color:#888;">${p.id}</td>
+          <td><strong>${p.name}</strong></td>
+          <td>
+            <button class="btn-rename" onclick="openRenameModal(${p.id}, '${p.name.replace(/'/g, "\\'")}')">Rename</button>
+            <button class="btn-delete" onclick="deleteProject(${p.id}, '${p.name.replace(/'/g, "\\'")}')">Delete</button>
+          </td>
+        </tr>
       `).join('');
     } catch (e) {
       document.getElementById('projectsBody').innerHTML =
-        '<tr><td colspan="2" style="text-align:center;padding:2rem;color:#888;">Failed to load.</td></tr>';
+        '<tr><td colspan="3" style="text-align:center;padding:2rem;color:#888;">Failed to load.</td></tr>';
     }
   }
 
@@ -110,6 +151,60 @@
       loadProjects();
     } else {
       showStatus(data.error, 'error');
+    }
+  }
+
+  function openRenameModal(id, currentName) {
+    renameProjectId = id;
+    document.getElementById('renameInput').value = currentName;
+    document.getElementById('renameModal').classList.add('open');
+  }
+
+  function closeRenameModal() {
+    document.getElementById('renameModal').classList.remove('open');
+    renameProjectId = null;
+  }
+
+  async function saveRename() {
+    const name = document.getElementById('renameInput').value.trim();
+    if (!name) { showStatus('Enter a project name.', 'error'); return; }
+
+    try {
+      const res = await fetch(API_BASE + '/admin/projects/' + renameProjectId, {
+        method: 'PATCH',
+        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showStatus('Project renamed!', 'success');
+        closeRenameModal();
+        loadProjects();
+      } else {
+        showStatus(data.error || 'Failed to rename project.', 'error');
+      }
+    } catch (e) {
+      showStatus('Network error while renaming project.', 'error');
+    }
+  }
+
+  async function deleteProject(id, name) {
+    if (!confirm(`Delete project "${name}"?\n\nThis will PERMANENTLY DELETE every document ever sent under this project, along with all user-project assignments for it. This cannot be undone.`)) return;
+
+    try {
+      const res = await fetch(API_BASE + '/admin/projects/' + id, {
+        method: 'DELETE',
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showStatus('Project deleted.', 'success');
+        loadProjects();
+      } else {
+        showStatus(data.error || 'Failed to delete project.', 'error');
+      }
+    } catch (e) {
+      showStatus('Network error while deleting project.', 'error');
     }
   }
 

@@ -6,6 +6,8 @@ const multer = require('multer');
 const auth = require('./auth'); // Imports JWT auth helpers
 const db = require('./db');         // Imports PostgreSQL connection pool from db.js
 const { sendMail } = require('./utils/mailer');
+const cron = require('node-cron');
+const { runDigest } = require('./utils/digest');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -142,7 +144,7 @@ app.get('/documents/:id/stream', ensureAuthenticated, async (req, res) => {
 
         // 1. Verify Document Exists & Fetch Metadata
         const docRes = await db.query(`SELECT * FROM documents WHERE id = $1`, [docId]);
-        if (docRes.rows.length === 0) return res.status(404).json({ error: 'Document not found.' });
+        if (docRes.rows.length === 0) return res.status(404).json({ message: 'Document not found.' });
         
         const doc = docRes.rows[0];
 
@@ -159,13 +161,13 @@ app.get('/documents/:id/stream', ensureAuthenticated, async (req, res) => {
         }
 
         if (!hasAccess) {
-            return res.status(403).json({ error: 'Access denied to this document.' });
+            return res.status(403).json({ message: 'Access denied to this document.' });
         }
 
         // 3. Stream File
         const filePath = path.join(__dirname, 'uploads', doc.filename);
         if (!fs.existsSync(filePath)) {
-            return res.status(404).json({ error: 'Physical file missing from server.' });
+            return res.status(404).json({ message: 'Physical file missing from server.' });
         }
 
         // Serve file as a stream so the browser can render it in an iframe
@@ -176,54 +178,7 @@ app.get('/documents/:id/stream', ensureAuthenticated, async (req, res) => {
 
     } catch (err) {
         console.error('Streaming Error:', err);
-        res.status(500).json({ error: 'Server error while streaming document.' });
-    }
-});
-// Secure PDF Streamer (Data-Level Scoped)
-app.get('/documents/:id/stream', ensureAuthenticated, async (req, res) => {
-    try {
-        const docId = req.params.id;
-        const userId = req.user.id;
-        const userRole = req.user.role;
-        const deptId = req.user.department_id;
-
-        // 1. Verify Document Exists & Fetch Metadata
-        const docRes = await db.query(`SELECT * FROM documents WHERE id = $1`, [docId]);
-        if (docRes.rows.length === 0) return res.status(404).json({ error: 'Document not found.' });
-        
-        const doc = docRes.rows[0];
-
-        // 2. Enforce Role-Based Scoping
-        let hasAccess = false;
-        if (userRole === 'Executive') {
-            hasAccess = true;
-        } else if (userRole === 'Supervisor') {
-            const projCheck = await db.query(`SELECT 1 FROM project_assignments WHERE user_id = $1 AND project_id = $2`, [userId, doc.project_id]);
-            if (doc.department_id === deptId || projCheck.rows.length > 0) hasAccess = true;
-        } else { // Staff
-            const projCheck = await db.query(`SELECT 1 FROM project_assignments WHERE user_id = $1 AND project_id = $2`, [userId, doc.project_id]);
-            if (doc.sender_id === userId || doc.recipient_id === userId || projCheck.rows.length > 0) hasAccess = true;
-        }
-
-        if (!hasAccess) {
-            return res.status(403).json({ error: 'Access denied to this document.' });
-        }
-
-        // 3. Stream File
-        const filePath = path.join(__dirname, 'uploads', doc.filename);
-        if (!fs.existsSync(filePath)) {
-            return res.status(404).json({ error: 'Physical file missing from server.' });
-        }
-
-        // Serve file as a stream so the browser can render it in an iframe
-        const fileStream = fs.createReadStream(filePath);
-        res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', `inline; filename="${doc.filename}"`);
-        fileStream.pipe(res);
-
-    } catch (err) {
-        console.error('Streaming Error:', err);
-        res.status(500).json({ error: 'Server error while streaming document.' });
+        res.status(500).json({ message: 'Server error while streaming document.' });
     }
 });
 // Endpoint handling physical multi-part upload write transactions and relational database linking
@@ -244,29 +199,46 @@ app.post('/upload', ensureAuthenticated, upload.single('document'), async (req, 
         const recipientId = req.body.recipientId || null;
         const projectId = req.body.projectId || null;
         const departmentId = req.body.departmentId || null;
+        // Checkboxes are omitted from multipart form data entirely when unchecked,
+        // and arrive as the string 'true'/'on' when checked -- never a real boolean.
+        const isUrgent = req.body.isUrgent === 'true' || req.body.isUrgent === 'on';
 
         // Perform strict table transaction mapping elements cleanly to table relations
         const query = `
-            INSERT INTO public.documents (filename, sender_id, recipient_id, project_id, department_id)
-            VALUES ($1, $2, $3, $4, $5)
+            INSERT INTO public.documents (filename, sender_id, recipient_id, project_id, department_id, is_urgent)
+            VALUES ($1, $2, $3, $4, $5, $6)
             RETURNING id;
         `;
-        const values = [filename, uploadedBy, recipientId, projectId, departmentId];
-        await db.query(query, values);
+        const values = [filename, uploadedBy, recipientId, projectId, departmentId, isUrgent];
+        const insertRes = await db.query(query, values);
+        const newDocId = insertRes.rows[0].id;
 
         console.log(`Document transaction completed successfully: ${filename}`);
 
-        // --- TRIGGER EMAIL ALERT TO RECIPIENT ---
+        // --- NOTIFY RECIPIENT: urgent bypasses the digest and emails immediately;
+        //     everything else queues for the next digest run. ---
         if (recipientId) {
-            const userRes = await db.query('SELECT email, display_name FROM users WHERE id = $1', [recipientId]);
-            if (userRes.rows.length > 0) {
-                const targetEmail = userRes.rows[0].email;
-                const targetName = userRes.rows[0].display_name;
-                const subject = `New Document Assigned: ${filename}`;
-                const body = `Hello ${targetName},\n\nA new document "${filename}" has been uploaded and routed to your inbox by ${req.user.display_name}. Please log into DocHandler to review it.`;
-                
-                // Fire and forget
-                sendMail(targetEmail, subject, body); 
+            if (isUrgent) {
+                const userRes = await db.query('SELECT email, display_name FROM users WHERE id = $1', [recipientId]);
+                if (userRes.rows.length > 0) {
+                    const targetEmail = userRes.rows[0].email;
+                    const targetName = userRes.rows[0].display_name;
+                    const subject = `🔴 URGENT Document: ${filename}`;
+                    const text = `Hello ${targetName},\n\nAn URGENT document "${filename}" has been uploaded and routed to your inbox by ${req.user.display_name}. Please log into DocHandler to review it immediately.`;
+                    const html = `
+                        <h3 style="color:#b91c1c;">🔴 Urgent Document</h3>
+                        <p>Hello ${targetName},</p>
+                        <p>An <strong style="color:#b91c1c;">URGENT</strong> document <strong>${filename}</strong> has been routed to your inbox by ${req.user.display_name}.</p>
+                        <p>Please log in to review it immediately.</p>
+                    `;
+                    // Fire and forget
+                    sendMail(targetEmail, subject, text, html);
+                }
+            } else {
+                await db.query(
+                    `INSERT INTO public.notification_queue (document_id, recipient_id) VALUES ($1, $2)`,
+                    [newDocId, recipientId]
+                );
             }
         }
         // ---------------------------------------------
@@ -286,7 +258,8 @@ app.get('/documents/my-inbox', ensureAuthenticated, async (req, res) => {
         const deptId = req.user.department_id; // Securely extracted from JWT payload
 
         let baseQuery = `
-            SELECT d.*, p.name as project_name, u_sender.email as sender_email, dept.name as department_name
+            SELECT d.*, p.name as project_name, u_sender.email as sender_email,
+                   u_sender.display_name as sender_name, dept.name as department_name
             FROM documents d
             LEFT JOIN projects p ON d.project_id = p.id
             LEFT JOIN users u_sender ON d.sender_id = u_sender.id
@@ -571,7 +544,33 @@ app.patch('/documents/:id/status', ensureAuthenticated, ensureAdmin, async (req,
         res.status(500).json({ message: 'Database error updating document status.' });
     }
 });
-// --- 7. START SERVER ENGINE ---
+// --- 7. DIGEST NOTIFICATION SCHEDULING ---
+
+// Manually trigger a digest run on demand -- useful for testing without
+// waiting for the cron schedule, and gives an Executive a way to force a
+// send if needed.
+app.post('/admin/digest/run', ensureAuthenticated, ensureAdmin, async (req, res) => {
+    try {
+        const summary = await runDigest();
+        res.json({ message: 'Digest run complete.', summary });
+    } catch (err) {
+        console.error('Manual digest trigger error:', err);
+        res.status(500).json({ message: 'Failed to run digest.' });
+    }
+});
+
+// Scheduled digest run. Defaults to every 4 hours; override with
+// DIGEST_CRON_SCHEDULE in .env using standard cron syntax (e.g. '0 9,17 * * *'
+// for twice daily at 9am/5pm). Urgent documents never wait on this -- they're
+// emailed immediately at upload time.
+const digestSchedule = process.env.DIGEST_CRON_SCHEDULE || '0 */4 * * *';
+cron.schedule(digestSchedule, async () => {
+    console.log(`Running scheduled digest (${digestSchedule})...`);
+    const summary = await runDigest();
+    console.log('Digest run complete:', summary);
+});
+
+// --- 8. START SERVER ENGINE ---
 app.listen(PORT, () => {
     console.log(`PBE OneForAll active application server streaming live at http://localhost:${PORT}`);
 });
