@@ -289,75 +289,122 @@ app.get('/documents/:id/stream', ensureAuthenticated, async (req, res) => {
     }
 });
 // Endpoint handling physical multi-part upload write transactions and relational database linking
-app.post('/upload', ensureAuthenticated, upload.single('document'), async (req, res) => {
-    try {
-        if (!req.file) {
-            return res.status(400).send('No file uploaded.');
-        }
+app.post('/upload', ensureAuthenticated, (req, res) => {
+    // Use the Multer callback pattern instead of passing upload.single() as standard
+    // middleware. When a client disconnects mid-transfer, Multer emits "Request aborted"
+    // before the async route body runs -- that error is invisible to a try/catch inside
+    // the handler. The callback form surfaces it as `err` so we can respond cleanly
+    // instead of letting it bubble up and crash the server process.
+    upload.single('document')(req, res, async (err) => {
 
-        // 1. Capture file metadata from Multer
-        const filename = req.file.filename;
-        const filePath = req.file.path; // CRITICAL: Required for retrieval
-        
-        // 2. Capture user identity
-        const uploadedBy = req.user.id; 
-
-        // 3. Capture & Sanitize Form Data (Convert empty strings to null for PG Int columns)
-        const recipientId = req.body.recipientId || null;
-        const projectId = req.body.projectId || null;
-        const departmentId = req.body.departmentId || null;
-        // Checkboxes are omitted from multipart form data entirely when unchecked,
-        // and arrive as the string 'true'/'on' when checked -- never a real boolean.
-        const isUrgent = req.body.isUrgent === 'true' || req.body.isUrgent === 'on';
-
-        // Perform strict table transaction mapping elements cleanly to table relations
-        const query = `
-            INSERT INTO public.documents (filename, sender_id, recipient_id, project_id, department_id, is_urgent)
-            VALUES ($1, $2, $3, $4, $5, $6)
-            RETURNING id;
-        `;
-        const values = [filename, uploadedBy, recipientId, projectId, departmentId, isUrgent];
-        const insertRes = await db.query(query, values);
-        const newDocId = insertRes.rows[0].id;
-
-        console.log(`Document transaction completed successfully: ${filename}`);
-
-        // Req 6: Audit trail
-        await auditLog(uploadedBy, 'DOCUMENT_UPLOAD', newDocId);
-
-        // --- NOTIFY RECIPIENT: urgent bypasses the digest and emails immediately;
-        //     everything else queues for the next digest run. ---
-        if (recipientId) {
-            if (isUrgent) {
-                const userRes = await db.query('SELECT email, display_name FROM users WHERE id = $1', [recipientId]);
-                if (userRes.rows.length > 0) {
-                    const targetEmail = userRes.rows[0].email;
-                    const targetName = userRes.rows[0].display_name;
-                    const subject = `🔴 URGENT Document: ${filename}`;
-                    const text = `Hello ${targetName},\n\nAn URGENT document "${filename}" has been uploaded and routed to your inbox by ${req.user.display_name}. Please log into DocHandler to review it immediately.`;
-                    const html = `
-                        <h3 style="color:#b91c1c;">🔴 Urgent Document</h3>
-                        <p>Hello ${targetName},</p>
-                        <p>An <strong style="color:#b91c1c;">URGENT</strong> document <strong>${filename}</strong> has been routed to your inbox by ${req.user.display_name}.</p>
-                        <p>Please log in to review it immediately.</p>
-                    `;
-                    // Fire and forget
-                    sendMail(targetEmail, subject, text, html);
-                }
-            } else {
-                await db.query(
-                    `INSERT INTO public.notification_queue (document_id, recipient_id) VALUES ($1, $2)`,
-                    [newDocId, recipientId]
-                );
+        // --- Multer / connection error layer ---
+        if (err) {
+            // Clean up any partial file Multer managed to write before the abort.
+            // req.file is populated even on a partial write if Multer got far enough.
+            if (req.file && req.file.path) {
+                fs.unlink(req.file.path, (unlinkErr) => {
+                    if (unlinkErr) console.warn('Could not clean up partial upload:', unlinkErr.message);
+                });
             }
-        }
-        // ---------------------------------------------
 
-        res.status(200).send('Document sent!');
-    } catch (err) {
-        console.error('Database Upload Route Error:', err);
-        res.status(500).send('Error saving document metadata relation fields.');
-    }
+            // "Request aborted" covers mid-transfer disconnects; LIMIT_* codes are
+            // standard Multer validation errors (file too large, wrong field name, etc.)
+            const isAbort = err.message === 'Request aborted' || err.code === 'ECONNRESET';
+            const isMulterError = err.name === 'MulterError';
+
+            if (isAbort) {
+                console.warn('Upload aborted by client (connection dropped):', req.user?.email);
+                return res.status(400).json({ message: 'Upload interrupted. Please check your connection and try again.' });
+            }
+
+            if (isMulterError) {
+                console.warn('Multer validation error:', err.code, err.message);
+                return res.status(400).json({ message: `Upload rejected: ${err.message}` });
+            }
+
+            // Unexpected Multer-layer error — log and return 500
+            console.error('Unexpected upload middleware error:', err);
+            return res.status(500).json({ message: 'Upload failed due to a server error.' });
+        }
+
+        // --- Business logic layer (Multer succeeded) ---
+        try {
+            if (!req.file) {
+                return res.status(400).json({ message: 'No file uploaded.' });
+            }
+
+            // 1. Capture file metadata from Multer
+            const filename = req.file.filename;
+            const filePath = req.file.path; // CRITICAL: Required for retrieval
+
+            // 2. Capture user identity
+            const uploadedBy = req.user.id;
+
+            // 3. Capture & Sanitize Form Data (Convert empty strings to null for PG Int columns)
+            const recipientId = req.body.recipientId || null;
+            const projectId = req.body.projectId || null;
+            const departmentId = req.body.departmentId || null;
+            // Checkboxes are omitted from multipart form data entirely when unchecked,
+            // and arrive as the string 'true'/'on' when checked -- never a real boolean.
+            const isUrgent = req.body.isUrgent === 'true' || req.body.isUrgent === 'on';
+
+            // Perform strict table transaction mapping elements cleanly to table relations
+            const query = `
+                INSERT INTO public.documents (filename, sender_id, recipient_id, project_id, department_id, is_urgent)
+                VALUES ($1, $2, $3, $4, $5, $6)
+                RETURNING id;
+            `;
+            const values = [filename, uploadedBy, recipientId, projectId, departmentId, isUrgent];
+            const insertRes = await db.query(query, values);
+            const newDocId = insertRes.rows[0].id;
+
+            console.log(`Document transaction completed successfully: ${filename}`);
+
+            // Req 6: Audit trail
+            await auditLog(uploadedBy, 'DOCUMENT_UPLOAD', newDocId);
+
+            // --- NOTIFY RECIPIENT: urgent bypasses the digest and emails immediately;
+            //     everything else queues for the next digest run. ---
+            if (recipientId) {
+                if (isUrgent) {
+                    const userRes = await db.query('SELECT email, display_name FROM users WHERE id = $1', [recipientId]);
+                    if (userRes.rows.length > 0) {
+                        const targetEmail = userRes.rows[0].email;
+                        const targetName = userRes.rows[0].display_name;
+                        const subject = `🔴 URGENT Document: ${filename}`;
+                        const text = `Hello ${targetName},\n\nAn URGENT document "${filename}" has been uploaded and routed to your inbox by ${req.user.display_name}. Please log into DocHandler to review it immediately.`;
+                        const html = `
+                            <h3 style="color:#b91c1c;">🔴 Urgent Document</h3>
+                            <p>Hello ${targetName},</p>
+                            <p>An <strong style="color:#b91c1c;">URGENT</strong> document <strong>${filename}</strong> has been routed to your inbox by ${req.user.display_name}.</p>
+                            <p>Please log in to review it immediately.</p>
+                        `;
+                        // Fire and forget
+                        sendMail(targetEmail, subject, text, html);
+                    }
+                } else {
+                    await db.query(
+                        `INSERT INTO public.notification_queue (document_id, recipient_id) VALUES ($1, $2)`,
+                        [newDocId, recipientId]
+                    );
+                }
+            }
+            // ---------------------------------------------
+
+            res.status(200).json({ message: 'Document sent!' });
+
+        } catch (dbErr) {
+            // DB/business logic failure after a successful file write -- clean up the
+            // orphaned file so uploads/ doesn't accumulate files with no DB record.
+            if (req.file && req.file.path) {
+                fs.unlink(req.file.path, (unlinkErr) => {
+                    if (unlinkErr) console.warn('Could not clean up orphaned upload:', unlinkErr.message);
+                });
+            }
+            console.error('Database Upload Route Error:', dbErr);
+            res.status(500).json({ message: 'Error saving document metadata relation fields.' });
+        }
+    });
 });
 
 // Endpoint to capture inbox layout listings targeting single identity profile logs
