@@ -258,7 +258,8 @@ app.get('/documents/my-inbox', ensureAuthenticated, async (req, res) => {
         const deptId = req.user.department_id; // Securely extracted from JWT payload
 
         let baseQuery = `
-            SELECT d.*, p.name as project_name, u_sender.email as sender_email, dept.name as department_name
+            SELECT d.*, p.name as project_name, u_sender.email as sender_email,
+                   u_sender.display_name as sender_name, dept.name as department_name
             FROM documents d
             LEFT JOIN projects p ON d.project_id = p.id
             LEFT JOIN users u_sender ON d.sender_id = u_sender.id
