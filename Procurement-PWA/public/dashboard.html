@@ -97,8 +97,12 @@
     .doc-card .doc-title {
       font-weight: 700;
       font-size: 0.9rem;
-      word-break: break-all;
       margin-bottom: 0.3rem;
+      /* Truncate long filenames instead of breaking mid-word and squishing the card */
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 100%;
     }
     .doc-card .doc-meta {
       font-size: 0.8rem;
@@ -112,7 +116,12 @@
       gap: 0.4rem;
       margin-top: 0.5rem;
     }
-    /* Req 4: Tab toggle */
+    /* Timestamp: shows time-only for today, date-only for older; reveals full datetime on hover */
+    .ts {
+      cursor: default;
+      border-bottom: 1px dotted #aaa;
+      white-space: nowrap;
+    }
     .tab-bar {
       display: flex;
       gap: 0;
@@ -297,7 +306,7 @@
 <div class="topbar">
   <h2 id="pageTitle">📥 My Inbox</h2>
   <div class="user-info">
-    <span id="userDisplay">Loading...</span>
+    <a href="/profile.html" id="userDisplay" style="color:inherit;text-decoration:none;font-weight:600;">Loading...</a>
     <button onclick="logout()">Sign Out</button>
   </div>
 </div>
@@ -534,6 +543,28 @@
     return btns;
   }
 
+  // Smart timestamp:
+  // - Today → shows "10:32 AM", no date
+  // - Older → shows "14 Jul 2025", no time
+  // Both get a title tooltip with the full "14 Jul 2025, 10:32 AM" on hover
+  function formatTimestamp(isoString) {
+    const date = new Date(isoString);
+    const now  = new Date();
+    const isToday = date.getFullYear() === now.getFullYear() &&
+                    date.getMonth()    === now.getMonth()    &&
+                    date.getDate()     === now.getDate();
+
+    const fullLabel = date.toLocaleDateString('en-GB', {
+      day: '2-digit', month: 'short', year: 'numeric'
+    }) + ', ' + date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+
+    const display = isToday
+      ? date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+      : date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+
+    return `<span class="ts" title="${fullLabel}">${display}</span>`;
+  }
+
   function renderAll() { renderTable(allDocs); renderCards(allDocs); }
 
   function renderTable(docs) {
@@ -555,7 +586,7 @@
         <td style="font-size:0.8rem;">${d.project_name || '—'}</td>
         <td style="font-size:0.8rem;">${d.department_name || '—'}</td>
         <td style="font-size:0.8rem;">${personCol}</td>
-        <td style="font-size:0.75rem;color:#666;">${new Date(d.created_at).toLocaleDateString()}</td>
+        <td style="font-size:0.75rem;color:#666;">${formatTimestamp(d.created_at)}</td>
         <td>${getStatusBadge(d.status)}</td>
         <td>${actionBtns}</td>
       </tr>`;
@@ -576,11 +607,11 @@
         ? `From: ${d.sender_email || '—'}`
         : `To: ${d.recipient_name || d.recipient_email || '—'}`;
       return `<li class="doc-card">
-        <div class="doc-title">${d.is_urgent ? '🔴 ' : ''}${d.filename}</div>
+        <div class="doc-title" title="${d.filename}">${d.is_urgent ? '🔴 ' : ''}${d.filename}</div>
         <div class="doc-meta">
           ${d.project_name || '—'} · ${d.department_name || '—'}<br>
           ${personCol}<br>
-          ${new Date(d.created_at).toLocaleDateString()} · ${getStatusBadge(d.status)}
+          ${formatTimestamp(d.created_at)} · ${getStatusBadge(d.status)}
         </div>
         <div class="doc-actions">${actionBtns}</div>
       </li>`;

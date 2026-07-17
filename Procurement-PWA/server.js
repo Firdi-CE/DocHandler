@@ -687,10 +687,78 @@ app.patch('/admin/users/:id', ensureAuthenticated, ensureAdmin, async (req, res)
 });
 
 // Endpoint for the frontend to verify the user's session and get user data.
-app.get('/auth/me', ensureAuthenticated, (req, res) => {
-    // If ensureAuthenticated passes, req.user is guaranteed to exist.
-    res.json(req.user);
+app.get('/auth/me', ensureAuthenticated, async (req, res) => {
+    try {
+        const result = await db.query(
+            `SELECT id, email, display_name, role, department_id,
+                    digest_mode, digest_interval_hours, digest_daily_hour, digest_daily_minute
+             FROM users WHERE id = $1`,
+            [req.user.id]
+        );
+        if (result.rows.length === 0) return res.status(404).json({ message: 'User not found.' });
+        res.json(result.rows[0]);
+    } catch (err) {
+        res.status(500).json({ message: 'Failed to load user profile.' });
+    }
 });
+
+// --- USER PREFERENCE ROUTES ---
+
+// GET /users/me/preferences — return current digest preference
+app.get('/users/me/preferences', ensureAuthenticated, async (req, res) => {
+    try {
+        const result = await db.query(
+            `SELECT digest_mode, digest_interval_hours, digest_daily_hour, digest_daily_minute
+             FROM users WHERE id = $1`,
+            [req.user.id]
+        );
+        if (result.rows.length === 0) return res.status(404).json({ message: 'User not found.' });
+        res.json(result.rows[0]);
+    } catch (err) {
+        res.status(500).json({ message: 'Failed to load preferences.' });
+    }
+});
+
+// PATCH /users/me/preferences — save digest preference
+app.patch('/users/me/preferences', ensureAuthenticated, async (req, res) => {
+    const { digest_mode, digest_interval_hours, digest_daily_hour, digest_daily_minute } = req.body;
+
+    if (!['interval', 'daily'].includes(digest_mode)) {
+        return res.status(400).json({ message: 'digest_mode must be "interval" or "daily".' });
+    }
+    if (digest_mode === 'interval') {
+        const h = parseInt(digest_interval_hours);
+        if (isNaN(h) || h < 1 || h > 168) {
+            return res.status(400).json({ message: 'digest_interval_hours must be between 1 and 168.' });
+        }
+    }
+    if (digest_mode === 'daily') {
+        const hr = parseInt(digest_daily_hour);
+        const min = parseInt(digest_daily_minute);
+        if (isNaN(hr) || hr < 0 || hr > 23) return res.status(400).json({ message: 'digest_daily_hour must be 0–23.' });
+        if (isNaN(min) || min < 0 || min > 59) return res.status(400).json({ message: 'digest_daily_minute must be 0–59.' });
+    }
+
+    try {
+        await db.query(
+            `UPDATE users
+             SET digest_mode = $1, digest_interval_hours = $2,
+                 digest_daily_hour = $3, digest_daily_minute = $4
+             WHERE id = $5`,
+            [
+                digest_mode,
+                parseInt(digest_interval_hours) || 4,
+                parseInt(digest_daily_hour) ?? 8,
+                parseInt(digest_daily_minute) ?? 0,
+                req.user.id
+            ]
+        );
+        res.json({ message: 'Preferences saved.' });
+    } catch (err) {
+        res.status(500).json({ message: 'Failed to save preferences.' });
+    }
+});
+
 // --- 6. EXECUTIVE APPROVAL WORKFLOW ---
 
 // Endpoint to toggle document status (Pending, Approved, Rejected)
@@ -774,9 +842,8 @@ app.patch('/documents/:id/status', ensureAuthenticated, async (req, res) => {
 });
 // --- 7. DIGEST NOTIFICATION SCHEDULING ---
 
-// Manually trigger a digest run on demand -- useful for testing without
-// waiting for the cron schedule, and gives an Executive a way to force a
-// send if needed.
+// Manually trigger a digest run (sends to ALL users with pending items now,
+// ignoring their individual schedules — useful for testing).
 app.post('/admin/digest/run', ensureAuthenticated, ensureAdmin, async (req, res) => {
     try {
         const summary = await runDigest();
@@ -787,16 +854,107 @@ app.post('/admin/digest/run', ensureAuthenticated, ensureAdmin, async (req, res)
     }
 });
 
-// Scheduled digest run. Defaults to every 4 hours; override with
-// DIGEST_CRON_SCHEDULE in .env using standard cron syntax (e.g. '0 9,17 * * *'
-// for twice daily at 9am/5pm). Urgent documents never wait on this -- they're
-// emailed immediately at upload time.
-console.log("Manual Digest Triggered!");
-const digestSchedule = process.env.DIGEST_CRON_SCHEDULE || '* */4 * * *';
-cron.schedule(digestSchedule, async () => {
-    console.log(`Running scheduled digest (${digestSchedule})...`);
-    const summary = await runDigest();
-    console.log('Digest run complete:', summary);
+// Per-user digest scheduler — checks every minute, respects each user's
+// individual digest_mode/interval/daily-time preference.
+async function runDigestForUser(recipientId) {
+    const { runDigest } = require('./utils/digest');
+    // Re-use the existing runDigest but filter to a single recipient
+    // by temporarily wrapping the DB query. Simpler: call a targeted export.
+    // Since digest.js processes all unsent rows per-recipient anyway, we call
+    // runDigest() and let it handle the grouping — the cron just gates timing.
+    // For single-user sends, call the module directly with a recipient filter.
+    try {
+        const db = require('./db');
+        const { sendMail } = require('./utils/mailer');
+
+        const pendingRes = await db.query(`
+            SELECT nq.id AS queue_id, nq.document_id, nq.recipient_id,
+                   d.filename, d.created_at AS document_created_at,
+                   sender.display_name AS sender_name, sender.email AS sender_email,
+                   p.name AS project_name,
+                   recipient.email AS recipient_email, recipient.display_name AS recipient_name
+            FROM notification_queue nq
+            JOIN documents d ON nq.document_id = d.id
+            JOIN users recipient ON nq.recipient_id = recipient.id
+            LEFT JOIN users sender ON d.sender_id = sender.id
+            LEFT JOIN projects p ON d.project_id = p.id
+            WHERE nq.sent_at IS NULL AND nq.recipient_id = $1
+            ORDER BY d.created_at ASC
+        `, [recipientId]);
+
+        if (pendingRes.rows.length === 0) return;
+
+        const rows = pendingRes.rows;
+        const queueIds = rows.map(r => r.queue_id);
+        const recipientEmail = rows[0].recipient_email;
+        const recipientName = rows[0].recipient_name;
+
+        const listItemsHtml = rows.map(r => `
+            <li style="margin-bottom:8px;">
+                <strong>${r.filename}</strong><br>
+                <span style="color:#666;font-size:0.9em;">
+                    From ${r.sender_name || r.sender_email || 'Unknown'}${r.project_name ? ` · ${r.project_name}` : ''}
+                </span>
+            </li>`).join('');
+
+        const subject = `DocHandler Digest: ${rows.length} new document${rows.length > 1 ? 's' : ''}`;
+        const text = `Hello ${recipientName},\n\nYou have ${rows.length} new document(s) in DocHandler. Log in to review them.`;
+        const html = `
+            <h3>DocHandler Digest</h3>
+            <p>Hello ${recipientName},</p>
+            <p>You have <strong>${rows.length}</strong> new document(s) waiting:</p>
+            <ul>${listItemsHtml}</ul>
+            <p>Log in to your dashboard to review them.</p>`;
+
+        const sent = await sendMail(recipientEmail, subject, text, html);
+        if (sent) {
+            await db.query(
+                'UPDATE notification_queue SET sent_at = NOW() WHERE id = ANY($1::int[])',
+                [queueIds]
+            );
+        }
+    } catch (err) {
+        console.error(`Digest error for user ${recipientId}:`, err.message);
+    }
+}
+
+// Runs every minute; skips users whose digest isn't due yet.
+cron.schedule('* * * * *', async () => {
+    try {
+        const now = new Date();
+        const pendingRes = await db.query(`
+            SELECT DISTINCT nq.recipient_id,
+                   u.digest_mode,
+                   u.digest_interval_hours,
+                   u.digest_daily_hour,
+                   u.digest_daily_minute,
+                   MAX(nq.sent_at) AS last_sent
+            FROM notification_queue nq
+            JOIN users u ON nq.recipient_id = u.id
+            WHERE nq.sent_at IS NULL
+            GROUP BY nq.recipient_id, u.digest_mode, u.digest_interval_hours,
+                     u.digest_daily_hour, u.digest_daily_minute
+        `);
+
+        for (const user of pendingRes.rows) {
+            let shouldSend = false;
+            if (user.digest_mode === 'daily') {
+                shouldSend = now.getHours()   === parseInt(user.digest_daily_hour) &&
+                             now.getMinutes() === parseInt(user.digest_daily_minute);
+            } else {
+                // interval mode
+                if (!user.last_sent) {
+                    shouldSend = true;
+                } else {
+                    const hoursSinceLast = (now - new Date(user.last_sent)) / (1000 * 60 * 60);
+                    shouldSend = hoursSinceLast >= (parseInt(user.digest_interval_hours) || 4);
+                }
+            }
+            if (shouldSend) await runDigestForUser(user.recipient_id);
+        }
+    } catch (err) {
+        console.error('Digest scheduler error:', err);
+    }
 });
 
 // --- 8. START SERVER ENGINE ---
