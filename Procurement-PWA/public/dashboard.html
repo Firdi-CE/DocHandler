@@ -417,13 +417,14 @@
   function logout() {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
-    window.location.href = '/login.html?reason=expired';
+    window.location.href = '/login.html';
   }
 
   // Load user info
   (async () => {
     try {
       const res = await fetch(API_BASE + '/auth/me', { headers: { 'Authorization': 'Bearer ' + token } });
+      if (res.status === 401) { window.location.href = '/login.html?reason=expired'; return; }
       currentUser = await res.json();
       document.getElementById('userDisplay').textContent = currentUser.display_name || currentUser.email;
       const isAdmin = currentUser.role === 'Executive' || currentUser.role === 'Admin';
@@ -439,7 +440,7 @@
         `;
         topbar.appendChild(adminNav);
       }
-    } catch (e) { logout(); }
+    } catch (e) { /* non-fatal — page still works without display name */ }
   })();
 
   // Load projects for filter dropdown
@@ -471,7 +472,7 @@
     const endpoint = currentTab === 'inbox' ? '/documents/my-inbox' : '/documents/my-outbox';
     try {
       const res = await fetch(API_BASE + endpoint, { headers: { 'Authorization': 'Bearer ' + token } });
-      if (res.status === 401) { logout(); return; }
+      if (res.status === 401) { window.location.href = '/login.html?reason=expired'; return; }
       allDocs = await res.json();
       if (currentTab === 'inbox') populateFilterOptions();
       renderAll();

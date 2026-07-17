@@ -165,7 +165,7 @@
   function logout() {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
-    window.location.href = '/login.html?reason=expired';
+    window.location.href = '/login.html';
   }
 
   loadRequests();

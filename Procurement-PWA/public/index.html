@@ -193,7 +193,7 @@
   function logout() {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
-    window.location.href = '/login.html?reason=expired';
+    window.location.href = '/login.html';
   }
 
   // Check auth
@@ -204,11 +204,15 @@
   (async () => {
     try {
       const res = await fetch(API_BASE + '/auth/me', { headers: { 'Authorization': 'Bearer ' + token } });
-      if (res.status === 401) { logout(); return; }
+      if (res.status === 401) {
+        window.location.href = '/login.html?reason=expired';
+        return;
+      }
       const user = await res.json();
       document.getElementById('userDisplay').textContent = user.display_name || user.email;
     } catch (e) {
-      logout();
+      // Genuine network failure (server down, no connection) — show message, don't redirect
+      showStatus('Could not reach the server. Please check your connection.', 'error');
     }
   })();
 
@@ -220,7 +224,10 @@
         fetch(API_BASE + '/departments', { headers: { 'Authorization': 'Bearer ' + token } }),
       ]);
 
-      if (projRes.status === 401 || deptRes.status === 401) { logout(); return; }
+      if (projRes.status === 401 || deptRes.status === 401) {
+        window.location.href = '/login.html?reason=expired';
+        return;
+      }
 
       const projects = await projRes.json();
       const depts = await deptRes.json();
@@ -243,7 +250,8 @@
         deptDropdown.appendChild(opt);
       });
     } catch (e) {
-      showStatus('Failed to load data. Please check your connection and try again.', 'error');
+      // Genuine network failure — server down or no connection
+      showStatus('Could not reach the server. Please check your connection.', 'error');
     }
   };
 

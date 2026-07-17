@@ -140,7 +140,7 @@
   function logout() {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
-    window.location.href = '/login.html?reason=expired';
+    window.location.href = '/login.html';
   }
 
   function setMode(mode) {
@@ -164,7 +164,8 @@
       const res = await fetch(API_BASE + '/auth/me', {
         headers: { 'Authorization': 'Bearer ' + token }
       });
-      if (!res.ok) { logout(); return; }
+      if (res.status === 401) { window.location.href = '/login.html?reason=expired'; return; }
+      if (!res.ok) { showPrefStatus('Failed to load profile. Please try again.', 'error'); return; }
       const user = await res.json();
 
       document.getElementById('profileName').textContent  = user.display_name || '—';
@@ -184,7 +185,7 @@
         document.getElementById('dailyTime').value = `${h}:${m}`;
       }
     } catch (e) {
-      logout();
+      showPrefStatus('Could not reach the server. Please check your connection.', 'error');
     }
   })();
 
