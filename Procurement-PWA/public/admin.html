@@ -82,8 +82,8 @@
       }
       const user = await res.json();
       document.getElementById('userDisplay').textContent = user.display_name || user.email;
-      if (user.role !== 'Executive') {
-        alert('Access Denied. You must be an admin to view this page.');
+      if (user.role !== 'Executive' && user.role !== 'Admin') {
+        alert('Access Denied. You must be an Executive or Admin to view this page.');
         window.location.href = '/dashboard.html';
       }
     } catch (e) {

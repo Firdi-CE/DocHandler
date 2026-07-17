@@ -87,6 +87,18 @@
   const token = localStorage.getItem('token');
   if (!token) window.location.href = '/login.html?reason=expired';
 
+  // Gate: only Executive and Admin roles can access admin pages
+  (async () => {
+    try {
+      const res = await fetch('/auth/me', { headers: { 'Authorization': 'Bearer ' + token } });
+      if (res.status === 401) { window.location.href = '/login.html?reason=expired'; return; }
+      const user = await res.json();
+      if (user.role !== 'Executive' && user.role !== 'Admin') {
+        window.location.href = '/dashboard.html';
+      }
+    } catch (e) { /* non-fatal, backend will enforce via 403 */ }
+  })();
+
   let currentUserId = null;
 
   function showStatus(msg, type) {
