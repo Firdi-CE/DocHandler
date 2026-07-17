@@ -97,7 +97,7 @@
 <script>
   const API_BASE = '';
   const token = localStorage.getItem('token');
-  if (!token) window.location.href = '/login.html';
+  if (!token) window.location.href = '/login.html?reason=expired';
 
   let renameProjectId = null;
 
@@ -112,6 +112,7 @@
       const res = await fetch(API_BASE + '/projects', {
         headers: { 'Authorization': 'Bearer ' + token }
       });
+      if (res.status === 401) { logout(); return; }
       if (res.status === 403) { window.location.href = '/dashboard.html'; return; }
       const projects = await res.json();
       const tbody = document.getElementById('projectsBody');
@@ -211,7 +212,7 @@
   function logout() {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
-    window.location.href = '/login.html';
+    window.location.href = '/login.html?reason=expired';
   }
 
   loadProjects();

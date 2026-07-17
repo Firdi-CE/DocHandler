@@ -133,14 +133,14 @@
 <script>
   const API_BASE = '';
   const token = localStorage.getItem('token');
-  if (!token) window.location.href = '/login.html';
+  if (!token) window.location.href = '/login.html?reason=expired';
 
   let currentMode = 'interval';
 
   function logout() {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
-    window.location.href = '/login.html';
+    window.location.href = '/login.html?reason=expired';
   }
 
   function setMode(mode) {

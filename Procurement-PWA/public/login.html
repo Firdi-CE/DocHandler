@@ -38,6 +38,14 @@
     </div>
 
     <script>
+        // Show session-expired message if redirected here from an expired token
+        const reason = new URLSearchParams(window.location.search).get('reason');
+        if (reason === 'expired') {
+            const el = document.getElementById('status');
+            el.textContent = 'Your login session has expired. Please sign in again.';
+            el.style.color = '#b45309'; // amber — informational, not a hard error
+        }
+
         async function handleCredentialResponse(response) {
             const statusEl = document.getElementById('status');
             statusEl.textContent = 'Verifying...';

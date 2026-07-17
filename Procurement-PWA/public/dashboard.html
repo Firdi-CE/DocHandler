@@ -398,7 +398,7 @@
 <script>
   const API_BASE = '';
   const token = localStorage.getItem('token');
-  if (!token) window.location.href = '/login.html';
+  if (!token) window.location.href = '/login.html?reason=expired';
 
   // Req 7: decode JWT for initial role-based UI (backed up by DB re-check on the server)
   let jwtRole = null;
@@ -417,7 +417,7 @@
   function logout() {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
-    window.location.href = '/login.html';
+    window.location.href = '/login.html?reason=expired';
   }
 
   // Load user info

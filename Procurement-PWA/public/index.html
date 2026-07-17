@@ -193,17 +193,18 @@
   function logout() {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
-    window.location.href = '/login.html';
+    window.location.href = '/login.html?reason=expired';
   }
 
   // Check auth
   const token = getToken();
-  if (!token) window.location.href = '/login.html';
+  if (!token) window.location.href = '/login.html?reason=expired';
 
   // Show user info
   (async () => {
     try {
       const res = await fetch(API_BASE + '/auth/me', { headers: { 'Authorization': 'Bearer ' + token } });
+      if (res.status === 401) { logout(); return; }
       const user = await res.json();
       document.getElementById('userDisplay').textContent = user.display_name || user.email;
     } catch (e) {
@@ -218,6 +219,8 @@
         fetch(API_BASE + '/projects', { headers: { 'Authorization': 'Bearer ' + token } }),
         fetch(API_BASE + '/departments', { headers: { 'Authorization': 'Bearer ' + token } }),
       ]);
+
+      if (projRes.status === 401 || deptRes.status === 401) { logout(); return; }
 
       const projects = await projRes.json();
       const depts = await deptRes.json();
@@ -240,7 +243,7 @@
         deptDropdown.appendChild(opt);
       });
     } catch (e) {
-      showStatus('Failed to load data. Is the server running?', 'error');
+      showStatus('Failed to load data. Please check your connection and try again.', 'error');
     }
   };
 
