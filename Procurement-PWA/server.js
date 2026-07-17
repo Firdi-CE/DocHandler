@@ -444,8 +444,8 @@ app.get('/documents/my-inbox', ensureAuthenticated, async (req, res) => {
 
         let queryParams = [];
 
-        if (userRole === 'Executive') {
-            // God Mode: View all documents across the entire company
+        if (userRole === 'Executive' || userRole === 'Admin') {
+            // Executive/Admin: View all documents across the entire company
             baseQuery += ` ORDER BY d.created_at DESC`;
         } else if (userRole === 'Supervisor') {
             // Department Level: View all dept documents OR explicitly assigned projects
@@ -691,14 +691,34 @@ app.get('/auth/me', ensureAuthenticated, async (req, res) => {
     try {
         const result = await db.query(
             `SELECT id, email, display_name, role, department_id,
-                    digest_mode, digest_interval_hours, digest_daily_hour, digest_daily_minute
+                    COALESCE(digest_mode, 'interval')           AS digest_mode,
+                    COALESCE(digest_interval_hours, 4)          AS digest_interval_hours,
+                    COALESCE(digest_daily_hour, 8)              AS digest_daily_hour,
+                    COALESCE(digest_daily_minute, 0)            AS digest_daily_minute
              FROM users WHERE id = $1`,
             [req.user.id]
         );
         if (result.rows.length === 0) return res.status(404).json({ message: 'User not found.' });
         res.json(result.rows[0]);
     } catch (err) {
-        res.status(500).json({ message: 'Failed to load user profile.' });
+        // If digest columns don't exist yet (migration 005 not run), fall back
+        // to a minimal query so the rest of the app still works
+        try {
+            const fallback = await db.query(
+                'SELECT id, email, display_name, role, department_id FROM users WHERE id = $1',
+                [req.user.id]
+            );
+            if (fallback.rows.length === 0) return res.status(404).json({ message: 'User not found.' });
+            res.json({
+                ...fallback.rows[0],
+                digest_mode: 'interval',
+                digest_interval_hours: 4,
+                digest_daily_hour: 8,
+                digest_daily_minute: 0,
+            });
+        } catch (fallbackErr) {
+            res.status(500).json({ message: 'Failed to load user profile.' });
+        }
     }
 });
 
