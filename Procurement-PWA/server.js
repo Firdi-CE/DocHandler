@@ -348,6 +348,25 @@ app.post('/upload', ensureAuthenticated, (req, res) => {
             // and arrive as the string 'true'/'on' when checked -- never a real boolean.
             const isUrgent = req.body.isUrgent === 'true' || req.body.isUrgent === 'on';
 
+            // Req 3: Strict project assignment validation.
+            // Admin/Executive can upload to any project. Staff/Supervisor must be
+            // explicitly assigned to the target project or the upload is rejected.
+            const userRole = req.user.role;
+            const isBypassRole = userRole === 'Admin' || userRole === 'Executive';
+            if (projectId && !isBypassRole) {
+                const assignCheck = await db.query(
+                    'SELECT 1 FROM project_assignments WHERE user_id = $1 AND project_id = $2',
+                    [uploadedBy, projectId]
+                );
+                if (assignCheck.rows.length === 0) {
+                    // File already written by Multer — remove it before rejecting
+                    fs.unlink(req.file.path, (unlinkErr) => {
+                        if (unlinkErr) console.warn('Could not clean up rejected upload:', unlinkErr.message);
+                    });
+                    return res.status(403).json({ message: 'Unauthorized: You are not assigned to this project.' });
+                }
+            }
+
             // Perform strict table transaction mapping elements cleanly to table relations
             const query = `
                 INSERT INTO public.documents (filename, sender_id, recipient_id, project_id, department_id, is_urgent)

@@ -79,6 +79,37 @@
     }
     .status-msg.error { display: block; background: #fef2f2; border: 2px solid #ef4444; color: #b91c1c; }
     .status-msg.success { display: block; background: #ecfdf5; border: 2px solid #10b981; color: #065f46; }
+
+    /* Req 1: Progress bar — hidden until upload starts */
+    .progress-wrap {
+      display: none;
+      margin-bottom: 1rem;
+    }
+    .progress-wrap.visible { display: block; }
+    .progress-label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #555;
+      margin-bottom: 4px;
+      display: flex;
+      justify-content: space-between;
+    }
+    .progress-track {
+      width: 100%;
+      height: 10px;
+      background: #e5e7eb;
+      border-radius: 99px;
+      border: 2px solid #111;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      width: 0%;
+      background: #0284c7;
+      border-radius: 99px;
+      transition: width 0.15s ease;
+    }
+    .progress-fill.complete { background: #10b981; }
   </style>
 </head>
 <body>
@@ -123,7 +154,21 @@
       <label for="urgentCheckbox" style="margin:0;color:#b91c1c;">🔴 Urgent — notify recipient immediately (bypasses digest)</label>
     </div>
 
-    <button type="submit">Send</button>
+    <!-- Req 1: Progress bar (hidden until upload starts) -->
+    <div class="progress-wrap" id="progressWrap">
+      <div class="progress-label">
+        <span>Uploading...</span>
+        <span id="progressPct">0%</span>
+      </div>
+      <div class="progress-track">
+        <div class="progress-fill" id="progressFill"></div>
+      </div>
+    </div>
+
+    <!-- Req 2: Granular error container (hidden until an error occurs) -->
+    <div class="status-msg error" id="uploadError" style="display:none;"></div>
+
+    <button type="submit" id="submitBtn">Send</button>
   </form>
 
   <div class="nav-links">
@@ -223,23 +268,96 @@
     el.className = 'status-msg ' + type;
   }
 
-  document.getElementById('uploadForm').onsubmit = async (e) => {
+  // Req 2: show server error message in the inline error box
+  function showUploadError(msg) {
+    const el = document.getElementById('uploadError');
+    el.textContent = msg;
+    el.style.display = 'block';
+  }
+
+  // Req 2: clear error + progress state before each new attempt
+  function resetUploadUI() {
+    document.getElementById('uploadError').style.display = 'none';
+    document.getElementById('uploadError').textContent = '';
+    document.getElementById('progressWrap').classList.remove('visible');
+    document.getElementById('progressFill').style.width = '0%';
+    document.getElementById('progressFill').classList.remove('complete');
+    document.getElementById('progressPct').textContent = '0%';
+    document.getElementById('submitBtn').disabled = false;
+    document.getElementById('submitBtn').textContent = 'Send';
+  }
+
+  document.getElementById('uploadForm').onsubmit = (e) => {
     e.preventDefault();
+    resetUploadUI();
+
     const formData = new FormData(e.target);
 
-    const res = await fetch(API_BASE + '/upload', {
-      method: 'POST',
-      headers: { 'Authorization': 'Bearer ' + token },
-      body: formData,
-    });
+    // Req 1: use XHR instead of fetch so we can hook upload.onprogress
+    const xhr = new XMLHttpRequest();
 
-    if (res.ok) {
-      showStatus('File uploaded and routed successfully!', 'success');
-      setTimeout(() => window.location.href = '/dashboard.html', 1000);
-    } else {
-      const err = await res.text();
-      showStatus('Error: ' + err, 'error');
-    }
+    // --- Req 1: Progress tracking ---
+    xhr.upload.onprogress = (event) => {
+      if (!event.lengthComputable) return;
+      const pct = Math.round((event.loaded / event.total) * 100);
+      document.getElementById('progressWrap').classList.add('visible');
+      document.getElementById('progressFill').style.width = pct + '%';
+      document.getElementById('progressPct').textContent = pct + '%';
+    };
+
+    xhr.upload.onloadstart = () => {
+      document.getElementById('progressWrap').classList.add('visible');
+      document.getElementById('submitBtn').disabled = true;
+      document.getElementById('submitBtn').textContent = 'Uploading...';
+    };
+
+    // --- Req 2: Response handling ---
+    xhr.onload = () => {
+      document.getElementById('submitBtn').disabled = false;
+      document.getElementById('submitBtn').textContent = 'Send';
+
+      // Parse JSON response regardless of status code
+      let data = {};
+      try { data = JSON.parse(xhr.responseText); } catch (_) {}
+
+      if (xhr.status >= 200 && xhr.status < 300) {
+        // Success: fill bar green then redirect
+        document.getElementById('progressFill').style.width = '100%';
+        document.getElementById('progressFill').classList.add('complete');
+        document.getElementById('progressPct').textContent = '100%';
+        showStatus('File uploaded and routed successfully!', 'success');
+        setTimeout(() => window.location.href = '/dashboard.html', 1200);
+      } else {
+        // Req 2: read the JSON message from the server and display it in red
+        const errMsg = data.message || `Upload failed (HTTP ${xhr.status}). Please try again.`;
+        showUploadError(errMsg);
+        // Reset progress bar so it doesn't sit at a partial state
+        document.getElementById('progressFill').style.width = '0%';
+        document.getElementById('progressPct').textContent = '0%';
+      }
+    };
+
+    // Network-level failure (no response at all — offline, DNS failure, etc.)
+    xhr.onerror = () => {
+      document.getElementById('submitBtn').disabled = false;
+      document.getElementById('submitBtn').textContent = 'Send';
+      showUploadError('Network error: could not reach the server. Please check your connection.');
+      document.getElementById('progressFill').style.width = '0%';
+      document.getElementById('progressPct').textContent = '0%';
+    };
+
+    // User or browser aborted the request
+    xhr.onabort = () => {
+      document.getElementById('submitBtn').disabled = false;
+      document.getElementById('submitBtn').textContent = 'Send';
+      showUploadError('Upload cancelled.');
+      document.getElementById('progressFill').style.width = '0%';
+      document.getElementById('progressPct').textContent = '0%';
+    };
+
+    xhr.open('POST', API_BASE + '/upload');
+    xhr.setRequestHeader('Authorization', 'Bearer ' + token);
+    xhr.send(formData);
   };
 </script>
 </body>
