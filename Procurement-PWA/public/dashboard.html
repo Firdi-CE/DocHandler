@@ -383,6 +383,34 @@
     </div>
   </div>
 </div>
+<!-- Multi-level approval chain setup modal -->
+<div class="modal-overlay" id="chainModal">
+  <div class="modal">
+    <h3>Set Approval Chain</h3>
+    <p style="font-size:0.8rem;color:#666;margin-bottom:0.5rem;" id="chainDocName"></p>
+    <p style="font-size:0.75rem;color:#888;">Click approvers in the order they should review, top to bottom.</p>
+    <div id="chainAvailableList" style="max-height:140px;overflow-y:auto;border:1px solid #e5e7eb;border-radius:6px;padding:6px;margin:8px 0;"></div>
+    <p style="font-size:0.75rem;color:#888;margin-top:8px;">Order (Level 1 first):</p>
+    <ol id="chainOrderedList" style="padding-left:1.2rem;font-size:0.85rem;"></ol>
+    <div class="btn-group">
+      <button class="btn-save" onclick="confirmChain()">Save Chain</button>
+      <button class="btn-cancel" onclick="closeChainModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Approval chain progress / history modal -->
+<div class="modal-overlay" id="chainHistoryModal">
+  <div class="modal">
+    <h3>Approval Progress</h3>
+    <p style="font-size:0.8rem;color:#666;margin-bottom:0.5rem;" id="chainHistoryDocName"></p>
+    <div id="chainHistoryBody" style="font-size:0.85rem;"></div>
+    <div class="btn-group">
+      <button class="btn-cancel" onclick="closeChainHistoryModal()">Close</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="pdfModal">
   <div class="pdf-modal">
     <div class="pdf-modal-header">
@@ -413,6 +441,9 @@
   // Req 2: approval modal state
   let pendingApprovalDocId = null;
   let pendingApprovalStatus = null;
+  let pendingChainDocId = null;
+  let chainOrder = []; // [{id, display_name}] in click order
+  let approversCache = null;
 
   function logout() {
     localStorage.removeItem('token');
@@ -420,41 +451,68 @@
     window.location.href = '/login.html';
   }
 
+  // Sequential init: auth/me -> projects -> loadDocs (fixes race where currentUser was null on button render)
   async function initDashboard() {
-  try {
-    const res = await fetch(API_BASE + '/auth/me', { headers: { 'Authorization': 'Bearer ' + token } });
-    if (res.status === 401) { window.location.href = '/login.html?reason=expired'; return; }
-    currentUser = await res.json();
-    document.getElementById('userDisplay').textContent = currentUser.display_name || currentUser.email;
-    const isAdmin = currentUser.role === 'Executive' || currentUser.role === 'Admin';
-    if (isAdmin) {
-      document.getElementById('adminLink').style.display = 'inline';
-      const topbar = document.querySelector('.topbar');
-      const adminNav = document.createElement('div');
-      adminNav.style.cssText = 'display:flex;gap:10px;';
-      adminNav.innerHTML = `
-        <button onclick="window.location.href='/admin.html'" style="background:#111;color:white;padding:6px 12px;border-radius:6px;cursor:pointer;border:none;">Admin Portal</button>
-        <button onclick="window.location.href='/admin/projects.html'" style="background:#111;color:white;padding:6px 12px;border-radius:6px;cursor:pointer;border:none;">Projects</button>
-      `;
-      topbar.appendChild(adminNav);
+    try {
+      const res = await fetch(API_BASE + '/auth/me', { headers: { 'Authorization': 'Bearer ' + token } });
+      if (res.status === 401) { window.location.href = '/login.html?reason=expired'; return; }
+      currentUser = await res.json();
+      document.getElementById('userDisplay').textContent = currentUser.display_name || currentUser.email;
+      const isAdmin = currentUser.role === 'Executive' || currentUser.role === 'Admin';
+      if (isAdmin) {
+        document.getElementById('adminLink').style.display = 'inline';
+        // Req 7: dynamic admin nav for Admin role
+        const topbar = document.querySelector('.topbar');
+        const adminNav = document.createElement('div');
+        adminNav.style.cssText = 'display:flex;gap:10px;';
+        adminNav.innerHTML = `
+          <button onclick="window.location.href='/admin.html'" style="background:#111;color:white;padding:6px 12px;border-radius:6px;cursor:pointer;border:none;">Admin Portal</button>
+          <button onclick="window.location.href='/admin/projects.html'" style="background:#111;color:white;padding:6px 12px;border-radius:6px;cursor:pointer;border:none;">Projects</button>
+        `;
+        topbar.appendChild(adminNav);
+      }
+    } catch (e) { /* non-fatal — page still works without display name */ }
+
+    try {
+      const res = await fetch(API_BASE + '/projects', { headers: { 'Authorization': 'Bearer ' + token } });
+      const projects = await res.json();
+      const filter = document.getElementById('projectFilter');
+      projects.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.id; opt.textContent = p.name;
+        filter.appendChild(opt);
+      });
+    } catch (e) {}
+
+    await loadDocs();
+  }
+
+  initDashboard();
+
+  // Req 4: tab switching
+  async function switchTab(tab) {
+    currentTab = tab;
+    document.getElementById('tabInbox').classList.toggle('active', tab === 'inbox');
+    document.getElementById('tabSent').classList.toggle('active', tab === 'sent');
+    document.getElementById('pageTitle').textContent = tab === 'inbox' ? '📥 My Inbox' : '📤 Sent';
+    document.getElementById('thFromTo').textContent = tab === 'inbox' ? 'From' : 'To';
+    document.getElementById('filterBar').style.display = tab === 'inbox' ? 'flex' : 'none';
+    await loadDocs();
+  }
+
+  async function loadDocs() {
+    const endpoint = currentTab === 'inbox' ? '/documents/my-inbox' : '/documents/my-outbox';
+    try {
+      const res = await fetch(API_BASE + endpoint, { headers: { 'Authorization': 'Bearer ' + token } });
+      if (res.status === 401) { window.location.href = '/login.html?reason=expired'; return; }
+      allDocs = await res.json();
+      if (currentTab === 'inbox') populateFilterOptions();
+      renderAll();
+    } catch (e) {
+      document.getElementById('docTableBody').innerHTML =
+        '<tr><td colspan="7" class="empty-state"><p>Failed to load.</p></td></tr>';
     }
-  } catch (e) { /* non-fatal — page still works without display name */ }
-
-  try {
-    const res = await fetch(API_BASE + '/projects', { headers: { 'Authorization': 'Bearer ' + token } });
-    const projects = await res.json();
-    const filter = document.getElementById('projectFilter');
-    projects.forEach(p => {
-      const opt = document.createElement('option');
-      opt.value = p.id; opt.textContent = p.name;
-      filter.appendChild(opt);
-    });
-  } catch (e) {}
-
-  await loadDocs(); // now runs after currentUser is set
-}
-
-initDashboard();
+  }
 
   function getFileExt(filename) {
     if (!filename || !filename.includes('.')) return 'Other';
@@ -502,15 +560,41 @@ initDashboard();
       btns += ` <button class="btn btn-rename" onclick="openRename(${d.id},'${baseName.replace(/'/g, "\\'")}')">Rename</button>`;
     }
 
-    // Req 2+7: approval buttons open the notes modal
+    const hasChain = (d.chain_total_levels || 0) > 0;
+    const safeName = d.filename.replace(/'/g, "\\'");
+
+    // Anyone who can set a chain (sender in outbox, Executive/Admin anywhere)
+    // gets a button to define or redefine it, as long as it hasn't finished.
+    const st = (d.status || 'pending').toLowerCase();
+    const canManageChain = isApprover() || (currentTab === 'sent' && currentUser && d.sender_id === currentUser.id);
+    if (canManageChain && st !== 'approved') {
+      btns += ` <button class="btn btn-rename" onclick="openChainModal(${d.id}, '${safeName}')">${hasChain ? 'Edit Chain' : 'Set Chain'}</button>`;
+    }
+    if (hasChain) {
+      btns += ` <button class="btn btn-rename" onclick="openChainHistoryModal(${d.id}, '${safeName}')">Progress</button>`;
+    }
+
+    if (hasChain) {
+      // Multi-level: only the assigned approver for the CURRENT level can act,
+      // and there's no single "Undo" once a chain is running (rejections
+      // already bounce back to the previous level automatically).
+      if (st === 'pending' && currentUser && d.chain_next_approver_id === currentUser.id) {
+        btns += ` <button class="btn btn-approve" onclick="openApprovalModal(${d.id}, '${safeName}', 'approved')">Approve (Lvl ${d.current_level})</button>`;
+        btns += ` <button class="btn btn-reject" onclick="openApprovalModal(${d.id}, '${safeName}', 'rejected')">Reject (Lvl ${d.current_level})</button>`;
+      } else if (st === 'pending') {
+        btns += ` <span class="badge badge-pending" title="Level ${d.current_level} of ${d.chain_total_levels}">Awaiting ${d.chain_next_approver_name || '—'}</span>`;
+      }
+      return btns;
+    }
+
+    // Req 2+7: single-step approval (legacy path, no chain defined)
     if (isApprover() && currentTab === 'inbox') {
-      const st = (d.status || 'pending').toLowerCase();
       if (st !== 'approved')
-        btns += ` <button class="btn btn-approve" onclick="openApprovalModal(${d.id}, '${d.filename.replace(/'/g,"\\'")}', 'approved')">Approve</button>`;
+        btns += ` <button class="btn btn-approve" onclick="openApprovalModal(${d.id}, '${safeName}', 'approved')">Approve</button>`;
       if (st !== 'rejected')
-        btns += ` <button class="btn btn-reject" onclick="openApprovalModal(${d.id}, '${d.filename.replace(/'/g,"\\'")}', 'rejected')">Reject</button>`;
+        btns += ` <button class="btn btn-reject" onclick="openApprovalModal(${d.id}, '${safeName}', 'rejected')">Reject</button>`;
       if (st !== 'pending')
-        btns += ` <button class="btn btn-undo" onclick="openApprovalModal(${d.id}, '${d.filename.replace(/'/g,"\\'")}', 'pending')">Undo</button>`;
+        btns += ` <button class="btn btn-undo" onclick="openApprovalModal(${d.id}, '${safeName}', 'pending')">Undo</button>`;
     }
     return btns;
   }
@@ -653,8 +737,13 @@ initDashboard();
 
   async function confirmApproval() {
     const notes = document.getElementById('approvalNotes').value.trim();
+    const doc = allDocs.find(d => d.id === pendingApprovalDocId);
+    const hasChain = doc && (doc.chain_total_levels || 0) > 0;
+    const url = hasChain
+      ? API_BASE + '/documents/' + pendingApprovalDocId + '/approval-step'
+      : API_BASE + '/documents/' + pendingApprovalDocId + '/status';
     try {
-      const res = await fetch(API_BASE + '/documents/' + pendingApprovalDocId + '/status', {
+      const res = await fetch(url, {
         method: 'PATCH',
         headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: pendingApprovalStatus, notes })
@@ -665,6 +754,92 @@ initDashboard();
     } catch (err) {
       alert('Network error while updating status.');
     }
+  }
+
+  // --- Multi-level approval chain setup ---
+  async function openChainModal(docId, filename) {
+    pendingChainDocId = docId;
+    chainOrder = [];
+    document.getElementById('chainDocName').textContent = filename;
+    if (!approversCache) {
+      try {
+        const res = await fetch(API_BASE + '/users/approvers', { headers: { 'Authorization': 'Bearer ' + token } });
+        approversCache = res.ok ? await res.json() : [];
+      } catch (e) { approversCache = []; }
+    }
+    renderChainAvailable();
+    renderChainOrdered();
+    document.getElementById('chainModal').classList.add('open');
+  }
+  function closeChainModal() {
+    document.getElementById('chainModal').classList.remove('open');
+    pendingChainDocId = null;
+  }
+  function renderChainAvailable() {
+    const list = document.getElementById('chainAvailableList');
+    const chosenIds = new Set(chainOrder.map(a => a.id));
+    const remaining = (approversCache || []).filter(a => !chosenIds.has(a.id));
+    list.innerHTML = remaining.length
+      ? remaining.map(a => `<div style="padding:4px;cursor:pointer;" onclick="addToChain(${a.id}, '${(a.display_name || a.email).replace(/'/g, "\\'")}')">➕ ${a.display_name || a.email} <span style="color:#888;font-size:0.75em;">(${a.role})</span></div>`).join('')
+      : '<div style="color:#888;padding:4px;">No more eligible approvers</div>';
+  }
+  function renderChainOrdered() {
+    const ol = document.getElementById('chainOrderedList');
+    ol.innerHTML = chainOrder.length
+      ? chainOrder.map((a, i) => `<li>${a.display_name} <button onclick="removeFromChain(${i})" style="border:none;background:none;color:#ef4444;cursor:pointer;">✕</button></li>`).join('')
+      : '<li style="color:#888;list-style:none;margin-left:-1.2rem;">No approvers selected yet</li>';
+  }
+  function addToChain(id, displayName) {
+    chainOrder.push({ id, display_name: displayName });
+    renderChainAvailable();
+    renderChainOrdered();
+  }
+  function removeFromChain(index) {
+    chainOrder.splice(index, 1);
+    renderChainAvailable();
+    renderChainOrdered();
+  }
+  async function confirmChain() {
+    if (chainOrder.length === 0) { alert('Add at least one approver.'); return; }
+    try {
+      const res = await fetch(API_BASE + '/documents/' + pendingChainDocId + '/approval-chain', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ approver_ids: chainOrder.map(a => a.id) })
+      });
+      const data = await res.json();
+      if (res.ok) { closeChainModal(); await loadDocs(); }
+      else alert(data.message || 'Failed to save approval chain.');
+    } catch (err) {
+      alert('Network error while saving approval chain.');
+    }
+  }
+
+  // --- Multi-level approval progress / history ---
+  async function openChainHistoryModal(docId, filename) {
+    document.getElementById('chainHistoryDocName').textContent = filename;
+    document.getElementById('chainHistoryBody').innerHTML = 'Loading…';
+    document.getElementById('chainHistoryModal').classList.add('open');
+    try {
+      const res = await fetch(API_BASE + '/documents/' + docId + '/approval-chain', { headers: { 'Authorization': 'Bearer ' + token } });
+      const data = await res.json();
+      if (!res.ok) { document.getElementById('chainHistoryBody').textContent = data.message || 'Failed to load.'; return; }
+      const stepRows = data.steps.map(s => {
+        const icon = s.status === 'approved' ? '✅' : s.status === 'rejected' ? '❌' : s.status === 'pending' ? '🕓' : '⏳';
+        return `<div style="padding:4px 0;border-bottom:1px solid #f0f0f0;">${icon} <strong>Level ${s.level}:</strong> ${s.approver_name} — ${s.status}${s.decided_at ? ' · ' + new Date(s.decided_at).toLocaleString() : ''}${s.comments ? `<br><span style="color:#666;font-size:0.85em;">"${s.comments}"</span>` : ''}</div>`;
+      }).join('');
+      const historyRows = data.history.length
+        ? '<h4 style="margin-top:10px;">Full History</h4>' + data.history.map(h =>
+            `<div style="padding:3px 0;font-size:0.8em;color:#666;">L${h.level} — ${h.approver_name} ${h.action} on ${new Date(h.created_at).toLocaleString()}</div>`
+          ).join('')
+        : '';
+      document.getElementById('chainHistoryBody').innerHTML = (stepRows || 'No chain steps.') + historyRows;
+    } catch (err) {
+      document.getElementById('chainHistoryBody').textContent = 'Network error while loading progress.';
+    }
+  }
+  function closeChainHistoryModal() {
+    document.getElementById('chainHistoryModal').classList.remove('open');
   }
 
   // --- Req 4: Download ---

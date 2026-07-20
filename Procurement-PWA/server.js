@@ -175,7 +175,12 @@ app.get('/documents/my-outbox', ensureAuthenticated, async (req, res) => {
         const result = await db.query(`
             SELECT d.*, p.name as project_name,
                    recipient.email as recipient_email, recipient.display_name as recipient_name,
-                   dept.name as department_name
+                   dept.name as department_name,
+                   (SELECT COUNT(*)::int FROM approval_chain_steps s WHERE s.document_id = d.id) as chain_total_levels,
+                   (SELECT u2.display_name FROM approval_chain_steps s2 JOIN users u2 ON u2.id = s2.approver_id
+                      WHERE s2.document_id = d.id AND s2.level = d.current_level) as chain_next_approver_name,
+                   (SELECT s3.approver_id FROM approval_chain_steps s3
+                      WHERE s3.document_id = d.id AND s3.level = d.current_level) as chain_next_approver_id
             FROM documents d
             LEFT JOIN projects p ON d.project_id = p.id
             LEFT JOIN users recipient ON d.recipient_id = recipient.id
@@ -435,7 +440,12 @@ app.get('/documents/my-inbox', ensureAuthenticated, async (req, res) => {
 
         let baseQuery = `
             SELECT d.*, p.name as project_name, u_sender.email as sender_email,
-                   u_sender.display_name as sender_name, dept.name as department_name
+                   u_sender.display_name as sender_name, dept.name as department_name,
+                   (SELECT COUNT(*)::int FROM approval_chain_steps s WHERE s.document_id = d.id) as chain_total_levels,
+                   (SELECT u2.display_name FROM approval_chain_steps s2 JOIN users u2 ON u2.id = s2.approver_id
+                      WHERE s2.document_id = d.id AND s2.level = d.current_level) as chain_next_approver_name,
+                   (SELECT s3.approver_id FROM approval_chain_steps s3
+                      WHERE s3.document_id = d.id AND s3.level = d.current_level) as chain_next_approver_id
             FROM documents d
             LEFT JOIN projects p ON d.project_id = p.id
             LEFT JOIN users u_sender ON d.sender_id = u_sender.id
@@ -805,6 +815,14 @@ app.patch('/documents/:id/status', ensureAuthenticated, async (req, res) => {
             return res.status(400).json({ message: 'Invalid status. Must be approved, rejected, or pending.' });
         }
 
+        // If this document has a defined approval chain, decisions must go
+        // through PATCH /documents/:id/approval-step instead, so the chain's
+        // per-level tracking doesn't get bypassed/overwritten.
+        const chainRes = await db.query('SELECT 1 FROM approval_chain_steps WHERE document_id = $1 LIMIT 1', [documentId]);
+        if (chainRes.rows.length > 0) {
+            return res.status(409).json({ message: 'This document has a multi-level approval chain. Use the approval-step endpoint instead.' });
+        }
+
         // Req 2: persist notes alongside the status update
         const result = await db.query(
             'UPDATE documents SET status = $1, notes = $2 WHERE id = $3 RETURNING *',
@@ -858,6 +876,191 @@ app.patch('/documents/:id/status', ensureAuthenticated, async (req, res) => {
     } catch (err) {
         console.error('Approval Workflow Error:', err);
         res.status(500).json({ message: 'Database error updating document status.' });
+    }
+});
+
+// --- 6b. MULTI-LEVEL APPROVAL CHAINS ---
+
+// Any authenticated user can see who's eligible to be added to an approval
+// chain (needed by senders, not just Admins, when building a chain).
+app.get('/users/approvers', ensureAuthenticated, async (req, res) => {
+    try {
+        const result = await db.query(
+            `SELECT id, display_name, email, role FROM users
+             WHERE role IN ('Supervisor', 'Executive', 'Admin') AND is_approved = TRUE
+             ORDER BY display_name ASC`
+        );
+        res.json(result.rows);
+    } catch (err) {
+        console.error('Approvers List Error:', err);
+        res.status(500).json({ message: 'Database error fetching eligible approvers.' });
+    }
+});
+
+// Define (or replace) the ordered list of approvers for a document.
+// Only the original sender, an Executive, or an Admin may set this.
+app.post('/documents/:id/approval-chain', ensureAuthenticated, async (req, res) => {
+    const documentId = req.params.id;
+    const { approver_ids } = req.body;
+    try {
+        if (!Array.isArray(approver_ids) || approver_ids.length === 0) {
+            return res.status(400).json({ message: 'approver_ids must be a non-empty ordered array of user ids.' });
+        }
+
+        const docRes = await db.query('SELECT * FROM documents WHERE id = $1', [documentId]);
+        if (docRes.rows.length === 0) return res.status(404).json({ message: 'Document not found.' });
+        const doc = docRes.rows[0];
+
+        const liveRoleRes = await db.query('SELECT role FROM users WHERE id = $1', [req.user.id]);
+        const liveRole = liveRoleRes.rows[0]?.role;
+        const canDefine = liveRole === 'Executive' || liveRole === 'Admin' || doc.sender_id === req.user.id;
+        if (!canDefine) return res.status(403).json({ message: 'Only the sender, an Executive, or an Admin can set the approval chain.' });
+
+        // Confirm every id is a real user before wiping the old chain.
+        const usersRes = await db.query('SELECT id FROM users WHERE id = ANY($1::int[])', [approver_ids]);
+        if (usersRes.rows.length !== approver_ids.length) {
+            return res.status(400).json({ message: 'One or more approver_ids do not match a real user.' });
+        }
+
+        await db.query('DELETE FROM approval_chain_steps WHERE document_id = $1', [documentId]);
+        for (let i = 0; i < approver_ids.length; i++) {
+            const level = i + 1;
+            await db.query(
+                `INSERT INTO approval_chain_steps (document_id, level, approver_id, status)
+                 VALUES ($1, $2, $3, $4)`,
+                [documentId, level, approver_ids[i], level === 1 ? 'pending' : 'waiting']
+            );
+        }
+        await db.query(
+            `UPDATE documents SET current_level = 1, status = 'pending' WHERE id = $1`,
+            [documentId]
+        );
+        await auditLog(req.user.id, 'APPROVAL_CHAIN_SET', documentId);
+
+        res.status(201).json({ message: `Approval chain set with ${approver_ids.length} level(s).` });
+    } catch (err) {
+        console.error('Approval Chain Set Error:', err);
+        res.status(500).json({ message: 'Database error setting approval chain.' });
+    }
+});
+
+// Read the chain's current steps plus the full decision history for a document.
+app.get('/documents/:id/approval-chain', ensureAuthenticated, async (req, res) => {
+    const documentId = req.params.id;
+    try {
+        const steps = await db.query(
+            `SELECT s.level, s.status, s.comments, s.decided_at, u.id as approver_id, u.display_name as approver_name
+             FROM approval_chain_steps s JOIN users u ON u.id = s.approver_id
+             WHERE s.document_id = $1 ORDER BY s.level ASC`,
+            [documentId]
+        );
+        const history = await db.query(
+            `SELECT a.level, a.action, a.comments, a.created_at, u.display_name as approver_name
+             FROM approvals a LEFT JOIN users u ON u.id = a.approved_by
+             WHERE a.document_id = $1 AND a.action IS NOT NULL ORDER BY a.created_at ASC`,
+            [documentId]
+        );
+        res.json({ steps: steps.rows, history: history.rows });
+    } catch (err) {
+        console.error('Approval Chain Fetch Error:', err);
+        res.status(500).json({ message: 'Database error fetching approval chain.' });
+    }
+});
+
+// Act on the CURRENT level of a document's chain (approve or reject).
+// Approve: activates the next level, or finalizes the document if this was the last level.
+// Reject:  level 1 has no prior step, so the document is finalized as rejected;
+//          any later level bounces the document back to the previous level for revision.
+app.patch('/documents/:id/approval-step', ensureAuthenticated, async (req, res) => {
+    const documentId = req.params.id;
+    const { status, notes } = req.body;
+    if (!['approved', 'rejected'].includes(status)) {
+        return res.status(400).json({ message: 'Invalid status. Must be approved or rejected.' });
+    }
+    try {
+        const docRes = await db.query('SELECT * FROM documents WHERE id = $1', [documentId]);
+        if (docRes.rows.length === 0) return res.status(404).json({ message: 'Document not found.' });
+        const doc = docRes.rows[0];
+
+        const curStepRes = await db.query(
+            `SELECT * FROM approval_chain_steps WHERE document_id = $1 AND level = $2`,
+            [documentId, doc.current_level]
+        );
+        if (curStepRes.rows.length === 0) return res.status(404).json({ message: 'No approval chain is set for this document.' });
+        const curStep = curStepRes.rows[0];
+
+        const liveRoleRes = await db.query('SELECT role FROM users WHERE id = $1', [req.user.id]);
+        const liveRole = liveRoleRes.rows[0]?.role;
+        const isAdmin = liveRole === 'Admin';
+        if (curStep.approver_id !== req.user.id && !isAdmin) {
+            return res.status(403).json({ message: 'You are not the assigned approver for the current level.' });
+        }
+        if (curStep.status !== 'pending') {
+            return res.status(409).json({ message: 'This level is not currently awaiting a decision.' });
+        }
+
+        // Append-only history entry, in order, regardless of what happens next.
+        await db.query(
+            `INSERT INTO approvals (document_id, approved_by, level, action, status, comments)
+             VALUES ($1, $2, $3, $4, $4, $5)`,
+            [documentId, req.user.id, doc.current_level, status, notes || null]
+        );
+        await auditLog(req.user.id, `APPROVAL_STEP_${status.toUpperCase()}:L${doc.current_level}`, documentId);
+
+        const totalLevelsRes = await db.query(
+            `SELECT COUNT(*)::int as total FROM approval_chain_steps WHERE document_id = $1`,
+            [documentId]
+        );
+        const totalLevels = totalLevelsRes.rows[0].total;
+        let newDocStatus = doc.status;
+        let newCurrentLevel = doc.current_level;
+
+        if (status === 'approved') {
+            await db.query(
+                `UPDATE approval_chain_steps SET status = 'approved', comments = $1, decided_at = NOW() WHERE document_id = $2 AND level = $3`,
+                [notes || null, documentId, doc.current_level]
+            );
+            if (doc.current_level >= totalLevels) {
+                newDocStatus = 'approved';
+            } else {
+                newCurrentLevel = doc.current_level + 1;
+                await db.query(
+                    `UPDATE approval_chain_steps SET status = 'pending' WHERE document_id = $1 AND level = $2`,
+                    [documentId, newCurrentLevel]
+                );
+            }
+        } else {
+            // rejected
+            await db.query(
+                `UPDATE approval_chain_steps SET status = 'rejected', comments = $1, decided_at = NOW() WHERE document_id = $2 AND level = $3`,
+                [notes || null, documentId, doc.current_level]
+            );
+            if (doc.current_level <= 1) {
+                newDocStatus = 'rejected';
+            } else {
+                // Bounce back: previous level re-opens for revision, current level resets to unreached.
+                newCurrentLevel = doc.current_level - 1;
+                await db.query(
+                    `UPDATE approval_chain_steps SET status = 'pending', comments = NULL, decided_at = NULL WHERE document_id = $1 AND level = $2`,
+                    [documentId, newCurrentLevel]
+                );
+                await db.query(
+                    `UPDATE approval_chain_steps SET status = 'waiting', comments = NULL, decided_at = NULL WHERE document_id = $1 AND level = $2`,
+                    [documentId, doc.current_level]
+                );
+                newDocStatus = 'pending';
+            }
+        }
+
+        const updated = await db.query(
+            `UPDATE documents SET status = $1, current_level = $2, notes = $3 WHERE id = $4 RETURNING *`,
+            [newDocStatus, newCurrentLevel, notes || doc.notes, documentId]
+        );
+
+        res.json({ message: `Level ${doc.current_level} ${status}.`, document: updated.rows[0] });
+    } catch (err) {
+        console.error('Approval Step Error:', err);
+        res.status(500).json({ message: 'Database error processing approval step.' });
     }
 });
 // --- 7. DIGEST NOTIFICATION SCHEDULING ---
