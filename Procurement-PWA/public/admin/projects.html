@@ -4,64 +4,41 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Projects — Admin</title>
+  <link rel="stylesheet" href="/theme.css">
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'Segoe UI', system-ui, sans-serif; background: #f4f7f6; padding: 2rem; }
-    .topbar {
-      display: flex; justify-content: space-between; align-items: center;
-      max-width: 700px; margin: 0 auto 1.5rem;
-    }
-    .topbar h2 { font-size: 1.4rem; }
-    .topbar button { background: none; border: 2px solid #111; border-radius: 6px; padding: 4px 12px; cursor: pointer; font-weight: 600; }
-    .card { background: white; border: 3px solid #111; border-radius: 16px; box-shadow: 8px 8px 0 #111; padding: 2rem; max-width: 700px; margin: auto; }
-    .nav-links { display: flex; gap: 1rem; margin-bottom: 1.5rem; }
-    .nav-links a { color: #0284c7; font-size: 0.9rem; font-weight: 600; }
+    body { padding: 2rem; }
+    .topbar { max-width: 700px; }
+    .card { max-width: 700px; }
     .form-row { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; }
-    .form-row input { flex: 1; padding: 10px; border: 2px solid #111; border-radius: 8px; font-size: 0.95rem; }
-    .form-row button { background: #0284c7; color: white; border: 2px solid #111; border-radius: 8px; padding: 10px 20px; cursor: pointer; font-weight: 700; }
-    .form-row button:hover { background: #026aa7; }
+    .form-row input { flex: 1; }
+    .form-row button { background: var(--steel); color: white; border: none; border-radius: 6px; padding: 10px 20px; cursor: pointer; font-weight: 700; }
+    .form-row button:hover { background: var(--steel-hover); }
     table { width: 100%; border-collapse: collapse; }
-    th { text-align: left; padding: 0.75rem 0.5rem; border-bottom: 2px solid #111; font-size: 0.8rem; text-transform: uppercase; color: #555; }
-    td { padding: 0.75rem 0.5rem; border-bottom: 1px solid #e5e7eb; font-size: 0.9rem; }
-    .project-list { list-style: none; }
-    .project-list li { padding: 0.5rem 0; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; }
+    th { text-align: left; padding: 0.75rem 0.5rem; border-bottom: 1px solid var(--border); font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted); }
+    td { padding: 0.75rem 0.5rem; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
     .status-msg { padding: 0.75rem; border-radius: 8px; margin-bottom: 1rem; display: none; }
-    .status-msg.success { display: block; background: #ecfdf5; border: 2px solid #10b981; color: #065f46; }
-    .status-msg.error { display: block; background: #fef2f2; border: 2px solid #ef4444; color: #b91c1c; }
-    .btn-rename { background: #f59e0b; color: white; border: 2px solid #111; border-radius: 6px; padding: 4px 12px; cursor: pointer; font-weight: 600; font-size: 0.8rem; }
-    .btn-rename:hover { background: #d97706; }
-    .btn-delete { background: #ef4444; color: white; border: 2px solid #111; border-radius: 6px; padding: 4px 12px; cursor: pointer; font-weight: 600; font-size: 0.8rem; }
-    .btn-delete:hover { background: #b91c1c; }
-    .modal-overlay {
-      display: none; position: fixed; top:0; left:0; width:100%; height:100%;
-      background: rgba(0,0,0,0.4); justify-content: center; align-items: center;
-    }
-    .modal-overlay.open { display: flex; }
-    .modal {
-      background: white; border: 3px solid #111; border-radius: 16px;
-      box-shadow: 8px 8px 0 #111; padding: 2rem; max-width: 500px; width: 90%;
-    }
-    .modal h3 { margin-bottom: 1rem; }
-    .modal label { display: block; font-weight: 600; margin: 0.5rem 0 0.25rem; }
-    .modal input { width: 100%; padding: 8px; border: 2px solid #111; border-radius: 6px; margin-bottom: 0.5rem; }
-    .modal .btn-group { display: flex; gap: 0.5rem; margin-top: 1rem; }
-    .modal .btn-save { background: #10b981; color: white; border: 2px solid #111; border-radius: 6px; padding: 8px 16px; cursor: pointer; font-weight: 600; }
-    .modal .btn-cancel { background: #e5e7eb; border: 2px solid #111; border-radius: 6px; padding: 8px 16px; cursor: pointer; font-weight: 600; }
+    .status-msg.success { display: block; background: var(--green-bg); border: 1px solid var(--green-border); color: var(--green-text); }
+    .status-msg.error { display: block; background: var(--red-bg); border: 1px solid var(--red-border); color: var(--red-text); }
+    .btn-rename { background: #854F0B; color: white; border: none; border-radius: 6px; padding: 4px 12px; cursor: pointer; font-weight: 600; font-size: 0.8rem; }
+    .btn-rename:hover { background: #6c3f08; }
+    .btn-delete { background: #A32D2D; color: white; border: none; border-radius: 6px; padding: 4px 12px; cursor: pointer; font-weight: 600; font-size: 0.8rem; }
+    .btn-delete:hover { background: #872424; }
+    .modal .btn-save { background: var(--steel); color: white; }
   </style>
 </head>
 <body>
 
 <div class="topbar">
-  <h2>📁 Admin — Projects</h2>
-  <button onclick="logout()">Sign Out</button>
+  <h2>Admin — Projects</h2>
+  <button onclick="logout()">Sign out</button>
 </div>
 
 <div class="card">
   <div class="nav-links">
-    <a href="approvals.html">📋 Approvals</a>
-    <a href="users.html">👥 User Management</a>
-    <a href="projects.html">📁 Projects</a>
-    <a href="/dashboard.html">← Dashboard</a>
+    <a href="approvals.html">Approvals</a>
+    <a href="users.html">User Management</a>
+    <a href="projects.html">Projects</a>
+    <a href="/dashboard.html">&larr; Dashboard</a>
   </div>
 
   <div id="statusMessage" class="status-msg"></div>
@@ -76,7 +53,7 @@
   <table>
     <thead><tr><th>ID</th><th>Name</th><th>Actions</th></tr></thead>
     <tbody id="projectsBody">
-      <tr><td colspan="3" style="text-align:center;padding:2rem;color:#888;">Loading...</td></tr>
+      <tr><td colspan="3" style="text-align:center;padding:2rem;color:var(--text-muted);">Loading...</td></tr>
     </tbody>
   </table>
 </div>

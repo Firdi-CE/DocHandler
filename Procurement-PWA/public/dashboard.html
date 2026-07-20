@@ -4,317 +4,21 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>My Inbox — DocHandler</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      font-family: 'Segoe UI', system-ui, sans-serif;
-      background: #f4f7f6;
-      padding: 1rem;
-    }
-    .topbar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      max-width: 1000px;
-      margin: 0 auto 1rem;
-      flex-wrap: wrap;
-      gap: 0.5rem;
-    }
-    .topbar h2 { font-size: 1.2rem; color: #111; }
-    .topbar .user-info {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      font-size: 0.8rem;
-      color: #555;
-    }
-    .topbar button {
-      background: none;
-      border: 2px solid #111;
-      border-radius: 6px;
-      padding: 4px 10px;
-      cursor: pointer;
-      font-weight: 600;
-      font-size: 0.8rem;
-      white-space: nowrap;
-    }
-    .card {
-      background: white;
-      border: 3px solid #111;
-      border-radius: 16px;
-      box-shadow: 8px 8px 0 #111;
-      padding: 1rem;
-      max-width: 1000px;
-      margin: auto;
-    }
-    .nav-links {
-      display: flex;
-      gap: 0.75rem;
-      margin-bottom: 1rem;
-      flex-wrap: wrap;
-    }
-    .nav-links a {
-      color: #0284c7;
-      font-size: 0.85rem;
-      font-weight: 600;
-    }
-    .filter-bar {
-      margin-bottom: 1rem;
-      display: flex;
-      gap: 0.5rem;
-      align-items: center;
-      flex-wrap: wrap;
-    }
-    .filter-bar label { font-size: 0.85rem; font-weight: 600; }
-    .filter-bar select {
-      padding: 6px 10px;
-      border: 2px solid #111;
-      border-radius: 6px;
-      font-size: 0.85rem;
-      flex: 1;
-      min-width: 140px;
-    }
-    .filter-bar .btn-clear-filters {
-      background: #e5e7eb;
-      border: 2px solid #111;
-      border-radius: 6px;
-      padding: 6px 12px;
-      font-size: 0.8rem;
-      font-weight: 600;
-      cursor: pointer;
-      white-space: nowrap;
-    }
-
-    /* Mobile-friendly document list */
-    .doc-list { list-style: none; }
-    .doc-card {
-      background: #f9fafb;
-      border: 2px solid #e5e7eb;
-      border-radius: 10px;
-      padding: 0.75rem;
-      margin-bottom: 0.75rem;
-    }
-    .doc-card .doc-title {
-      font-weight: 700;
-      font-size: 0.9rem;
-      margin-bottom: 0.3rem;
-      /* Truncate long filenames instead of breaking mid-word and squishing the card */
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      max-width: 100%;
-    }
-    .doc-card .doc-meta {
-      font-size: 0.8rem;
-      color: #666;
-      margin-bottom: 0.4rem;
-      line-height: 1.4;
-    }
-    .doc-card .doc-actions {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 0.4rem;
-      margin-top: 0.5rem;
-    }
-    /* Timestamp: shows time-only for today, date-only for older; reveals full datetime on hover */
-    .ts {
-      cursor: default;
-      border-bottom: 1px dotted #aaa;
-      white-space: nowrap;
-    }
-    .tab-bar {
-      display: flex;
-      gap: 0;
-      margin-bottom: 1rem;
-      border-bottom: 2px solid #111;
-    }
-    .tab-btn {
-      padding: 8px 18px;
-      background: none;
-      border: none;
-      border-bottom: 3px solid transparent;
-      margin-bottom: -2px;
-      font-weight: 600;
-      font-size: 0.9rem;
-      cursor: pointer;
-      color: #888;
-    }
-    .tab-btn.active {
-      color: #111;
-      border-bottom-color: #111;
-    }
-    /* Req 2: Approval notes modal textarea */
-    .modal textarea {
-      width: 100%;
-      padding: 10px;
-      border: 2px solid #111;
-      border-radius: 8px;
-      font-size: 0.9rem;
-      font-family: inherit;
-      resize: vertical;
-      min-height: 80px;
-      margin-bottom: 0.75rem;
-    }
-
-    /* Standardized Buttons */
-    .btn {
-      display: inline-block;
-      padding: 4px 10px;
-      border-radius: 6px;
-      font-size: 0.75rem;
-      font-weight: 600;
-      text-decoration: none;
-      border: 2px solid #111;
-      cursor: pointer;
-      text-align: center;
-    }
-    .btn-view { background: #10b981; color: white; }
-    .btn-rename { background: #f59e0b; color: white; }
-    .btn-rename:hover { background: #d97706; }
-    
-    /* Executive Action Buttons */
-    .btn-approve { background: #10b981; color: white; }
-    .btn-approve:hover { background: #059669; }
-    .btn-reject { background: #ef4444; color: white; }
-    .btn-reject:hover { background: #dc2828; }
-    .btn-undo { background: #f59e0b; color: white; }
-    .btn-undo:hover { background: #d97706; }
-    
-    /* Status Badges */
-    .badge {
-      display: inline-block;
-      padding: 3px 8px;
-      border-radius: 12px;
-      font-size: 0.7rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-    .badge-pending { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
-    .badge-approved { background: #d1fae5; color: #065f46; border: 1px solid #6ee7b7; }
-    .badge-rejected { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
-
-    .empty-state {
-      text-align: center;
-      padding: 2rem 1rem;
-      color: #888;
-    }
-    .empty-state p { margin-bottom: 0.5rem; }
-
-    /* Rename & PDF Modals */
-    .modal-overlay {
-      display: none;
-      position: fixed;
-      top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(0,0,0,0.4);
-      justify-content: center;
-      align-items: center;
-      z-index: 999;
-      padding: 1rem;
-    }
-    .modal-overlay.open { display: flex; }
-    .modal {
-      background: white;
-      border: 3px solid #111;
-      border-radius: 16px;
-      box-shadow: 8px 8px 0 #111;
-      padding: 1.5rem;
-      max-width: 400px;
-      width: 100%;
-    }
-    .modal h3 { margin-bottom: 1rem; font-size: 1rem; }
-    .modal input {
-      width: 100%;
-      padding: 10px;
-      border: 2px solid #111;
-      border-radius: 8px;
-      font-size: 0.95rem;
-      margin-bottom: 0.75rem;
-    }
-    .modal .btn-group { display: flex; gap: 0.5rem; }
-    .modal .btn-save { background: #10b981; color: white; border: 2px solid #111; border-radius: 8px; padding: 8px 16px; cursor: pointer; font-weight: 600; flex: 1; }
-    .modal .btn-cancel { background: #e5e7eb; border: 2px solid #111; border-radius: 8px; padding: 8px 16px; cursor: pointer; font-weight: 600; flex: 1; }
-
-    .pdf-modal {
-      background: white;
-      border: 3px solid #111;
-      border-radius: 16px;
-      box-shadow: 8px 8px 0 #111;
-      display: flex;
-      flex-direction: column;
-      width: 100%;
-      max-width: 900px;
-      height: 85vh;
-      overflow: hidden;
-    }
-    .pdf-modal-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 10px 15px;
-      background: #f9fafb;
-      border-bottom: 2px solid #111;
-    }
-    .pdf-modal-header h3 {
-      font-size: 1rem;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      max-width: 80%;
-    }
-    .pdf-modal-body {
-      flex: 1;
-      width: 100%;
-      background: #e5e7eb;
-    }
-    .pdf-modal-body iframe {
-      width: 100%;
-      height: 100%;
-      border: none;
-    }
-
-    /* Desktop: show table, hide cards */
-    @media (min-width: 768px) {
-      body { padding: 2rem; }
-      .topbar h2 { font-size: 1.4rem; }
-      .card { padding: 2rem; }
-      .doc-list { display: none; }
-      .doc-table { display: table; width: 100%; }
-    }
-    @media (max-width: 767px) {
-      .doc-table { display: none; }
-    }
-    .doc-table { width: 100%; border-collapse: collapse; }
-    .doc-table th {
-      text-align: left;
-      padding: 0.75rem 0.5rem;
-      border-bottom: 2px solid #111;
-      font-size: 0.75rem;
-      text-transform: uppercase;
-      color: #555;
-    }
-    .doc-table td {
-      padding: 0.75rem 0.5rem;
-      border-bottom: 1px solid #e5e7eb;
-      font-size: 0.85rem;
-    }
-    .doc-table tr:hover td { background: #f9fafb; }
-  </style>
-</head>
+  <link rel="stylesheet" href="/theme.css">
 <body>
 
 <div class="topbar">
   <h2 id="pageTitle">📥 My Inbox</h2>
   <div class="user-info">
-    <a href="/profile.html" id="userDisplay" style="color:inherit;text-decoration:none;font-weight:600;">Loading...</a>
-    <button onclick="logout()">Sign Out</button>
+    <a href="/profile.html" id="userDisplay">Loading...</a>
+    <button onclick="logout()">Sign out</button>
   </div>
 </div>
 
 <div class="card">
   <div class="nav-links">
-    <a href="/index.html">← Upload</a>
-    <a href="/admin.html" id="adminLink" style="display:none;">⚙ Admin</a>
+    <a href="/index.html">&larr; Upload</a>
+    <a href="/admin.html" id="adminLink" style="display:none;">Admin</a>
   </div>
 
   <!-- Req 4: Tab toggle -->
@@ -466,8 +170,8 @@
         const adminNav = document.createElement('div');
         adminNav.style.cssText = 'display:flex;gap:10px;';
         adminNav.innerHTML = `
-          <button onclick="window.location.href='/admin.html'" style="background:#111;color:white;padding:6px 12px;border-radius:6px;cursor:pointer;border:none;">Admin Portal</button>
-          <button onclick="window.location.href='/admin/projects.html'" style="background:#111;color:white;padding:6px 12px;border-radius:6px;cursor:pointer;border:none;">Projects</button>
+          <button onclick="window.location.href='/admin.html'" style="background:var(--steel);color:white;padding:6px 12px;border-radius:6px;cursor:pointer;border:none;font-weight:600;">Admin Portal</button>
+          <button onclick="window.location.href='/admin/projects.html'" style="background:var(--slate);color:white;padding:6px 12px;border-radius:6px;cursor:pointer;border:none;font-weight:600;">Projects</button>
         `;
         topbar.appendChild(adminNav);
       }
@@ -554,7 +258,7 @@
   function buildActionButtons(d, baseName) {
     // Req 4: Download button added alongside View
     let btns = `<button class="btn btn-view" onclick="viewDocument(${d.id}, '${d.filename.replace(/'/g, "\\'")}')">View</button>`;
-    btns += ` <button class="btn btn-rename" style="background:#6366f1;color:white;" onclick="downloadDocument(${d.id})">Download</button>`;
+    btns += ` <button class="btn btn-rename" style="background:var(--steel);color:white;" onclick="downloadDocument(${d.id})">Download</button>`;
 
     if (canRename() && currentTab === 'inbox') {
       btns += ` <button class="btn btn-rename" onclick="openRename(${d.id},'${baseName.replace(/'/g, "\\'")}')">Rename</button>`;
@@ -726,7 +430,7 @@
     document.getElementById('approvalDocName').textContent = filename;
     document.getElementById('approvalNotes').value = '';
     document.getElementById('approvalNotes').style.display = isUndo ? 'none' : 'block';
-    document.getElementById('approvalConfirmBtn').style.background = status === 'rejected' ? '#ef4444' : status === 'approved' ? '#10b981' : '#f59e0b';
+    document.getElementById('approvalConfirmBtn').style.background = status === 'rejected' ? '#A32D2D' : status === 'approved' ? '#3B6D11' : '#854F0B';
     document.getElementById('approvalModal').classList.add('open');
   }
   function closeApprovalModal() {
@@ -786,7 +490,7 @@
   function renderChainOrdered() {
     const ol = document.getElementById('chainOrderedList');
     ol.innerHTML = chainOrder.length
-      ? chainOrder.map((a, i) => `<li>${a.display_name} <button onclick="removeFromChain(${i})" style="border:none;background:none;color:#ef4444;cursor:pointer;">✕</button></li>`).join('')
+      ? chainOrder.map((a, i) => `<li>${a.display_name} <button onclick="removeFromChain(${i})" style="border:none;background:none;color:#A32D2D;cursor:pointer;">✕</button></li>`).join('')
       : '<li style="color:#888;list-style:none;margin-left:-1.2rem;">No approvers selected yet</li>';
   }
   function addToChain(id, displayName) {

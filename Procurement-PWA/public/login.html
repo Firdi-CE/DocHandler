@@ -6,19 +6,33 @@
     <title>Login - DocHandler</title>
     <!-- Google Platform Library -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <link rel="stylesheet" href="/theme.css">
     <style>
-        /* Basic styling for the login page */
-        body { font-family: 'Segoe UI', system-ui, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #f4f7f6; margin: 0; }
-        .login-card { background: white; border: 3px solid #111; border-radius: 16px; box-shadow: 8px 8px 0 #111; padding: 2rem 3rem; text-align: center; }
-        h1 { margin-bottom: 0.5rem; }
-        p { color: #666; margin-bottom: 1.5rem; }
-        #status { margin-top: 1rem; color: #b91c1c; font-weight: 600; font-size: 0.9rem; min-height: 1.2em;}
+        body { display: flex; justify-content: center; align-items: center; height: 100vh; }
+        .login-card {
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 2.5rem 3rem;
+            text-align: center;
+            max-width: 360px;
+        }
+        .login-mark {
+            width: 48px; height: 48px; margin: 0 auto 1rem;
+            background: var(--navy); border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+            color: #fff; font-weight: 700; font-size: 1.1rem;
+        }
+        h1 { margin-bottom: 0.4rem; font-size: 1.3rem; color: var(--navy); }
+        p { color: var(--text-muted); margin-bottom: 1.5rem; font-size: 0.9rem; }
+        #status { margin-top: 1rem; color: var(--red-text); font-weight: 600; font-size: 0.85rem; min-height: 1.2em; }
     </style>
 </head>
 <body>
     <div class="login-card">
-        <h1>DocHandler</h1>
-        <p>Please sign in with your Google account.</p>
+        <div class="login-mark">PE</div>
+        <h1>Pilar DocHandler</h1>
+        <p>Sign in with your Google account to continue.</p>
 
         <!-- Google Sign-In Button -->
         <div id="g_id_onload"
@@ -43,7 +57,7 @@
         if (reason === 'expired') {
             const el = document.getElementById('status');
             el.textContent = 'Your login session has expired. Please sign in again.';
-            el.style.color = '#b45309'; // amber — informational, not a hard error
+            el.style.color = '#854F0B'; // amber — informational, not a hard error
         }
 
         async function handleCredentialResponse(response) {
