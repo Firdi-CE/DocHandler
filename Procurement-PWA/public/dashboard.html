@@ -420,70 +420,41 @@
     window.location.href = '/login.html';
   }
 
-  // Load user info
-  (async () => {
-    try {
-      const res = await fetch(API_BASE + '/auth/me', { headers: { 'Authorization': 'Bearer ' + token } });
-      if (res.status === 401) { window.location.href = '/login.html?reason=expired'; return; }
-      currentUser = await res.json();
-      document.getElementById('userDisplay').textContent = currentUser.display_name || currentUser.email;
-      const isAdmin = currentUser.role === 'Executive' || currentUser.role === 'Admin';
-      if (isAdmin) {
-        document.getElementById('adminLink').style.display = 'inline';
-        // Req 7: dynamic admin nav for Admin role
-        const topbar = document.querySelector('.topbar');
-        const adminNav = document.createElement('div');
-        adminNav.style.cssText = 'display:flex;gap:10px;';
-        adminNav.innerHTML = `
-          <button onclick="window.location.href='/admin.html'" style="background:#111;color:white;padding:6px 12px;border-radius:6px;cursor:pointer;border:none;">Admin Portal</button>
-          <button onclick="window.location.href='/admin/projects.html'" style="background:#111;color:white;padding:6px 12px;border-radius:6px;cursor:pointer;border:none;">Projects</button>
-        `;
-        topbar.appendChild(adminNav);
-      }
-    } catch (e) { /* non-fatal — page still works without display name */ }
-  })();
-
-  // Load projects for filter dropdown
-  (async () => {
-    try {
-      const res = await fetch(API_BASE + '/projects', { headers: { 'Authorization': 'Bearer ' + token } });
-      const projects = await res.json();
-      const filter = document.getElementById('projectFilter');
-      projects.forEach(p => {
-        const opt = document.createElement('option');
-        opt.value = p.id; opt.textContent = p.name;
-        filter.appendChild(opt);
-      });
-    } catch (e) {}
-  })();
-
-  // Req 4: tab switching
-  async function switchTab(tab) {
-    currentTab = tab;
-    document.getElementById('tabInbox').classList.toggle('active', tab === 'inbox');
-    document.getElementById('tabSent').classList.toggle('active', tab === 'sent');
-    document.getElementById('pageTitle').textContent = tab === 'inbox' ? '📥 My Inbox' : '📤 Sent';
-    document.getElementById('thFromTo').textContent = tab === 'inbox' ? 'From' : 'To';
-    document.getElementById('filterBar').style.display = tab === 'inbox' ? 'flex' : 'none';
-    await loadDocs();
-  }
-
-  async function loadDocs() {
-    const endpoint = currentTab === 'inbox' ? '/documents/my-inbox' : '/documents/my-outbox';
-    try {
-      const res = await fetch(API_BASE + endpoint, { headers: { 'Authorization': 'Bearer ' + token } });
-      if (res.status === 401) { window.location.href = '/login.html?reason=expired'; return; }
-      allDocs = await res.json();
-      if (currentTab === 'inbox') populateFilterOptions();
-      renderAll();
-    } catch (e) {
-      document.getElementById('docTableBody').innerHTML =
-        '<tr><td colspan="7" class="empty-state"><p>Failed to load.</p></td></tr>';
+  async function initDashboard() {
+  try {
+    const res = await fetch(API_BASE + '/auth/me', { headers: { 'Authorization': 'Bearer ' + token } });
+    if (res.status === 401) { window.location.href = '/login.html?reason=expired'; return; }
+    currentUser = await res.json();
+    document.getElementById('userDisplay').textContent = currentUser.display_name || currentUser.email;
+    const isAdmin = currentUser.role === 'Executive' || currentUser.role === 'Admin';
+    if (isAdmin) {
+      document.getElementById('adminLink').style.display = 'inline';
+      const topbar = document.querySelector('.topbar');
+      const adminNav = document.createElement('div');
+      adminNav.style.cssText = 'display:flex;gap:10px;';
+      adminNav.innerHTML = `
+        <button onclick="window.location.href='/admin.html'" style="background:#111;color:white;padding:6px 12px;border-radius:6px;cursor:pointer;border:none;">Admin Portal</button>
+        <button onclick="window.location.href='/admin/projects.html'" style="background:#111;color:white;padding:6px 12px;border-radius:6px;cursor:pointer;border:none;">Projects</button>
+      `;
+      topbar.appendChild(adminNav);
     }
-  }
+  } catch (e) { /* non-fatal — page still works without display name */ }
 
-  // Initial load
-  loadDocs();
+  try {
+    const res = await fetch(API_BASE + '/projects', { headers: { 'Authorization': 'Bearer ' + token } });
+    const projects = await res.json();
+    const filter = document.getElementById('projectFilter');
+    projects.forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = p.id; opt.textContent = p.name;
+      filter.appendChild(opt);
+    });
+  } catch (e) {}
+
+  await loadDocs(); // now runs after currentUser is set
+}
+
+initDashboard();
 
   function getFileExt(filename) {
     if (!filename || !filename.includes('.')) return 'Other';
