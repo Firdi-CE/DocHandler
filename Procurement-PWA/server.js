@@ -172,6 +172,18 @@ async function auditLog(userId, actionType, entityId) {
 app.get('/documents/my-outbox', ensureAuthenticated, async (req, res) => {
     try {
         const userId = req.user.id;
+
+        // Req 4: server-side pagination
+        const page = Math.max(parseInt(req.query.page) || 1, 1);
+        const limit = Math.min(Math.max(parseInt(req.query.limit) || 10, 1), 100);
+        const offset = (page - 1) * limit;
+
+        const countResult = await db.query(
+            `SELECT COUNT(*)::int as total FROM documents d WHERE d.sender_id = $1`,
+            [userId]
+        );
+        const total = countResult.rows[0].total;
+
         const result = await db.query(`
             SELECT d.*, p.name as project_name,
                    recipient.email as recipient_email, recipient.display_name as recipient_name,
@@ -187,8 +199,16 @@ app.get('/documents/my-outbox', ensureAuthenticated, async (req, res) => {
             LEFT JOIN departments dept ON d.department_id = dept.id
             WHERE d.sender_id = $1
             ORDER BY d.created_at DESC
-        `, [userId]);
-        res.json(result.rows);
+            LIMIT $2 OFFSET $3
+        `, [userId, limit, offset]);
+
+        res.json({
+            documents: result.rows,
+            total,
+            page,
+            limit,
+            totalPages: Math.max(Math.ceil(total / limit), 1)
+        });
     } catch (err) {
         console.error('Outbox Error:', err);
         res.status(500).json({ message: err.message });
@@ -438,7 +458,47 @@ app.get('/documents/my-inbox', ensureAuthenticated, async (req, res) => {
         const userRole = req.user.role;
         const deptId = req.user.department_id; // Securely extracted from JWT payload
 
-        let baseQuery = `
+        // Req 4: server-side pagination
+        const page = Math.max(parseInt(req.query.page) || 1, 1);
+        const limit = Math.min(Math.max(parseInt(req.query.limit) || 10, 1), 100);
+        const offset = (page - 1) * limit;
+
+        // Build the WHERE clause + its params once, reused by both the COUNT
+        // query and the paginated SELECT so the two always agree on scope.
+        let whereClause = '';
+        let queryParams = [];
+
+        if (userRole === 'Executive' || userRole === 'Admin') {
+            // Executive/Admin: View all documents across the entire company
+            whereClause = '';
+        } else if (userRole === 'Supervisor') {
+            // Department Level: View all dept documents OR explicitly assigned projects
+            whereClause = `
+                WHERE d.department_id = $1
+                   OR d.project_id IN (SELECT project_id FROM project_assignments WHERE user_id = $2)
+            `;
+            queryParams = [deptId, userId];
+        } else {
+            // Staff Level: Always show docs where the user is the named recipient
+            // (Req 3: bypasses project silo entirely for direct recipients),
+            // plus docs they sent or are in their assigned projects.
+            whereClause = `
+                WHERE d.recipient_id = $1
+                   OR d.sender_id = $1
+                   OR d.project_id IN (SELECT project_id FROM project_assignments WHERE user_id = $1)
+            `;
+            queryParams = [userId];
+        }
+
+        const countResult = await db.query(
+            `SELECT COUNT(*)::int as total FROM documents d ${whereClause}`,
+            queryParams
+        );
+        const total = countResult.rows[0].total;
+
+        const limitIdx = queryParams.length + 1;
+        const offsetIdx = queryParams.length + 2;
+        const dataQuery = `
             SELECT d.*, p.name as project_name, u_sender.email as sender_email,
                    u_sender.display_name as sender_name, dept.name as department_name,
                    (SELECT COUNT(*)::int FROM approval_chain_steps s WHERE s.document_id = d.id) as chain_total_levels,
@@ -450,36 +510,19 @@ app.get('/documents/my-inbox', ensureAuthenticated, async (req, res) => {
             LEFT JOIN projects p ON d.project_id = p.id
             LEFT JOIN users u_sender ON d.sender_id = u_sender.id
             LEFT JOIN departments dept ON d.department_id = dept.id
+            ${whereClause}
+            ORDER BY d.created_at DESC
+            LIMIT $${limitIdx} OFFSET $${offsetIdx}
         `;
 
-        let queryParams = [];
-
-        if (userRole === 'Executive' || userRole === 'Admin') {
-            // Executive/Admin: View all documents across the entire company
-            baseQuery += ` ORDER BY d.created_at DESC`;
-        } else if (userRole === 'Supervisor') {
-            // Department Level: View all dept documents OR explicitly assigned projects
-            baseQuery += `
-                WHERE d.department_id = $1 
-                   OR d.project_id IN (SELECT project_id FROM project_assignments WHERE user_id = $2)
-                ORDER BY d.created_at DESC
-            `;
-            queryParams = [deptId, userId];
-        } else {
-            // Staff Level: Always show docs where the user is the named recipient
-            // (Req 3: bypasses project silo entirely for direct recipients),
-            // plus docs they sent or are in their assigned projects.
-            baseQuery += `
-                WHERE d.recipient_id = $1
-                   OR d.sender_id = $1
-                   OR d.project_id IN (SELECT project_id FROM project_assignments WHERE user_id = $1)
-                ORDER BY d.created_at DESC
-            `;
-            queryParams = [userId];
-        }
-
-        const result = await db.query(baseQuery, queryParams);
-        res.json(result.rows);
+        const result = await db.query(dataQuery, [...queryParams, limit, offset]);
+        res.json({
+            documents: result.rows,
+            total,
+            page,
+            limit,
+            totalPages: Math.max(Math.ceil(total / limit), 1)
+        });
     } catch (err) {
         console.error('Inbox Scoping Error:', err);
         res.status(500).json({ message: err.message });

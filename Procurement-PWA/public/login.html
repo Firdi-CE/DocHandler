@@ -7,48 +7,34 @@
     <!-- Google Platform Library -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <link rel="stylesheet" href="/theme.css">
-    <style>
-        body { display: flex; justify-content: center; align-items: center; height: 100vh; }
-        .login-card {
-            background: var(--bg-surface);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 2.5rem 3rem;
-            text-align: center;
-            max-width: 360px;
-        }
-        .login-mark {
-            width: 48px; height: 48px; margin: 0 auto 1rem;
-            background: var(--navy); border-radius: 8px;
-            display: flex; align-items: center; justify-content: center;
-            color: #fff; font-weight: 700; font-size: 1.1rem;
-        }
-        h1 { margin-bottom: 0.4rem; font-size: 1.3rem; color: var(--navy); }
-        p { color: var(--text-muted); margin-bottom: 1.5rem; font-size: 0.9rem; }
-        #status { margin-top: 1rem; color: var(--red-text); font-weight: 600; font-size: 0.85rem; min-height: 1.2em; }
-    </style>
 </head>
-<body>
-    <div class="login-card">
-        <div class="login-mark">PE</div>
-        <h1>Pilar DocHandler</h1>
-        <p>Sign in with your Google account to continue.</p>
-
-        <!-- Google Sign-In Button -->
-        <div id="g_id_onload"
-             data-client_id="941222430549-jl0ltuujq90srb544hjm9ckivrki2a7t.apps.googleusercontent.com"
-             data-callback="handleCredentialResponse">
+<body class="full-bleed">
+    <div class="split-login">
+        <div class="brand-panel">
+            <img src="/assets/logo.png" alt="Pilar Energi">
         </div>
-        <div class="g_id_signin"
-             data-type="standard"
-             data-size="large"
-             data-theme="outline"
-             data-text="sign_in_with"
-             data-shape="rectangular"
-             data-logo_alignment="left">
-        </div>
+        <div class="form-panel">
+            <div class="form-inner">
+                <h1>Pilar DocHandler</h1>
+                <p class="subtitle">Sign in with your Google account to continue.</p>
 
-        <div id="status"></div>
+                <!-- Google Sign-In Button -->
+                <div id="g_id_onload"
+                     data-client_id="941222430549-jl0ltuujq90srb544hjm9ckivrki2a7t.apps.googleusercontent.com"
+                     data-callback="handleCredentialResponse">
+                </div>
+                <div class="g_id_signin"
+                     data-type="standard"
+                     data-size="large"
+                     data-theme="outline"
+                     data-text="sign_in_with"
+                     data-shape="rectangular"
+                     data-logo_alignment="left">
+                </div>
+
+                <div id="status"></div>
+            </div>
+        </div>
     </div>
 
     <script>

@@ -5,63 +5,110 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>My Inbox — DocHandler</title>
   <link rel="stylesheet" href="/theme.css">
-<body>
+</head>
+<body class="full-bleed">
 
-<div class="topbar">
-  <h2 id="pageTitle">📥 My Inbox</h2>
-  <div class="user-info">
-    <a href="/profile.html" id="userDisplay">Loading...</a>
-    <button onclick="logout()">Sign out</button>
+<div class="app-shell">
+  <aside class="app-sidebar">
+    <div class="sidebar-logo">
+      <img src="/assets/logo.png" alt="Pilar Energi">
+      <span>DocHandler</span>
+    </div>
+    <nav class="sidebar-nav">
+      <a class="sidebar-link active" href="/dashboard.html">Documents</a>
+      <a class="sidebar-link" href="/index.html">Upload</a>
+      <a class="sidebar-link" href="/profile.html">Profile</a>
+
+      <div id="adminNavGroup" style="display:none;">
+        <button class="sidebar-group-toggle" id="adminGroupToggle" onclick="toggleSidebarGroup('adminSubmenu', this)">
+          Admin <span class="chevron">&#9660;</span>
+        </button>
+        <div class="sidebar-submenu" id="adminSubmenu">
+          <a class="sidebar-link" href="/admin.html">Overview</a>
+          <a class="sidebar-link" href="/admin/users.html">Users</a>
+          <a class="sidebar-link" href="/admin/projects.html">Projects</a>
+          <a class="sidebar-link" href="/admin/approvals.html">Approvals</a>
+        </div>
+      </div>
+    </nav>
+  </aside>
+
+  <div class="app-main">
+    <div class="app-header">
+      <h2 id="pageTitle" style="color:var(--navy);font-size:1.1rem;">My Inbox</h2>
+      <div class="header-user">
+        <div>
+          <div class="name" id="userDisplay">Loading...</div>
+        </div>
+        <span class="role" id="userRole" style="display:none;"></span>
+        <button onclick="logout()">Sign out</button>
+      </div>
+    </div>
+
+    <div class="app-content">
+      <div class="card">
+        <!-- Req 4: Tab toggle -->
+        <div class="tab-bar">
+          <button class="tab-btn active" id="tabInbox" onclick="switchTab('inbox')">Inbox</button>
+          <button class="tab-btn" id="tabSent" onclick="switchTab('sent')">Sent</button>
+        </div>
+
+        <div class="filter-bar" id="filterBar">
+          <label>Filter:</label>
+          <select id="projectFilter" onchange="filterDocs()">
+            <option value="">All Projects</option>
+          </select>
+          <select id="senderFilter" onchange="filterDocs()">
+            <option value="">All Senders</option>
+          </select>
+          <select id="fileTypeFilter" onchange="filterDocs()">
+            <option value="">All File Types</option>
+          </select>
+          <button class="btn-clear-filters" onclick="clearFilters()">Clear</button>
+        </div>
+
+        <!-- Req 3: sticky-header data table -->
+        <div class="table-container">
+          <div class="table-scroll">
+            <table class="data-grid" id="docTable">
+              <thead id="docTableHead">
+                <tr>
+                  <th>Document Name</th>
+                  <th>Project</th>
+                  <th id="thFromTo">Sender</th>
+                  <th>Date</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="docTableBody">
+                <tr><td colspan="6" class="empty-state"><p>Loading...</p></td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Req 4: pagination footer -->
+          <div class="pagination-bar">
+            <div class="rows-per-page">
+              <label for="rowsPerPageSelect">Rows per page:</label>
+              <select id="rowsPerPageSelect" onchange="changeRowsPerPage(this.value)">
+                <option value="10">10</option>
+                <option value="25">25</option>
+                <option value="50">50</option>
+              </select>
+            </div>
+            <div id="paginationSummary">Showing 0 of 0 entries</div>
+            <div class="page-nav">
+              <button id="prevPageBtn" onclick="goToPrevPage()">&lt; Prev</button>
+              <button id="nextPageBtn" onclick="goToNextPage()">Next &gt;</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
-<div class="card">
-  <div class="nav-links">
-    <a href="/index.html">&larr; Upload</a>
-    <a href="/admin.html" id="adminLink" style="display:none;">Admin</a>
-  </div>
-
-  <!-- Req 4: Tab toggle -->
-  <div class="tab-bar">
-    <button class="tab-btn active" id="tabInbox" onclick="switchTab('inbox')">📥 Inbox</button>
-    <button class="tab-btn" id="tabSent" onclick="switchTab('sent')">📤 Sent</button>
-  </div>
-
-  <div class="filter-bar" id="filterBar">
-    <label>Filter:</label>
-    <select id="projectFilter" onchange="filterDocs()">
-      <option value="">All Projects</option>
-    </select>
-    <select id="senderFilter" onchange="filterDocs()">
-      <option value="">All Senders</option>
-    </select>
-    <select id="fileTypeFilter" onchange="filterDocs()">
-      <option value="">All File Types</option>
-    </select>
-    <button class="btn-clear-filters" onclick="clearFilters()">Clear</button>
-  </div>
-
-  <table class="doc-table" id="docTable">
-    <thead id="docTableHead">
-      <tr>
-        <th>File</th>
-        <th>Project</th>
-        <th>Dept</th>
-        <th id="thFromTo">From</th>
-        <th>Date</th>
-        <th>Status</th>
-        <th>Actions</th>
-      </tr>
-    </thead>
-    <tbody id="docTableBody">
-      <tr><td colspan="7" class="empty-state"><p>Loading...</p></td></tr>
-    </tbody>
-  </table>
-
-  <ul class="doc-list" id="docCardList">
-    <li class="empty-state"><p>Loading...</p></li>
-  </ul>
-</div>
 
 <div class="modal-overlay" id="renameModal">
   <div class="modal">
@@ -119,7 +166,7 @@
   <div class="pdf-modal">
     <div class="pdf-modal-header">
       <h3 id="pdfModalTitle">Document Viewer</h3>
-      <button class="btn btn-cancel" onclick="closePdfModal()" style="border: 2px solid #111;">Close</button>
+      <button class="btn btn-cancel" onclick="closePdfModal()" style="border: none;">Close</button>
     </div>
     <div class="pdf-modal-body">
       <iframe id="pdfFrame"></iframe>
@@ -149,6 +196,12 @@
   let chainOrder = []; // [{id, display_name}] in click order
   let approversCache = null;
 
+  // Req 4: server-side pagination state
+  let currentPage = 1;
+  let rowsPerPage = 10;
+  let totalRecords = 0;
+  let totalPages = 1;
+
   function logout() {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
@@ -162,18 +215,12 @@
       if (res.status === 401) { window.location.href = '/login.html?reason=expired'; return; }
       currentUser = await res.json();
       document.getElementById('userDisplay').textContent = currentUser.display_name || currentUser.email;
+      const roleEl = document.getElementById('userRole');
+      roleEl.textContent = currentUser.role;
+      roleEl.style.display = 'inline-block';
       const isAdmin = currentUser.role === 'Executive' || currentUser.role === 'Admin';
       if (isAdmin) {
-        document.getElementById('adminLink').style.display = 'inline';
-        // Req 7: dynamic admin nav for Admin role
-        const topbar = document.querySelector('.topbar');
-        const adminNav = document.createElement('div');
-        adminNav.style.cssText = 'display:flex;gap:10px;';
-        adminNav.innerHTML = `
-          <button onclick="window.location.href='/admin.html'" style="background:var(--steel);color:white;padding:6px 12px;border-radius:6px;cursor:pointer;border:none;font-weight:600;">Admin Portal</button>
-          <button onclick="window.location.href='/admin/projects.html'" style="background:var(--slate);color:white;padding:6px 12px;border-radius:6px;cursor:pointer;border:none;font-weight:600;">Projects</button>
-        `;
-        topbar.appendChild(adminNav);
+        document.getElementById('adminNavGroup').style.display = 'block';
       }
     } catch (e) { /* non-fatal — page still works without display name */ }
 
@@ -193,29 +240,68 @@
 
   initDashboard();
 
+  // Req 2: sidebar accordion — slides a submenu open/closed without leaving the page
+  function toggleSidebarGroup(submenuId, toggleBtn) {
+    const submenu = document.getElementById(submenuId);
+    const isOpen = submenu.classList.toggle('open');
+    toggleBtn.classList.toggle('open', isOpen);
+  }
+
   // Req 4: tab switching
   async function switchTab(tab) {
     currentTab = tab;
+    currentPage = 1; // reset to first page on tab change
     document.getElementById('tabInbox').classList.toggle('active', tab === 'inbox');
     document.getElementById('tabSent').classList.toggle('active', tab === 'sent');
-    document.getElementById('pageTitle').textContent = tab === 'inbox' ? '📥 My Inbox' : '📤 Sent';
-    document.getElementById('thFromTo').textContent = tab === 'inbox' ? 'From' : 'To';
+    document.getElementById('pageTitle').textContent = tab === 'inbox' ? 'My Inbox' : 'Sent';
+    document.getElementById('thFromTo').textContent = tab === 'inbox' ? 'Sender' : 'Recipient';
     document.getElementById('filterBar').style.display = tab === 'inbox' ? 'flex' : 'none';
     await loadDocs();
   }
 
   async function loadDocs() {
     const endpoint = currentTab === 'inbox' ? '/documents/my-inbox' : '/documents/my-outbox';
+    const url = `${API_BASE}${endpoint}?page=${currentPage}&limit=${rowsPerPage}`;
     try {
-      const res = await fetch(API_BASE + endpoint, { headers: { 'Authorization': 'Bearer ' + token } });
+      const res = await fetch(url, { headers: { 'Authorization': 'Bearer ' + token } });
       if (res.status === 401) { window.location.href = '/login.html?reason=expired'; return; }
-      allDocs = await res.json();
+      const data = await res.json();
+      allDocs = data.documents || [];
+      totalRecords = data.total || 0;
+      totalPages = data.totalPages || 1;
+      currentPage = data.page || currentPage;
       if (currentTab === 'inbox') populateFilterOptions();
       renderAll();
+      renderPagination();
     } catch (e) {
       document.getElementById('docTableBody').innerHTML =
-        '<tr><td colspan="7" class="empty-state"><p>Failed to load.</p></td></tr>';
+        '<tr><td colspan="6" class="empty-state"><p>Failed to load.</p></td></tr>';
     }
+  }
+
+  // Req 4: pagination controls — rows-per-page, prev/next, and the summary text
+  function renderPagination() {
+    const start = totalRecords === 0 ? 0 : (currentPage - 1) * rowsPerPage + 1;
+    const end = Math.min(currentPage * rowsPerPage, totalRecords);
+    document.getElementById('paginationSummary').textContent =
+      `Showing ${start}-${end} of ${totalRecords} entries`;
+    document.getElementById('prevPageBtn').disabled = currentPage <= 1;
+    document.getElementById('nextPageBtn').disabled = currentPage >= totalPages;
+    document.getElementById('rowsPerPageSelect').value = String(rowsPerPage);
+  }
+
+  function changeRowsPerPage(value) {
+    rowsPerPage = parseInt(value, 10) || 10;
+    currentPage = 1;
+    loadDocs();
+  }
+
+  function goToPrevPage() {
+    if (currentPage > 1) { currentPage--; loadDocs(); }
+  }
+
+  function goToNextPage() {
+    if (currentPage < totalPages) { currentPage++; loadDocs(); }
   }
 
   function getFileExt(filename) {
@@ -325,12 +411,12 @@
     return `<span class="ts" title="${fullLabel}">${display}</span>`;
   }
 
-  function renderAll() { renderTable(allDocs); renderCards(allDocs); }
+  function renderAll() { renderTable(allDocs); }
 
   function renderTable(docs) {
     const tbody = document.getElementById('docTableBody');
     if (docs.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="7" class="empty-state"><p>No documents found.</p></td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6" class="empty-state"><p>No documents found.</p></td></tr>';
       return;
     }
     tbody.innerHTML = docs.map(d => {
@@ -339,45 +425,22 @@
       const actionBtns = buildActionButtons(d, baseName);
       // Req 4: outbox shows recipient instead of sender
       const personCol = currentTab === 'inbox'
-        ? (d.sender_email || '—')
+        ? (d.sender_name || d.sender_email || '—')
         : (d.recipient_name || d.recipient_email || '—');
       return `<tr>
         <td><strong style="font-size:0.8rem;word-break:break-all;">${d.is_urgent ? '🔴 ' : ''}${d.filename}</strong></td>
         <td style="font-size:0.8rem;">${d.project_name || '—'}</td>
-        <td style="font-size:0.8rem;">${d.department_name || '—'}</td>
         <td style="font-size:0.8rem;">${personCol}</td>
-        <td style="font-size:0.75rem;color:#666;">${formatTimestamp(d.created_at)}</td>
+        <td style="font-size:0.75rem;color:var(--text-muted);">${formatTimestamp(d.created_at)}</td>
         <td>${getStatusBadge(d.status)}</td>
         <td>${actionBtns}</td>
       </tr>`;
     }).join('');
   }
 
-  function renderCards(docs) {
-    const list = document.getElementById('docCardList');
-    if (docs.length === 0) {
-      list.innerHTML = '<li class="empty-state"><p>No documents found.</p></li>';
-      return;
-    }
-    list.innerHTML = docs.map(d => {
-      const ext = d.filename.includes('.') ? '.' + d.filename.split('.').pop() : '';
-      const baseName = d.filename.replace(ext, '');
-      const actionBtns = buildActionButtons(d, baseName);
-      const personCol = currentTab === 'inbox'
-        ? `From: ${d.sender_email || '—'}`
-        : `To: ${d.recipient_name || d.recipient_email || '—'}`;
-      return `<li class="doc-card">
-        <div class="doc-title" title="${d.filename}">${d.is_urgent ? '🔴 ' : ''}${d.filename}</div>
-        <div class="doc-meta">
-          ${d.project_name || '—'} · ${d.department_name || '—'}<br>
-          ${personCol}<br>
-          ${formatTimestamp(d.created_at)} · ${getStatusBadge(d.status)}
-        </div>
-        <div class="doc-actions">${actionBtns}</div>
-      </li>`;
-    }).join('');
-  }
-
+  // Note: with server-side pagination, filters apply only to the currently
+  // loaded page of results (not the full inbox/outbox) — this keeps filtering
+  // instant without a second round trip per keystroke/selection.
   function filterDocs() {
     const projectId = document.getElementById('projectFilter').value;
     const sender = document.getElementById('senderFilter').value;
@@ -389,7 +452,6 @@
       return true;
     });
     renderTable(filtered);
-    renderCards(filtered);
   }
 
   function clearFilters() {
