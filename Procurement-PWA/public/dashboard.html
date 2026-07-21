@@ -260,6 +260,7 @@
   let rowsPerPage = 10;
   let totalRecords = 0;
   let totalPages = 1;
+  let filterOptionsLoaded = false;
 
   function logout() {
     localStorage.removeItem('token');
@@ -492,7 +493,16 @@
 
   async function loadDocs() {
     const endpoint = currentTab === 'inbox' ? '/documents/my-inbox' : '/documents/my-outbox';
-    const url = `${API_BASE}${endpoint}?page=${currentPage}&limit=${rowsPerPage}`;
+    const params = new URLSearchParams({ page: currentPage, limit: rowsPerPage });
+    if (currentTab === 'inbox') {
+      const projectId = document.getElementById('projectFilter').value;
+      const senderId = document.getElementById('senderFilter').value;
+      const fileType = document.getElementById('fileTypeFilter').value;
+      if (projectId) params.set('projectId', projectId);
+      if (senderId) params.set('senderId', senderId);
+      if (fileType) params.set('fileType', fileType);
+    }
+    const url = `${API_BASE}${endpoint}?${params.toString()}`;
     try {
       const res = await fetch(url, { headers: { 'Authorization': 'Bearer ' + token } });
       if (res.status === 401) { window.location.href = '/login.html?reason=expired'; return; }
@@ -501,7 +511,10 @@
       totalRecords = data.total || 0;
       totalPages = data.totalPages || 1;
       currentPage = data.page || currentPage;
-      if (currentTab === 'inbox') populateFilterOptions();
+      if (currentTab === 'inbox' && !filterOptionsLoaded) {
+        filterOptionsLoaded = true;
+        loadFilterOptions();
+      }
       renderAll();
       renderPagination();
     } catch (e) {
@@ -535,26 +548,34 @@
     if (currentPage < totalPages) { currentPage++; loadDocs(); }
   }
 
-  function getFileExt(filename) {
-    if (!filename || !filename.includes('.')) return 'Other';
-    return filename.split('.').pop().toUpperCase();
-  }
+  // Req 4 follow-up: filter options now come from the server, covering the
+  // user's whole scoped inbox — not just whichever page happens to be loaded.
+  async function loadFilterOptions() {
+    try {
+      const res = await fetch(API_BASE + '/documents/inbox-filter-options', {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      if (!res.ok) return;
+      const data = await res.json();
 
-  function populateFilterOptions() {
-    const senderFilter = document.getElementById('senderFilter');
-    const seenSenders = new Map();
-    allDocs.forEach(d => {
-      if (d.sender_email && !seenSenders.has(d.sender_email))
-        seenSenders.set(d.sender_email, d.sender_name || d.sender_email);
-    });
-    senderFilter.innerHTML = '<option value="">All Senders</option>' +
-      [...seenSenders.entries()].sort((a,b) => a[1].localeCompare(b[1]))
-        .map(([email, label]) => `<option value="${email}">${label}</option>`).join('');
+      const projectFilter = document.getElementById('projectFilter');
+      const currentProjectVal = projectFilter.value;
+      projectFilter.innerHTML = '<option value="">All Projects</option>' +
+        data.projects.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+      projectFilter.value = currentProjectVal;
 
-    const fileTypeFilter = document.getElementById('fileTypeFilter');
-    const seenTypes = new Set(allDocs.map(d => getFileExt(d.filename)));
-    fileTypeFilter.innerHTML = '<option value="">All File Types</option>' +
-      [...seenTypes].sort().map(ext => `<option value="${ext}">${ext}</option>`).join('');
+      const senderFilter = document.getElementById('senderFilter');
+      const currentSenderVal = senderFilter.value;
+      senderFilter.innerHTML = '<option value="">All Senders</option>' +
+        data.senders.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+      senderFilter.value = currentSenderVal;
+
+      const fileTypeFilter = document.getElementById('fileTypeFilter');
+      const currentTypeVal = fileTypeFilter.value;
+      fileTypeFilter.innerHTML = '<option value="">All File Types</option>' +
+        data.fileTypes.map(ext => `<option value="${ext}">${ext.toUpperCase()}</option>`).join('');
+      fileTypeFilter.value = currentTypeVal;
+    } catch (e) { /* non-fatal — filters just show base options */ }
   }
 
   function canRename() {
@@ -669,20 +690,11 @@
     }).join('');
   }
 
-  // Note: with server-side pagination, filters apply only to the currently
-  // loaded page of results (not the full inbox/outbox) — this keeps filtering
-  // instant without a second round trip per keystroke/selection.
+  // Req 4 follow-up: filters are now applied server-side across the user's
+  // whole scoped inbox, not just the currently-loaded page.
   function filterDocs() {
-    const projectId = document.getElementById('projectFilter').value;
-    const sender = document.getElementById('senderFilter').value;
-    const fileType = document.getElementById('fileTypeFilter').value;
-    const filtered = allDocs.filter(d => {
-      if (projectId && d.project_id != projectId) return false;
-      if (sender && d.sender_email !== sender) return false;
-      if (fileType && getFileExt(d.filename) !== fileType) return false;
-      return true;
-    });
-    renderTable(filtered);
+    currentPage = 1;
+    loadDocs();
   }
 
   function clearFilters() {

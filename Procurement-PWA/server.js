@@ -452,6 +452,23 @@ app.post('/upload', ensureAuthenticated, (req, res) => {
 });
 
 // Endpoint to capture inbox layout listings targeting single identity profile logs
+// Shared by /documents/my-inbox and /documents/inbox-filter-options so both
+// always agree on which documents a given user is allowed to see.
+function buildInboxScopeClause(userRole, userId, deptId) {
+    let conditions = [];
+    let queryParams = [];
+    if (userRole === 'Executive' || userRole === 'Admin') {
+        // no scoping clause — sees everything
+    } else if (userRole === 'Supervisor') {
+        queryParams.push(deptId, userId);
+        conditions.push(`(d.department_id = $${queryParams.length - 1} OR d.project_id IN (SELECT project_id FROM project_assignments WHERE user_id = $${queryParams.length}))`);
+    } else {
+        queryParams.push(userId);
+        conditions.push(`(d.recipient_id = $${queryParams.length} OR d.sender_id = $${queryParams.length} OR d.project_id IN (SELECT project_id FROM project_assignments WHERE user_id = $${queryParams.length}))`);
+    }
+    return { conditions, queryParams };
+}
+
 app.get('/documents/my-inbox', ensureAuthenticated, async (req, res) => {
     try {
         const userId = req.user.id;
@@ -465,30 +482,26 @@ app.get('/documents/my-inbox', ensureAuthenticated, async (req, res) => {
 
         // Build the WHERE clause + its params once, reused by both the COUNT
         // query and the paginated SELECT so the two always agree on scope.
-        let whereClause = '';
-        let queryParams = [];
+        const scope = buildInboxScopeClause(userRole, userId, deptId);
+        let conditions = scope.conditions;
+        let queryParams = scope.queryParams;
 
-        if (userRole === 'Executive' || userRole === 'Admin') {
-            // Executive/Admin: View all documents across the entire company
-            whereClause = '';
-        } else if (userRole === 'Supervisor') {
-            // Department Level: View all dept documents OR explicitly assigned projects
-            whereClause = `
-                WHERE d.department_id = $1
-                   OR d.project_id IN (SELECT project_id FROM project_assignments WHERE user_id = $2)
-            `;
-            queryParams = [deptId, userId];
-        } else {
-            // Staff Level: Always show docs where the user is the named recipient
-            // (Req 3: bypasses project silo entirely for direct recipients),
-            // plus docs they sent or are in their assigned projects.
-            whereClause = `
-                WHERE d.recipient_id = $1
-                   OR d.sender_id = $1
-                   OR d.project_id IN (SELECT project_id FROM project_assignments WHERE user_id = $1)
-            `;
-            queryParams = [userId];
+        // Req 4 follow-up: optional filters, now applied server-side across
+        // the whole inbox rather than just the currently-loaded page.
+        if (req.query.projectId) {
+            queryParams.push(req.query.projectId);
+            conditions.push(`d.project_id = $${queryParams.length}`);
         }
+        if (req.query.senderId) {
+            queryParams.push(req.query.senderId);
+            conditions.push(`d.sender_id = $${queryParams.length}`);
+        }
+        if (req.query.fileType) {
+            queryParams.push('%.' + req.query.fileType.replace(/^\./, ''));
+            conditions.push(`d.filename ILIKE $${queryParams.length}`);
+        }
+
+        const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
 
         const countResult = await db.query(
             `SELECT COUNT(*)::int as total FROM documents d ${whereClause}`,
@@ -525,6 +538,44 @@ app.get('/documents/my-inbox', ensureAuthenticated, async (req, res) => {
         });
     } catch (err) {
         console.error('Inbox Scoping Error:', err);
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// Req 4 follow-up: distinct filter values across the user's WHOLE scoped
+// inbox (not just the current page), so the dropdowns stay complete and
+// stable as the user pages through or filters results.
+app.get('/documents/inbox-filter-options', ensureAuthenticated, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const userRole = req.user.role;
+        const deptId = req.user.department_id;
+
+        const { conditions, queryParams } = buildInboxScopeClause(userRole, userId, deptId);
+        const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+
+        const [projectsRes, sendersRes, typesRes] = await Promise.all([
+            db.query(
+                `SELECT DISTINCT p.id, p.name FROM documents d JOIN projects p ON d.project_id = p.id ${whereClause} ORDER BY p.name`,
+                queryParams
+            ),
+            db.query(
+                `SELECT DISTINCT u.id, COALESCE(u.display_name, u.email) as name FROM documents d JOIN users u ON d.sender_id = u.id ${whereClause} ORDER BY name`,
+                queryParams
+            ),
+            db.query(
+                `SELECT DISTINCT lower(substring(d.filename from '\\.([^.]+)$')) as ext FROM documents d ${whereClause} ORDER BY ext`,
+                queryParams
+            ),
+        ]);
+
+        res.json({
+            projects: projectsRes.rows,
+            senders: sendersRes.rows,
+            fileTypes: typesRes.rows.map(r => r.ext).filter(Boolean)
+        });
+    } catch (err) {
+        console.error('Inbox Filter Options Error:', err);
         res.status(500).json({ message: err.message });
     }
 });
