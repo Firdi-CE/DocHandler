@@ -64,7 +64,7 @@
                     // On success, store the JWT and user info, then redirect to the main app
                     localStorage.setItem('token', data.token);
                     localStorage.setItem('user', JSON.stringify(data.user));
-                    window.location.href = '/index.html';
+                    window.location.href = '/dashboard.html';
                 } else {
                     // Handle pending approval or other server-side errors
                     statusEl.textContent = data.message || 'Login failed. Please try again.';

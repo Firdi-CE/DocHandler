@@ -15,8 +15,8 @@
       <span>DocHandler</span>
     </div>
     <nav class="sidebar-nav">
-      <a class="sidebar-link active" href="/dashboard.html">Documents</a>
-      <a class="sidebar-link" href="/index.html">Upload</a>
+      <a class="sidebar-link active" href="#" id="navDocuments" onclick="showView('documents');return false;">Documents</a>
+      <a class="sidebar-link" href="#" id="navUpload" onclick="showView('upload');return false;">Upload</a>
       <a class="sidebar-link" href="/profile.html">Profile</a>
 
       <div id="adminNavGroup" style="display:none;">
@@ -46,7 +46,9 @@
     </div>
 
     <div class="app-content">
-      <div class="card">
+
+      <!-- ===== Documents view (Inbox / Sent) ===== -->
+      <div id="documentsView">
         <!-- Req 4: Tab toggle -->
         <div class="tab-bar">
           <button class="tab-btn active" id="tabInbox" onclick="switchTab('inbox')">Inbox</button>
@@ -105,6 +107,63 @@
           </div>
         </div>
       </div>
+
+      <!-- ===== Upload view (folded in from the old index.html) ===== -->
+      <div id="uploadView" style="display:none;">
+        <div class="card" style="max-width:560px;">
+          <div id="uploadStatusMessage" class="status-msg"></div>
+
+          <form id="uploadForm">
+            <div class="filter-group" style="margin-bottom:1.1rem;">
+              <label style="display:block;font-weight:600;margin-bottom:4px;font-size:0.9rem;">File:</label>
+              <input type="file" name="document" required>
+            </div>
+
+            <div class="filter-group" style="margin-bottom:1.1rem;">
+              <label style="display:block;font-weight:600;margin-bottom:4px;font-size:0.9rem;">Project:</label>
+              <select id="uploadProjectDropdown" name="projectId" required style="width:100%;">
+                <option value="">-- Loading Projects... --</option>
+              </select>
+            </div>
+
+            <div class="filter-group" style="margin-bottom:1.1rem;">
+              <label style="display:block;font-weight:600;margin-bottom:4px;font-size:0.9rem;">Department:</label>
+              <select id="uploadDeptDropdown" name="departmentId" onchange="loadUploadUsers()" required style="width:100%;">
+                <option value="">-- Choose Dept --</option>
+              </select>
+            </div>
+
+            <div class="filter-group" style="margin-bottom:1.1rem;">
+              <label style="display:block;font-weight:600;margin-bottom:4px;font-size:0.9rem;">Recipient (PIC):</label>
+              <select id="uploadPicDropdown" name="recipientId" required style="width:100%;">
+                <option value="">-- Choose Dept first --</option>
+              </select>
+            </div>
+
+            <div class="filter-group" style="display:flex;align-items:center;gap:8px;background:var(--red-bg);border:1px solid var(--red-border);border-radius:8px;padding:10px 12px;margin-bottom:1.1rem;">
+              <input type="checkbox" name="isUrgent" id="urgentCheckbox" style="width:auto;">
+              <label for="urgentCheckbox" style="margin:0;color:var(--red-text);">Urgent — notify recipient immediately (bypasses digest)</label>
+            </div>
+
+            <!-- Req 1: Progress bar (hidden until upload starts) -->
+            <div class="progress-wrap" id="progressWrap">
+              <div class="progress-label">
+                <span>Uploading...</span>
+                <span id="progressPct">0%</span>
+              </div>
+              <div class="progress-track">
+                <div class="progress-fill" id="progressFill"></div>
+              </div>
+            </div>
+
+            <!-- Req 2: Granular error container (hidden until an error occurs) -->
+            <div class="status-msg error" id="uploadError" style="display:none;"></div>
+
+            <button type="submit" id="submitBtn" style="width:100%;background:var(--steel);color:#fff;border:none;border-radius:8px;padding:10px 12px;font-weight:700;cursor:pointer;">Send</button>
+          </form>
+        </div>
+      </div>
+
     </div>
   </div>
 </div>
@@ -240,12 +299,184 @@
 
   initDashboard();
 
+  // Support deep-linking from the old /index.html (now redirects here with ?view=upload)
+  if (new URLSearchParams(window.location.search).get('view') === 'upload') {
+    showView('upload');
+  }
+
   // Req 2: sidebar accordion — slides a submenu open/closed without leaving the page
   function toggleSidebarGroup(submenuId, toggleBtn) {
     const submenu = document.getElementById(submenuId);
     const isOpen = submenu.classList.toggle('open');
     toggleBtn.classList.toggle('open', isOpen);
   }
+
+  // Documents/Upload are now views within this same page instead of separate
+  // pages — Upload was folded in from the old index.html so it shares this
+  // page's session state (token/currentUser) and can refresh the inbox
+  // in place after a successful send, instead of a full page redirect.
+  let uploadFormLoaded = false;
+  function showView(view) {
+    document.getElementById('documentsView').style.display = view === 'documents' ? 'block' : 'none';
+    document.getElementById('uploadView').style.display = view === 'upload' ? 'block' : 'none';
+    document.getElementById('navDocuments').classList.toggle('active', view === 'documents');
+    document.getElementById('navUpload').classList.toggle('active', view === 'upload');
+    document.getElementById('pageTitle').textContent = view === 'upload'
+      ? 'Upload Document'
+      : (currentTab === 'inbox' ? 'My Inbox' : 'Sent');
+    if (view === 'upload' && !uploadFormLoaded) {
+      uploadFormLoaded = true;
+      initUploadForm();
+    }
+  }
+
+  function initUploadForm() {
+    // Load projects + departments for the upload dropdowns
+    Promise.all([
+      fetch(API_BASE + '/projects', { headers: { 'Authorization': 'Bearer ' + token } }),
+      fetch(API_BASE + '/departments', { headers: { 'Authorization': 'Bearer ' + token } }),
+    ]).then(async ([projRes, deptRes]) => {
+      if (projRes.status === 401 || deptRes.status === 401) {
+        window.location.href = '/login.html?reason=expired';
+        return;
+      }
+      const projects = await projRes.json();
+      const depts = await deptRes.json();
+
+      const projDropdown = document.getElementById('uploadProjectDropdown');
+      projDropdown.innerHTML = '<option value="">-- Select Project --</option>';
+      projects.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.id; opt.textContent = p.name;
+        projDropdown.appendChild(opt);
+      });
+
+      const deptDropdown = document.getElementById('uploadDeptDropdown');
+      deptDropdown.innerHTML = '<option value="">-- Choose Dept --</option>';
+      depts.forEach(d => {
+        const opt = document.createElement('option');
+        opt.value = d.id; opt.textContent = d.name;
+        deptDropdown.appendChild(opt);
+      });
+    }).catch(() => {
+      showUploadStatus('Could not reach the server. Please check your connection.', 'error');
+    });
+  }
+
+  async function loadUploadUsers() {
+    const deptId = document.getElementById('uploadDeptDropdown').value;
+    const picDropdown = document.getElementById('uploadPicDropdown');
+    picDropdown.innerHTML = '<option value="">-- Loading... --</option>';
+    if (!deptId) return;
+    const res = await fetch(API_BASE + '/users/by-department/' + deptId, {
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    const users = await res.json();
+    picDropdown.innerHTML = '<option value="">-- Choose Person --</option>';
+    users.forEach(u => {
+      const opt = document.createElement('option');
+      opt.value = u.id; opt.textContent = u.display_name || u.email;
+      picDropdown.appendChild(opt);
+    });
+  }
+
+  function showUploadStatus(msg, type) {
+    const el = document.getElementById('uploadStatusMessage');
+    el.textContent = msg;
+    el.className = 'status-msg ' + type;
+  }
+
+  function showUploadError(msg) {
+    const el = document.getElementById('uploadError');
+    el.textContent = msg;
+    el.style.display = 'block';
+  }
+
+  function resetUploadUI() {
+    document.getElementById('uploadError').style.display = 'none';
+    document.getElementById('uploadError').textContent = '';
+    document.getElementById('progressWrap').classList.remove('visible');
+    document.getElementById('progressFill').style.width = '0%';
+    document.getElementById('progressFill').classList.remove('complete');
+    document.getElementById('progressPct').textContent = '0%';
+    document.getElementById('submitBtn').disabled = false;
+    document.getElementById('submitBtn').textContent = 'Send';
+  }
+
+  document.getElementById('uploadForm').onsubmit = (e) => {
+    e.preventDefault();
+    resetUploadUI();
+
+    const formData = new FormData(e.target);
+    const xhr = new XMLHttpRequest();
+
+    xhr.upload.onprogress = (event) => {
+      if (!event.lengthComputable) return;
+      const pct = Math.round((event.loaded / event.total) * 100);
+      document.getElementById('progressWrap').classList.add('visible');
+      document.getElementById('progressFill').style.width = pct + '%';
+      document.getElementById('progressPct').textContent = pct + '%';
+    };
+
+    xhr.upload.onloadstart = () => {
+      document.getElementById('progressWrap').classList.add('visible');
+      document.getElementById('submitBtn').disabled = true;
+      document.getElementById('submitBtn').textContent = 'Uploading...';
+    };
+
+    xhr.onload = () => {
+      document.getElementById('submitBtn').disabled = false;
+      document.getElementById('submitBtn').textContent = 'Send';
+
+      let data = {};
+      try { data = JSON.parse(xhr.responseText); } catch (_) {}
+
+      if (xhr.status >= 200 && xhr.status < 300) {
+        document.getElementById('progressFill').style.width = '100%';
+        document.getElementById('progressFill').classList.add('complete');
+        document.getElementById('progressPct').textContent = '100%';
+        showUploadStatus('File uploaded and routed successfully!', 'success');
+        // Refresh the inbox in place and switch back — no full page redirect needed
+        setTimeout(async () => {
+          e.target.reset();
+          resetUploadUI();
+          showUploadStatus('', '');
+          document.getElementById('uploadStatusMessage').className = 'status-msg';
+          currentTab = 'inbox';
+          currentPage = 1;
+          document.getElementById('tabInbox').classList.add('active');
+          document.getElementById('tabSent').classList.remove('active');
+          showView('documents');
+          await loadDocs();
+        }, 900);
+      } else {
+        const errMsg = data.message || `Upload failed (HTTP ${xhr.status}). Please try again.`;
+        showUploadError(errMsg);
+        document.getElementById('progressFill').style.width = '0%';
+        document.getElementById('progressPct').textContent = '0%';
+      }
+    };
+
+    xhr.onerror = () => {
+      document.getElementById('submitBtn').disabled = false;
+      document.getElementById('submitBtn').textContent = 'Send';
+      showUploadError('Network error: could not reach the server. Please check your connection.');
+      document.getElementById('progressFill').style.width = '0%';
+      document.getElementById('progressPct').textContent = '0%';
+    };
+
+    xhr.onabort = () => {
+      document.getElementById('submitBtn').disabled = false;
+      document.getElementById('submitBtn').textContent = 'Send';
+      showUploadError('Upload cancelled.');
+      document.getElementById('progressFill').style.width = '0%';
+      document.getElementById('progressPct').textContent = '0%';
+    };
+
+    xhr.open('POST', API_BASE + '/upload');
+    xhr.setRequestHeader('Authorization', 'Bearer ' + token);
+    xhr.send(formData);
+  };
 
   // Req 4: tab switching
   async function switchTab(tab) {
