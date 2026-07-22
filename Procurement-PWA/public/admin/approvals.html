@@ -7,8 +7,7 @@
   <link rel="stylesheet" href="/theme.css">
   <style>
     body { padding: 2rem; }
-    .topbar { max-width: 800px; }
-    .card { max-width: 800px; }
+    .card { max-width: 800px; margin: auto; }
     table { width: 100%; border-collapse: collapse; }
     th { text-align: left; padding: 0.75rem 0.5rem; border-bottom: 1px solid var(--border); font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted); }
     td { padding: 0.75rem 0.5rem; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
@@ -21,32 +20,57 @@
     .status-msg.error { display: block; background: var(--red-bg); border: 1px solid var(--red-border); color: var(--red-text); }
   </style>
 </head>
-<body>
+<body class="full-bleed">
 
-<div class="topbar">
-  <h2>Admin — Account Approvals</h2>
-  <button onclick="logout()">Sign out</button>
-</div>
+<div class="app-shell">
+  <aside class="app-sidebar">
+    <div class="sidebar-logo">
+      <img src="/assets/logo.png" alt="Pilar Energi">
+      <span>DocHandler</span>
+    </div>
+    <nav class="sidebar-nav">
+      <a class="sidebar-link" href="/dashboard.html">Documents</a>
+      <a class="sidebar-link" href="/dashboard.html?view=upload">Upload</a>
+      <a class="sidebar-link" href="/profile.html">Profile</a>
 
-<div class="card">
-  <div class="nav-links">
-    <a href="approvals.html">Approvals</a>
-    <a href="users.html">User Management</a>
-    <a href="projects.html">Projects</a>
-    <a href="/dashboard.html">&larr; Dashboard</a>
+      <div id="adminNavGroup">
+        <button class="sidebar-group-toggle open" id="adminGroupToggle" onclick="toggleSidebarGroup('adminSubmenu', this)">
+          Admin <span class="chevron">&#9660;</span>
+        </button>
+        <div class="sidebar-submenu open" id="adminSubmenu">
+          <a class="sidebar-link" href="/admin.html">Overview</a>
+          <a class="sidebar-link" href="/admin/users.html">Users</a>
+          <a class="sidebar-link" href="/admin/projects.html">Projects</a>
+          <a class="sidebar-link active" href="/admin/approvals.html">Approvals</a>
+        </div>
+      </div>
+    </nav>
+  </aside>
+
+  <div class="app-main">
+    <div class="app-header">
+      <h2 style="color:var(--navy);font-size:1.1rem;">Account Approvals</h2>
+      <div class="header-user">
+        <button onclick="logout()">Sign out</button>
+      </div>
+    </div>
+
+    <div class="app-content">
+      <div class="card">
+        <div id="statusMessage" class="status-msg"></div>
+
+        <h3 style="margin-bottom:1rem;">Pending Account Requests</h3>
+        <table>
+          <thead>
+            <tr><th>Email</th><th>Name</th><th>Requested</th><th>Action</th></tr>
+          </thead>
+          <tbody id="requestsBody">
+            <tr><td colspan="4" class="empty-state">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
   </div>
-
-  <div id="statusMessage" class="status-msg"></div>
-
-  <h3 style="margin-bottom:1rem;">Pending Account Requests</h3>
-  <table>
-    <thead>
-      <tr><th>Email</th><th>Name</th><th>Requested</th><th>Action</th></tr>
-    </thead>
-    <tbody id="requestsBody">
-      <tr><td colspan="4" class="empty-state">Loading...</td></tr>
-    </tbody>
-  </table>
 </div>
 
 <script>
@@ -162,6 +186,12 @@
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     window.location.href = '/login.html';
+  }
+
+  function toggleSidebarGroup(submenuId, toggleBtn) {
+    const submenu = document.getElementById(submenuId);
+    const isOpen = submenu.classList.toggle('open');
+    toggleBtn.classList.toggle('open', isOpen);
   }
 
   loadRequests();

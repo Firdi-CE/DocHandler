@@ -17,39 +17,73 @@
     .btn-deny { background: #A32D2D; color: white; border-color: #A32D2D; }
     .btn-update { background: #854F0B; color: white; border-color: #854F0B; }
     .card h3 { margin-bottom: 1rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; }
-    .topbar { max-width: 1200px; }
-    .card { max-width: 1200px; margin-bottom: 1.5rem; }
+    .card { margin-bottom: 1.5rem; }
   </style>
 </head>
-<body>
+<body class="full-bleed">
 
-<div class="topbar">
-  <h2>Admin Panel</h2>
-  <div class="user-info">
-    <span id="userDisplay">Loading...</span>
-    <button onclick="forceRunDigest()">Force Run Email Digest</button>
-    <button onclick="logout()">Sign out</button>
+<div class="app-shell">
+  <aside class="app-sidebar">
+    <div class="sidebar-logo">
+      <img src="/assets/logo.png" alt="Pilar Energi">
+      <span>DocHandler</span>
+    </div>
+    <nav class="sidebar-nav">
+      <a class="sidebar-link" href="/dashboard.html">Documents</a>
+      <a class="sidebar-link" href="/dashboard.html?view=upload">Upload</a>
+      <a class="sidebar-link" href="/profile.html">Profile</a>
+
+      <div id="adminNavGroup">
+        <button class="sidebar-group-toggle open" id="adminGroupToggle" onclick="toggleSidebarGroup('adminSubmenu', this)">
+          Admin <span class="chevron">&#9660;</span>
+        </button>
+        <div class="sidebar-submenu open" id="adminSubmenu">
+          <a class="sidebar-link active" href="/admin.html">Overview</a>
+          <a class="sidebar-link" href="/admin/users.html">Users</a>
+          <a class="sidebar-link" href="/admin/projects.html">Projects</a>
+          <a class="sidebar-link" href="/admin/approvals.html">Approvals</a>
+        </div>
+      </div>
+    </nav>
+  </aside>
+
+  <div class="app-main">
+    <div class="app-header">
+      <h2 style="color:var(--navy);font-size:1.1rem;">Admin Overview</h2>
+      <div class="header-user">
+        <div>
+          <div class="name" id="userDisplay">Loading...</div>
+        </div>
+        <button onclick="forceRunDigest()">Force Run Email Digest</button>
+        <button onclick="logout()">Sign out</button>
+      </div>
+    </div>
+
+    <div class="app-content">
+      <div class="card">
+        <h3>Pending Account Requests</h3>
+        <ul id="requestsList" class="item-list">
+          <li class="empty-state">Loading requests...</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <h3>Manage Users</h3>
+        <ul id="usersList" class="item-list">
+          <li class="empty-state">Loading users...</li>
+        </ul>
+      </div>
+    </div>
   </div>
-</div>
-
-<div class="card">
-  <div class="nav-links">
-    <a href="/dashboard.html">&larr; Back to Inbox</a>
-  </div>
-  <h3>Pending Account Requests</h3>
-  <ul id="requestsList" class="item-list">
-    <li class="empty-state">Loading requests...</li>
-  </ul>
-</div>
-
-<div class="card">
-  <h3>Manage Users</h3>
-  <ul id="usersList" class="item-list">
-    <li class="empty-state">Loading users...</li>
-  </ul>
 </div>
 
 <script>
+  function toggleSidebarGroup(submenuId, toggleBtn) {
+    const submenu = document.getElementById(submenuId);
+    const isOpen = submenu.classList.toggle('open');
+    toggleBtn.classList.toggle('open', isOpen);
+  }
+
   const token = localStorage.getItem('token');
   let departments = [];
 

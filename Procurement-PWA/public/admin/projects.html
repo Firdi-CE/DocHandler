@@ -7,8 +7,7 @@
   <link rel="stylesheet" href="/theme.css">
   <style>
     body { padding: 2rem; }
-    .topbar { max-width: 700px; }
-    .card { max-width: 700px; }
+    .card { max-width: 700px; margin: auto; }
     .form-row { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; }
     .form-row input { flex: 1; }
     .form-row button { background: var(--steel); color: white; border: none; border-radius: 6px; padding: 10px 20px; cursor: pointer; font-weight: 700; }
@@ -26,36 +25,61 @@
     .modal .btn-save { background: var(--steel); color: white; }
   </style>
 </head>
-<body>
+<body class="full-bleed">
 
-<div class="topbar">
-  <h2>Admin — Projects</h2>
-  <button onclick="logout()">Sign out</button>
-</div>
+<div class="app-shell">
+  <aside class="app-sidebar">
+    <div class="sidebar-logo">
+      <img src="/assets/logo.png" alt="Pilar Energi">
+      <span>DocHandler</span>
+    </div>
+    <nav class="sidebar-nav">
+      <a class="sidebar-link" href="/dashboard.html">Documents</a>
+      <a class="sidebar-link" href="/dashboard.html?view=upload">Upload</a>
+      <a class="sidebar-link" href="/profile.html">Profile</a>
 
-<div class="card">
-  <div class="nav-links">
-    <a href="approvals.html">Approvals</a>
-    <a href="users.html">User Management</a>
-    <a href="projects.html">Projects</a>
-    <a href="/dashboard.html">&larr; Dashboard</a>
+      <div id="adminNavGroup">
+        <button class="sidebar-group-toggle open" id="adminGroupToggle" onclick="toggleSidebarGroup('adminSubmenu', this)">
+          Admin <span class="chevron">&#9660;</span>
+        </button>
+        <div class="sidebar-submenu open" id="adminSubmenu">
+          <a class="sidebar-link" href="/admin.html">Overview</a>
+          <a class="sidebar-link" href="/admin/users.html">Users</a>
+          <a class="sidebar-link active" href="/admin/projects.html">Projects</a>
+          <a class="sidebar-link" href="/admin/approvals.html">Approvals</a>
+        </div>
+      </div>
+    </nav>
+  </aside>
+
+  <div class="app-main">
+    <div class="app-header">
+      <h2 style="color:var(--navy);font-size:1.1rem;">Projects</h2>
+      <div class="header-user">
+        <button onclick="logout()">Sign out</button>
+      </div>
+    </div>
+
+    <div class="app-content">
+      <div class="card">
+        <div id="statusMessage" class="status-msg"></div>
+
+        <h3 style="margin-bottom:1rem;">Create New Project</h3>
+        <div class="form-row">
+          <input type="text" id="projectName" placeholder="Project name (e.g. Medco Recovery Project)" onkeydown="if(event.key==='Enter') createProject()">
+          <button onclick="createProject()">Create</button>
+        </div>
+
+        <h3 style="margin-bottom:1rem;">Existing Projects</h3>
+        <table>
+          <thead><tr><th>ID</th><th>Name</th><th>Actions</th></tr></thead>
+          <tbody id="projectsBody">
+            <tr><td colspan="3" style="text-align:center;padding:2rem;color:var(--text-muted);">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
   </div>
-
-  <div id="statusMessage" class="status-msg"></div>
-
-  <h3 style="margin-bottom:1rem;">Create New Project</h3>
-  <div class="form-row">
-    <input type="text" id="projectName" placeholder="Project name (e.g. Medco Recovery Project)" onkeydown="if(event.key==='Enter') createProject()">
-    <button onclick="createProject()">Create</button>
-  </div>
-
-  <h3 style="margin-bottom:1rem;">Existing Projects</h3>
-  <table>
-    <thead><tr><th>ID</th><th>Name</th><th>Actions</th></tr></thead>
-    <tbody id="projectsBody">
-      <tr><td colspan="3" style="text-align:center;padding:2rem;color:var(--text-muted);">Loading...</td></tr>
-    </tbody>
-  </table>
 </div>
 
 <!-- Rename Project Modal -->
@@ -202,6 +226,12 @@
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     window.location.href = '/login.html';
+  }
+
+  function toggleSidebarGroup(submenuId, toggleBtn) {
+    const submenu = document.getElementById(submenuId);
+    const isOpen = submenu.classList.toggle('open');
+    toggleBtn.classList.toggle('open', isOpen);
   }
 
   loadProjects();
