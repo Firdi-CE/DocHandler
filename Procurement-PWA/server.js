@@ -7,6 +7,7 @@ const fs = require('fs');
 const multer = require('multer');
 const auth = require('./auth'); // Imports JWT auth helpers
 const db = require('./db');         // Imports PostgreSQL connection pool from db.js
+const roles = require('./roles');   // Centralized role/capability config (see roles.js)
 const { sendMail } = require('./utils/mailer');
 const { runDigest } = require('./utils/digest');
 const app = express();
@@ -122,7 +123,24 @@ const ensureAdmin = async (req, res, next) => {
 // API Endpoint to fetch existing company projects to build frontend selections dynamically
 app.get('/projects', ensureAuthenticated, async (req, res) => {
     try {
-        const result = await db.query('SELECT id, name FROM projects ORDER BY name ASC');
+        const result = await db.query('SELECT id, name, status FROM projects ORDER BY name ASC');
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// API Endpoint to fetch the work sites under a given project, for the
+// cascading Project -> Site dropdown on the upload form. Same openness as
+// /projects (any authenticated user) -- site *selection* doesn't grant
+// document access on its own; that's still enforced by the existing
+// project_assignments checks at upload/download/stream time.
+app.get('/projects/:id/sites', ensureAuthenticated, async (req, res) => {
+    try {
+        const result = await db.query(
+            'SELECT id, site_name FROM work_sites WHERE project_id = $1 ORDER BY site_name ASC',
+            [req.params.id]
+        );
         res.json(result.rows);
     } catch (err) {
         res.status(500).json({ message: err.message });
@@ -368,6 +386,7 @@ app.post('/upload', ensureAuthenticated, (req, res) => {
             // 3. Capture & Sanitize Form Data (Convert empty strings to null for PG Int columns)
             const recipientId = req.body.recipientId || null;
             const projectId = req.body.projectId || null;
+            const siteId = req.body.siteId || null; // optional — Work Sites feature
             const departmentId = req.body.departmentId || null;
             // Checkboxes are omitted from multipart form data entirely when unchecked,
             // and arrive as the string 'true'/'on' when checked -- never a real boolean.
@@ -377,7 +396,7 @@ app.post('/upload', ensureAuthenticated, (req, res) => {
             // Admin/Executive can upload to any project. Staff/Supervisor must be
             // explicitly assigned to the target project or the upload is rejected.
             const userRole = req.user.role;
-            const isBypassRole = userRole === 'Admin' || userRole === 'Executive';
+            const isBypassRole = roles.isGlobalRole(userRole);
             if (projectId && !isBypassRole) {
                 const assignCheck = await db.query(
                     'SELECT 1 FROM project_assignments WHERE user_id = $1 AND project_id = $2',
@@ -394,11 +413,11 @@ app.post('/upload', ensureAuthenticated, (req, res) => {
 
             // Perform strict table transaction mapping elements cleanly to table relations
             const query = `
-                INSERT INTO public.documents (filename, sender_id, recipient_id, project_id, department_id, is_urgent)
-                VALUES ($1, $2, $3, $4, $5, $6)
+                INSERT INTO public.documents (filename, sender_id, recipient_id, project_id, site_id, department_id, is_urgent)
+                VALUES ($1, $2, $3, $4, $5, $6, $7)
                 RETURNING id;
             `;
-            const values = [filename, uploadedBy, recipientId, projectId, departmentId, isUrgent];
+            const values = [filename, uploadedBy, recipientId, projectId, siteId, departmentId, isUrgent];
             const insertRes = await db.query(query, values);
             const newDocId = insertRes.rows[0].id;
 
@@ -457,9 +476,10 @@ app.post('/upload', ensureAuthenticated, (req, res) => {
 function buildInboxScopeClause(userRole, userId, deptId) {
     let conditions = [];
     let queryParams = [];
-    if (userRole === 'Executive' || userRole === 'Admin') {
+    if (roles.isGlobalRole(userRole)) {
         // no scoping clause — sees everything
-    } else if (userRole === 'Supervisor') {
+    } else if (roles.isProjectScopedRole(userRole)) {
+        // Supervisor and Manager: scoped to their department + assigned projects
         queryParams.push(deptId, userId);
         conditions.push(`(d.department_id = $${queryParams.length - 1} OR d.project_id IN (SELECT project_id FROM project_assignments WHERE user_id = $${queryParams.length}))`);
     } else {
@@ -695,6 +715,122 @@ app.delete('/admin/projects/:id', ensureAuthenticated, ensureAdmin, async (req, 
         const result = await db.query('DELETE FROM projects WHERE id = $1 RETURNING id', [id]);
         if (result.rows.length === 0) return res.status(404).json({ error: 'Project not found.' });
         res.json({ message: 'Project deleted successfully.' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// --- WORK SITES & MAINTENANCE LIFECYCLE ---
+// Placeholder-role feature (see roles.js + BACKLOG.md). Site CRUD is admin
+// only, same as project CRUD above; status changes are opened up to the
+// `Manager` role (and global roles) via roles.canManageProjectStatus.
+
+// Create a work site under a project
+app.post('/admin/projects/:id/sites', ensureAuthenticated, ensureAdmin, async (req, res) => {
+    const { id } = req.params;
+    const { site_name } = req.body;
+    if (!site_name) return res.status(400).json({ error: 'Site name is required.' });
+
+    try {
+        const result = await db.query(
+            'INSERT INTO work_sites (project_id, site_name) VALUES ($1, $2) RETURNING *',
+            [id, site_name]
+        );
+        res.status(201).json(result.rows[0]);
+    } catch (err) {
+        if (err.code === '23505') { // unique_violation
+            return res.status(409).json({ error: 'A site with that name already exists for this project.' });
+        }
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Rename a work site
+app.patch('/admin/sites/:id', ensureAuthenticated, ensureAdmin, async (req, res) => {
+    const { id } = req.params;
+    const { site_name } = req.body;
+    if (!site_name) return res.status(400).json({ error: 'New site name is required.' });
+
+    try {
+        const result = await db.query(
+            'UPDATE work_sites SET site_name = $1 WHERE id = $2 RETURNING *',
+            [site_name, id]
+        );
+        if (result.rows.length === 0) return res.status(404).json({ error: 'Site not found.' });
+        res.json(result.rows[0]);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Delete a work site
+app.delete('/admin/sites/:id', ensureAuthenticated, ensureAdmin, async (req, res) => {
+    const { id } = req.params;
+    try {
+        const result = await db.query('DELETE FROM work_sites WHERE id = $1 RETURNING id', [id]);
+        if (result.rows.length === 0) return res.status(404).json({ error: 'Site not found.' });
+        res.json({ message: 'Site deleted successfully.' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// "My Projects" — projects the current user can see for status-management
+// purposes. Global roles (Executive/Admin) get every project; Manager (and,
+// pending BACKLOG.md's open questions, Supervisor) only see projects they're
+// assigned to.
+app.get('/my-projects', ensureAuthenticated, async (req, res) => {
+    try {
+        const userRole = req.user.role;
+        if (roles.isGlobalRole(userRole)) {
+            const result = await db.query('SELECT id, name, status FROM projects ORDER BY name ASC');
+            return res.json(result.rows);
+        }
+        const result = await db.query(
+            `SELECT DISTINCT p.id, p.name, p.status
+             FROM projects p
+             JOIN project_assignments pa ON pa.project_id = p.id
+             WHERE pa.user_id = $1
+             ORDER BY p.name ASC`,
+            [req.user.id]
+        );
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// Update a project's status (active / completed / maintenance).
+// Global roles can act on any project; Manager must be assigned to it.
+app.patch('/projects/:id/status', ensureAuthenticated, async (req, res) => {
+    const { id } = req.params;
+    const { status } = req.body;
+    const validStatuses = ['active', 'completed', 'maintenance'];
+
+    if (!status || !validStatuses.includes(status)) {
+        return res.status(400).json({ error: `Status must be one of: ${validStatuses.join(', ')}.` });
+    }
+    if (!roles.canManageProjectStatus(req.user.role)) {
+        return res.status(403).json({ error: 'You do not have permission to change project status.' });
+    }
+
+    try {
+        if (!roles.isGlobalRole(req.user.role)) {
+            const assignCheck = await db.query(
+                'SELECT 1 FROM project_assignments WHERE user_id = $1 AND project_id = $2',
+                [req.user.id, id]
+            );
+            if (assignCheck.rows.length === 0) {
+                return res.status(403).json({ error: 'You are not assigned to this project.' });
+            }
+        }
+
+        const result = await db.query(
+            'UPDATE projects SET status = $1 WHERE id = $2 RETURNING *',
+            [status, id]
+        );
+        if (result.rows.length === 0) return res.status(404).json({ error: 'Project not found.' });
+        res.json(result.rows[0]);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

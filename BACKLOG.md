@@ -7,6 +7,30 @@ these up — implement only the item in scope, no bleed into other features.
 
 ## Work Sites & Maintenance Lifecycle
 
+**Status: implemented (2026-07-30) with placeholder roles.** A `Manager`
+role was added purely as a placeholder — see `roles.js`, which is now the
+single file to edit when the real org chart is confirmed (splitting it into
+Project Manager / Site Manager, renaming it, moving it a tier, etc.).
+Nothing else in the codebase should need to change for that.
+
+What shipped:
+- `migrations/007_work_sites.sql` — `work_sites` table, `projects.status`
+  (active/completed/maintenance), `project_assignments.site_id` (nullable —
+  NULL still means whole-project access, unchanged), and `documents.site_id`
+  (nullable; added beyond the original bullet list so the upload form's
+  Site dropdown has somewhere to write its value). **Run this migration** —
+  it does not apply itself.
+- `roles.js` — centralized role/capability config.
+- Backend: `GET /projects/:id/sites`, admin CRUD for sites
+  (`POST/PATCH/DELETE /admin/.../sites`), `GET /my-projects`,
+  `PATCH /projects/:id/status`, `buildInboxScopeClause` now treats `Manager`
+  like `Supervisor`.
+- Frontend: cascading Project → Site dropdown on the upload form, a new
+  `/my-projects.html` page (status toggle, visible to anyone above Staff),
+  and a "Sites" management modal on the admin Projects page.
+
+Original architecture prompt, kept for reference:
+
 Full architecture prompt to run when this is picked up (paste as-is into a
 fresh session so the "1-Feature Rule" framing and phase structure stay
 intact):

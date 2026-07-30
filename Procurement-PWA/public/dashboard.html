@@ -18,6 +18,7 @@
       <a class="sidebar-link active" href="#" id="navDocuments" onclick="showView('documents');return false;">Documents</a>
       <a class="sidebar-link" href="#" id="navUpload" onclick="showView('upload');return false;">Upload</a>
       <a class="sidebar-link" href="/profile.html">Profile</a>
+      <a class="sidebar-link" href="/my-projects.html" id="navMyProjects" style="display:none;">My Projects</a>
 
       <div id="adminNavGroup" style="display:none;">
         <button class="sidebar-group-toggle" id="adminGroupToggle" onclick="toggleSidebarGroup('adminSubmenu', this)">
@@ -121,8 +122,15 @@
 
             <div class="filter-group" style="margin-bottom:1.1rem;">
               <label style="display:block;font-weight:600;margin-bottom:4px;font-size:0.9rem;">Project:</label>
-              <select id="uploadProjectDropdown" name="projectId" required style="width:100%;">
+              <select id="uploadProjectDropdown" name="projectId" required style="width:100%;" onchange="loadUploadSites()">
                 <option value="">-- Loading Projects... --</option>
+              </select>
+            </div>
+
+            <div class="filter-group" style="margin-bottom:1.1rem;">
+              <label style="display:block;font-weight:600;margin-bottom:4px;font-size:0.9rem;">Work Site (optional):</label>
+              <select id="uploadSiteDropdown" name="siteId" style="width:100%;">
+                <option value="">-- Choose Project first --</option>
               </select>
             </div>
 
@@ -282,6 +290,11 @@
       if (isAdmin) {
         document.getElementById('adminNavGroup').style.display = 'block';
       }
+      // "My Projects" (status toggle) is for anyone above Staff — Supervisor,
+      // the placeholder Manager role, or a global role. See roles.js.
+      if (currentUser.role !== 'Staff') {
+        document.getElementById('navMyProjects').style.display = 'block';
+      }
     } catch (e) { /* non-fatal — page still works without display name */ }
 
     try {
@@ -362,6 +375,30 @@
     }).catch(() => {
       showUploadStatus('Could not reach the server. Please check your connection.', 'error');
     });
+  }
+
+  async function loadUploadSites() {
+    const projectId = document.getElementById('uploadProjectDropdown').value;
+    const siteDropdown = document.getElementById('uploadSiteDropdown');
+    if (!projectId) {
+      siteDropdown.innerHTML = '<option value="">-- Choose Project first --</option>';
+      return;
+    }
+    siteDropdown.innerHTML = '<option value="">-- Loading Sites... --</option>';
+    try {
+      const res = await fetch(API_BASE + '/projects/' + projectId + '/sites', {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      const sites = await res.json();
+      siteDropdown.innerHTML = '<option value="">-- No specific site --</option>';
+      sites.forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s.id; opt.textContent = s.site_name;
+        siteDropdown.appendChild(opt);
+      });
+    } catch (e) {
+      siteDropdown.innerHTML = '<option value="">-- No specific site --</option>';
+    }
   }
 
   async function loadUploadUsers() {
