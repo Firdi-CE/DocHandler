@@ -29,6 +29,7 @@
           <a class="sidebar-link" href="/admin/users.html">Users</a>
           <a class="sidebar-link" href="/admin/projects.html">Projects</a>
           <a class="sidebar-link" href="/admin/approvals.html">Approvals</a>
+          <a class="sidebar-link" href="/admin/integrations.html">Integrations</a>
         </div>
       </div>
     </nav>
@@ -176,6 +177,19 @@
   </div>
 </div>
 
+
+<div class="modal-overlay" id="driveBrowseModal">
+  <div class="modal" style="max-width:480px;">
+    <h3>Attach from Google Drive</h3>
+    <input type="text" id="driveSearchInput" placeholder="Search files..." oninput="debouncedDriveSearch()">
+    <div id="driveFileList" style="max-height:280px;overflow-y:auto;margin-bottom:0.75rem;">
+      <p style="color:var(--text-muted);font-size:0.85rem;text-align:center;padding:1rem;">Loading...</p>
+    </div>
+    <div class="btn-group">
+      <button class="btn-cancel" onclick="closeDriveBrowseModal()">Cancel</button>
+    </div>
+  </div>
+</div>
 
 <div class="modal-overlay" id="renameModal">
   <div class="modal">
@@ -330,6 +344,35 @@
   // page's session state (token/currentUser) and can refresh the inbox
   // in place after a successful send, instead of a full page redirect.
   let uploadFormLoaded = false;
+  let uploadSource = 'computer';
+  let selectedDriveFile = null;
+
+  function setUploadSource(mode) {
+    uploadSource = mode;
+    const computerBtn = document.getElementById('sourceComputerBtn');
+    const driveBtn = document.getElementById('sourceDriveBtn');
+    const computerGroup = document.getElementById('computerFileGroup');
+    const driveGroup = document.getElementById('driveFileGroup');
+    const fileInput = document.getElementById('documentFileInput');
+
+    const activeStyle = 'flex:1;padding:8px;border-radius:6px;border:1px solid var(--steel);background:var(--steel);color:#fff;font-weight:600;cursor:pointer;';
+    const inactiveStyle = 'flex:1;padding:8px;border-radius:6px;border:1px solid var(--border-strong);background:var(--bg-muted);color:var(--text-secondary);font-weight:600;cursor:pointer;';
+
+    if (mode === 'drive') {
+      computerBtn.style.cssText = inactiveStyle;
+      driveBtn.style.cssText = activeStyle + 'display:block;';
+      computerGroup.style.display = 'none';
+      driveGroup.style.display = 'block';
+      fileInput.required = false;
+    } else {
+      computerBtn.style.cssText = activeStyle;
+      driveBtn.style.cssText = inactiveStyle + (driveBtn.dataset.available === '1' ? 'display:block;' : 'display:none;');
+      computerGroup.style.display = 'block';
+      driveGroup.style.display = 'none';
+      fileInput.required = true;
+    }
+  }
+
   function showView(view) {
     document.getElementById('documentsView').style.display = view === 'documents' ? 'block' : 'none';
     document.getElementById('uploadView').style.display = view === 'upload' ? 'block' : 'none';
@@ -345,6 +388,17 @@
   }
 
   function initUploadForm() {
+    // Only show "Attach from Google Drive" if a shared account is actually
+    // connected (see BACKLOG.md "Google Drive integration").
+    fetch(API_BASE + '/drive/status', { headers: { 'Authorization': 'Bearer ' + token } })
+      .then(res => res.ok ? res.json() : { connected: false })
+      .then(data => {
+        const driveBtn = document.getElementById('sourceDriveBtn');
+        driveBtn.dataset.available = data.connected ? '1' : '0';
+        if (data.connected) driveBtn.style.display = 'block';
+      })
+      .catch(() => {});
+
     // Load projects + departments for the upload dropdowns
     Promise.all([
       fetch(API_BASE + '/projects', { headers: { 'Authorization': 'Bearer ' + token } }),
@@ -441,9 +495,70 @@
     document.getElementById('submitBtn').textContent = 'Send';
   }
 
+  async function submitDriveAttach(formEl) {
+    if (!selectedDriveFile) {
+      showUploadError('Choose a file from Drive first.');
+      return;
+    }
+
+    document.getElementById('submitBtn').disabled = true;
+    document.getElementById('submitBtn').textContent = 'Sending...';
+
+    const body = {
+      fileId: selectedDriveFile.id,
+      recipientId: document.getElementById('uploadPicDropdown').value || null,
+      projectId: document.getElementById('uploadProjectDropdown').value || null,
+      siteId: document.getElementById('uploadSiteDropdown').value || null,
+      departmentId: document.getElementById('uploadDeptDropdown').value || null,
+      isUrgent: document.getElementById('urgentCheckbox').checked,
+    };
+
+    try {
+      const res = await fetch(API_BASE + '/documents/drive-attach', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      const data = await res.json().catch(() => ({}));
+      document.getElementById('submitBtn').disabled = false;
+      document.getElementById('submitBtn').textContent = 'Send';
+
+      if (res.ok) {
+        showUploadStatus('Document shared from Drive successfully!', 'success');
+        setTimeout(async () => {
+          formEl.reset();
+          selectedDriveFile = null;
+          document.getElementById('selectedDriveFileName').textContent = 'No file selected';
+          document.getElementById('selectedDriveFileName').style.color = 'var(--text-muted)';
+          setUploadSource('computer');
+          resetUploadUI();
+          showUploadStatus('', '');
+          document.getElementById('uploadStatusMessage').className = 'status-msg';
+          currentTab = 'inbox';
+          currentPage = 1;
+          document.getElementById('tabInbox').classList.add('active');
+          document.getElementById('tabSent').classList.remove('active');
+          showView('documents');
+          await loadDocs();
+        }, 900);
+      } else {
+        showUploadError(data.message || `Failed to share file (HTTP ${res.status}).`);
+      }
+    } catch (e) {
+      document.getElementById('submitBtn').disabled = false;
+      document.getElementById('submitBtn').textContent = 'Send';
+      showUploadError('Network error: could not reach the server. Please check your connection.');
+    }
+  }
+
   document.getElementById('uploadForm').onsubmit = (e) => {
     e.preventDefault();
     resetUploadUI();
+
+    if (uploadSource === 'drive') {
+      submitDriveAttach(e.target);
+      return;
+    }
 
     const formData = new FormData(e.target);
     const xhr = new XMLHttpRequest();

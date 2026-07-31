@@ -1,0 +1,9 @@
+diff a/Procurement-PWA/public/admin/approvals.html b/Procurement-PWA/public/admin/approvals.html	(rejected hunks)
+@@ -133,6 +134,7 @@
+               <select id="role-${r.id}">
+                 <option value="Staff">Staff</option>
+                 <option value="Supervisor">Supervisor</option>
++                <option value="Manager">Manager (placeholder — Work Sites feature)</option>
+                 <option value="Executive">Executive</option>
+               </select>
+               <button class="btn-approve" onclick="approve(${r.id})">Approve</button>

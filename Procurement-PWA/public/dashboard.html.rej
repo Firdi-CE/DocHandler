@@ -1,0 +1,158 @@
+diff a/Procurement-PWA/public/dashboard.html b/Procurement-PWA/public/dashboard.html	(rejected hunks)
+@@ -18,6 +18,7 @@
+       <a class="sidebar-link active" href="#" id="navDocuments" onclick="showView('documents');return false;">Documents</a>
+       <a class="sidebar-link" href="#" id="navUpload" onclick="showView('upload');return false;">Upload</a>
+       <a class="sidebar-link" href="/profile.html">Profile</a>
++      <a class="sidebar-link" href="/my-projects.html" id="navMyProjects" style="display:none;">My Projects</a>
+ 
+       <div id="adminNavGroup" style="display:none;">
+         <button class="sidebar-group-toggle" id="adminGroupToggle" onclick="toggleSidebarGroup('adminSubmenu', this)">
+@@ -115,17 +117,41 @@
+ 
+           <form id="uploadForm">
+             <div class="filter-group" style="margin-bottom:1.1rem;">
++              <label style="display:block;font-weight:600;margin-bottom:4px;font-size:0.9rem;">Source:</label>
++              <div style="display:flex;gap:8px;">
++                <button type="button" id="sourceComputerBtn" onclick="setUploadSource('computer')"
++                  style="flex:1;padding:8px;border-radius:6px;border:1px solid var(--steel);background:var(--steel);color:#fff;font-weight:600;cursor:pointer;">Upload from computer</button>
++                <button type="button" id="sourceDriveBtn" onclick="setUploadSource('drive')" style="display:none;flex:1;padding:8px;border-radius:6px;border:1px solid var(--border-strong);background:var(--bg-muted);color:var(--text-secondary);font-weight:600;cursor:pointer;">Attach from Google Drive</button>
++              </div>
++            </div>
++
++            <div class="filter-group" id="computerFileGroup" style="margin-bottom:1.1rem;">
+               <label style="display:block;font-weight:600;margin-bottom:4px;font-size:0.9rem;">File:</label>
+-              <input type="file" name="document" required>
++              <input type="file" name="document" id="documentFileInput" required>
++            </div>
++
++            <div class="filter-group" id="driveFileGroup" style="margin-bottom:1.1rem;display:none;">
++              <label style="display:block;font-weight:600;margin-bottom:4px;font-size:0.9rem;">Drive File:</label>
++              <div style="display:flex;align-items:center;gap:8px;">
++                <span id="selectedDriveFileName" style="color:var(--text-muted);font-size:0.9rem;flex:1;">No file selected</span>
++                <button type="button" onclick="openDriveBrowseModal()">Browse Drive</button>
++              </div>
+             </div>
+ 
+             <div class="filter-group" style="margin-bottom:1.1rem;">
+               <label style="display:block;font-weight:600;margin-bottom:4px;font-size:0.9rem;">Project:</label>
+-              <select id="uploadProjectDropdown" name="projectId" required style="width:100%;">
++              <select id="uploadProjectDropdown" name="projectId" required style="width:100%;" onchange="loadUploadSites()">
+                 <option value="">-- Loading Projects... --</option>
+               </select>
+             </div>
+ 
++            <div class="filter-group" style="margin-bottom:1.1rem;">
++              <label style="display:block;font-weight:600;margin-bottom:4px;font-size:0.9rem;">Work Site (optional):</label>
++              <select id="uploadSiteDropdown" name="siteId" style="width:100%;">
++                <option value="">-- Choose Project first --</option>
++              </select>
++            </div>
++
+             <div class="filter-group" style="margin-bottom:1.1rem;">
+               <label style="display:block;font-weight:600;margin-bottom:4px;font-size:0.9rem;">Department:</label>
+               <select id="uploadDeptDropdown" name="departmentId" onchange="loadUploadUsers()" required style="width:100%;">
+@@ -282,6 +321,11 @@
+       if (isAdmin) {
+         document.getElementById('adminNavGroup').style.display = 'block';
+       }
++      // "My Projects" (status toggle) is for anyone above Staff — Supervisor,
++      // the placeholder Manager role, or a global role. See roles.js.
++      if (currentUser.role !== 'Staff') {
++        document.getElementById('navMyProjects').style.display = 'block';
++      }
+     } catch (e) { /* non-fatal — page still works without display name */ }
+ 
+     try {
+@@ -364,6 +448,92 @@
+     });
+   }
+ 
++  async function loadUploadSites() {
++    const projectId = document.getElementById('uploadProjectDropdown').value;
++    const siteDropdown = document.getElementById('uploadSiteDropdown');
++    if (!projectId) {
++      siteDropdown.innerHTML = '<option value="">-- Choose Project first --</option>';
++      return;
++    }
++    siteDropdown.innerHTML = '<option value="">-- Loading Sites... --</option>';
++    try {
++      const res = await fetch(API_BASE + '/projects/' + projectId + '/sites', {
++        headers: { 'Authorization': 'Bearer ' + token }
++      });
++      const sites = await res.json();
++      siteDropdown.innerHTML = '<option value="">-- No specific site --</option>';
++      sites.forEach(s => {
++        const opt = document.createElement('option');
++        opt.value = s.id; opt.textContent = s.site_name;
++        siteDropdown.appendChild(opt);
++      });
++    } catch (e) {
++      siteDropdown.innerHTML = '<option value="">-- No specific site --</option>';
++    }
++  }
++
++  // --- Attach from Google Drive (Google Drive integration) ---
++  let driveSearchDebounceTimer = null;
++
++  function openDriveBrowseModal() {
++    document.getElementById('driveBrowseModal').classList.add('open');
++    document.getElementById('driveSearchInput').value = '';
++    searchDriveFiles();
++  }
++
++  function closeDriveBrowseModal() {
++    document.getElementById('driveBrowseModal').classList.remove('open');
++  }
++
++  function debouncedDriveSearch() {
++    clearTimeout(driveSearchDebounceTimer);
++    driveSearchDebounceTimer = setTimeout(searchDriveFiles, 350);
++  }
++
++  function escapeHtml(str) {
++    return String(str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
++  }
++
++  async function searchDriveFiles() {
++    const listEl = document.getElementById('driveFileList');
++    const q = document.getElementById('driveSearchInput').value.trim();
++    listEl.innerHTML = '<p style="color:var(--text-muted);font-size:0.85rem;text-align:center;padding:1rem;">Loading...</p>';
++    try {
++      const url = API_BASE + '/drive/files' + (q ? '?q=' + encodeURIComponent(q) : '');
++      const res = await fetch(url, { headers: { 'Authorization': 'Bearer ' + token } });
++      const data = await res.json();
++      const files = data.files || [];
++      if (files.length === 0) {
++        listEl.innerHTML = '<p style="color:var(--text-muted);font-size:0.85rem;text-align:center;padding:1rem;">No files found.</p>';
++        return;
++      }
++      listEl.innerHTML = files.map(f => `
++        <div class="drive-file-row" data-id="${escapeHtml(f.id)}" data-name="${escapeHtml(f.name)}"
++          style="display:flex;align-items:center;gap:8px;padding:8px;border-radius:6px;cursor:pointer;border-bottom:1px solid var(--border);">
++          <img src="${escapeHtml(f.iconLink || '')}" style="width:18px;height:18px;" onerror="this.style.display='none'">
++          <span style="font-size:0.88rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(f.name)}</span>
++        </div>
++      `).join('');
++    } catch (e) {
++      listEl.innerHTML = '<p style="color:var(--text-muted);font-size:0.85rem;text-align:center;padding:1rem;">Failed to load files.</p>';
++    }
++  }
++
++  // Delegated click handler instead of inline onclick, since Drive file
++  // names are untrusted content and shouldn't be interpolated into
++  // inline JS attributes.
++  document.getElementById('driveFileList').addEventListener('click', (e) => {
++    const row = e.target.closest('.drive-file-row');
++    if (row) selectDriveFile(row.dataset.id, row.dataset.name);
++  });
++
++  function selectDriveFile(id, name) {
++    selectedDriveFile = { id, name };
++    document.getElementById('selectedDriveFileName').textContent = name;
++    document.getElementById('selectedDriveFileName').style.color = 'var(--text-primary)';
++    closeDriveBrowseModal();
++  }
++
+   async function loadUploadUsers() {
+     const deptId = document.getElementById('uploadDeptDropdown').value;
+     const picDropdown = document.getElementById('uploadPicDropdown');

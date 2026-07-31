@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Projects — DocHandler</title>
+  <link rel="stylesheet" href="/theme.css">
+  <style>
+    body { padding: 2rem; }
+    .card { max-width: 800px; margin: auto; }
+    table { width: 100%; border-collapse: collapse; }
+    th { text-align: left; padding: 0.75rem 0.5rem; border-bottom: 1px solid var(--border); font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted); }
+    td { padding: 0.75rem 0.5rem; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
+    .status-msg { padding: 0.75rem; border-radius: 8px; margin-bottom: 1rem; display: none; }
+    .status-msg.success { display: block; background: var(--green-bg); border: 1px solid var(--green-border); color: var(--green-text); }
+    .status-msg.error { display: block; background: var(--red-bg); border: 1px solid var(--red-border); color: var(--red-text); }
+    .status-badge { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 0.75rem; font-weight: 700; text-transform: capitalize; }
+    .status-badge.active { background: var(--green-bg); color: var(--green-text); }
+    .status-badge.maintenance { background: #FEF3C7; color: #92400E; }
+    .status-badge.completed { background: #E5E7EB; color: #374151; }
+    select.status-select { padding: 6px 8px; border-radius: 6px; border: 1px solid var(--border); }
+  </style>
+</head>
+<body class="full-bleed">
+
+<div class="app-shell">
+  <aside class="app-sidebar">
+    <div class="sidebar-logo">
+      <img src="/assets/logo.png" alt="Pilar Energi">
+      <span>DocHandler</span>
+    </div>
+    <nav class="sidebar-nav">
+      <a class="sidebar-link" href="/dashboard.html">Documents</a>
+      <a class="sidebar-link" href="/dashboard.html?view=upload">Upload</a>
+      <a class="sidebar-link" href="/profile.html">Profile</a>
+      <a class="sidebar-link active" href="/my-projects.html">My Projects</a>
+    </nav>
+  </aside>
+
+  <div class="app-main">
+    <div class="app-header">
+      <h2 style="color:var(--navy);font-size:1.1rem;">My Projects</h2>
+      <div class="header-user">
+        <button onclick="logout()">Sign out</button>
+      </div>
+    </div>
+
+    <div class="app-content">
+      <div class="card">
+        <div id="statusMessage" class="status-msg"></div>
+        <p style="color:var(--text-muted);font-size:0.85rem;margin-bottom:1.2rem;">
+          Projects you're assigned to. Update a project's status here when work
+          wraps up or shifts to maintenance.
+        </p>
+        <table>
+          <thead><tr><th>Project</th><th>Status</th><th>Change Status</th></tr></thead>
+          <tbody id="projectsBody">
+            <tr><td colspan="3" style="text-align:center;padding:2rem;color:var(--text-muted);">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const API_BASE = '';
+  const token = localStorage.getItem('token');
+  if (!token) window.location.href = '/login.html?reason=expired';
+
+  const STATUS_OPTIONS = ['active', 'completed', 'maintenance'];
+
+  function showStatus(msg, type) {
+    const el = document.getElementById('statusMessage');
+    el.textContent = msg; el.className = 'status-msg ' + type;
+    setTimeout(() => el.style.display = 'none', 3000);
+  }
+
+  function renderRow(p) {
+    return `
+      <tr>
+        <td><strong>${p.name}</strong></td>
+        <td><span class="status-badge ${p.status}">${p.status}</span></td>
+        <td>
+          <select class="status-select" id="status-${p.id}">
+            ${STATUS_OPTIONS.map(s => `<option value="${s}" ${s === p.status ? 'selected' : ''}>${s}</option>`).join('')}
+          </select>
+          <button onclick="updateStatus(${p.id})">Update</button>
+        </td>
+      </tr>
+    `;
+  }
+
+  async function loadProjects() {
+    try {
+      const res = await fetch(API_BASE + '/my-projects', {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      if (res.status === 401) { logout(); return; }
+      const projects = await res.json();
+      const tbody = document.getElementById('projectsBody');
+      if (projects.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;padding:2rem;color:var(--text-muted);">No projects assigned to you yet.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = projects.map(renderRow).join('');
+    } catch (e) {
+      document.getElementById('projectsBody').innerHTML =
+        '<tr><td colspan="3" style="text-align:center;padding:2rem;color:var(--text-muted);">Failed to load.</td></tr>';
+    }
+  }
+
+  async function updateStatus(projectId) {
+    const status = document.getElementById('status-' + projectId).value;
+    try {
+      const res = await fetch(API_BASE + '/projects/' + projectId + '/status', {
+        method: 'PATCH',
+        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showStatus('Project status updated.', 'success');
+        loadProjects();
+      } else {
+        showStatus(data.error || 'Failed to update status.', 'error');
+      }
+    } catch (e) {
+      showStatus('Network error while updating status.', 'error');
+    }
+  }
+
+  function logout() {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    window.location.href = '/login.html';
+  }
+
+  loadProjects();
+</script>
+
+</body>
+</html>

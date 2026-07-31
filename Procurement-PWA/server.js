@@ -23,6 +23,14 @@ const transporter = nodemailer.createTransport({
 });
 const PORT = process.env.PORT || 3000;
 
+// BACKLOG.md: "Admin approval-override relaxation" — Admin used to be able
+// to act on ANY approval-chain level regardless of who was actually
+// assigned, which was only ever meant as a dev-phase convenience. Default
+// is now strict (assigned approver only); set
+// ALLOW_ADMIN_APPROVAL_OVERRIDE=true in the environment to restore the old
+// dev-only behavior locally. Do not set this in production.
+const ALLOW_ADMIN_APPROVAL_OVERRIDE = process.env.ALLOW_ADMIN_APPROVAL_OVERRIDE === 'true';
+
 // --- 1. MIDDLEWARE CONFIGURATION ---
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -101,14 +109,14 @@ const ensureAuthenticated = (req, res, next) => {
 };
 
 // Middleware to ensure user is an admin/executive.
-// Accepts both 'Executive' and 'Admin' roles (Req 7).
+// Accepts both 'Executive' and 'Admin' roles (Req 7) — i.e. roles.GLOBAL_ROLES.
 // Re-verifies role against the DB so stale JWTs can't exploit cached role values.
 const ensureAdmin = async (req, res, next) => {
     try {
         const dbRes = await db.query('SELECT role FROM users WHERE id = $1', [req.user.id]);
         if (dbRes.rows.length === 0) return res.status(403).json({ message: 'Forbidden: User not found.' });
         const liveRole = dbRes.rows[0].role;
-        if (liveRole === 'Executive' || liveRole === 'Admin') {
+        if (roles.isGlobalRole(liveRole)) {
             req.user.role = liveRole; // keep req.user in sync with DB truth
             return next();
         }
@@ -260,9 +268,9 @@ app.get('/documents/:id/download', async (req, res) => {
         const doc = docRes.rows[0];
 
         let hasAccess = false;
-        if (user.role === 'Executive' || user.role === 'Admin') {
+        if (roles.isGlobalRole(user.role)) {
             hasAccess = true;
-        } else if (user.role === 'Supervisor') {
+        } else if (roles.isProjectScopedRole(user.role)) {
             const projCheck = await db.query('SELECT 1 FROM project_assignments WHERE user_id = $1 AND project_id = $2', [user.id, doc.project_id]);
             if (doc.department_id === user.department_id || projCheck.rows.length > 0) hasAccess = true;
         } else {
@@ -271,6 +279,25 @@ app.get('/documents/:id/download', async (req, res) => {
         }
 
         if (!hasAccess) return res.status(403).json({ message: 'Access denied.' });
+
+        // Drive-attached documents have no local file -- proxy the bytes
+        // through our server (rather than redirecting to Drive) so this
+        // app's access control above is what actually gates the download,
+        // not whatever sharing permissions happen to exist on the
+        // connected Drive account.
+        if (doc.drive_attachment_id) {
+            try {
+                const meta = await driveService.getFileMetadata(doc.drive_attachment_id);
+                const stream = await driveService.getFileStream(doc.drive_attachment_id);
+                res.setHeader('Content-Disposition', `attachment; filename="${doc.filename}"`);
+                if (meta.mimeType) res.setHeader('Content-Type', meta.mimeType);
+                stream.pipe(res);
+            } catch (driveErr) {
+                console.error('Drive download error:', driveErr);
+                res.status(502).json({ message: 'Could not fetch this file from Google Drive.' });
+            }
+            return;
+        }
 
         const filePath = path.join(__dirname, 'uploads', doc.filename);
         if (!fs.existsSync(filePath)) return res.status(404).json({ message: 'Physical file missing from server.' });
@@ -300,9 +327,9 @@ app.get('/documents/:id/stream', ensureAuthenticated, async (req, res) => {
 
         // 2. Enforce Role-Based Scoping
         let hasAccess = false;
-        if (userRole === 'Executive' || userRole === 'Admin') {
+        if (roles.isGlobalRole(userRole)) {
             hasAccess = true;
-        } else if (userRole === 'Supervisor') {
+        } else if (roles.isProjectScopedRole(userRole)) {
             const projCheck = await db.query(`SELECT 1 FROM project_assignments WHERE user_id = $1 AND project_id = $2`, [userId, doc.project_id]);
             if (doc.department_id === deptId || projCheck.rows.length > 0) hasAccess = true;
         } else { // Staff
@@ -312,6 +339,22 @@ app.get('/documents/:id/stream', ensureAuthenticated, async (req, res) => {
 
         if (!hasAccess) {
             return res.status(403).json({ message: 'Access denied to this document.' });
+        }
+
+        // Drive-attached documents have no local file -- proxy from Drive
+        // instead, same reasoning as the download route above.
+        if (doc.drive_attachment_id) {
+            try {
+                const meta = await driveService.getFileMetadata(doc.drive_attachment_id);
+                const stream = await driveService.getFileStream(doc.drive_attachment_id);
+                res.setHeader('Content-Type', meta.mimeType || 'application/pdf');
+                res.setHeader('Content-Disposition', `inline; filename="${doc.filename}"`);
+                stream.pipe(res);
+            } catch (driveErr) {
+                console.error('Drive stream error:', driveErr);
+                res.status(502).json({ message: 'Could not fetch this file from Google Drive.' });
+            }
+            return;
         }
 
         // 3. Stream File
@@ -455,6 +498,21 @@ app.post('/upload', ensureAuthenticated, (req, res) => {
             // ---------------------------------------------
 
             res.status(200).json({ message: 'Document sent!' });
+
+            // --- BACKUP TO GOOGLE DRIVE (best-effort, fire-and-forget) ---
+            // Runs after the response so a slow/unreachable Drive never
+            // delays or fails the upload itself. See BACKLOG.md ("Google
+            // Drive integration") and driveService.js.
+            driveService.isConnected().then((connected) => {
+                if (!connected) return;
+                driveService.backupLocalFile({ filePath, displayName: filename, mimeType: req.file.mimetype })
+                    .then(({ id, webViewLink }) => db.query(
+                        'UPDATE documents SET drive_backup_id = $1, drive_web_link = $2 WHERE id = $3',
+                        [id, webViewLink, newDocId]
+                    ))
+                    .catch((driveErr) => console.warn(`Drive backup failed for document ${newDocId} (local copy is unaffected):`, driveErr.message));
+            }).catch(() => {}); // isConnected() failing just means "skip the backup"
+            // ---------------------------------------------------------------
 
         } catch (dbErr) {
             // DB/business logic failure after a successful file write -- clean up the
@@ -833,6 +891,287 @@ app.patch('/projects/:id/status', ensureAuthenticated, async (req, res) => {
         res.json(result.rows[0]);
     } catch (err) {
         res.status(500).json({ error: err.message });
+    }
+});
+
+// --- WORK SITES & MAINTENANCE LIFECYCLE ---
+// Placeholder-role feature (see roles.js + BACKLOG.md). Site CRUD is admin
+// only, same as project CRUD above; status changes are opened up to the
+// `Manager` role (and global roles) via roles.canManageProjectStatus.
+
+// Create a work site under a project
+app.post('/admin/projects/:id/sites', ensureAuthenticated, ensureAdmin, async (req, res) => {
+    const { id } = req.params;
+    const { site_name } = req.body;
+    if (!site_name) return res.status(400).json({ error: 'Site name is required.' });
+
+    try {
+        const result = await db.query(
+            'INSERT INTO work_sites (project_id, site_name) VALUES ($1, $2) RETURNING *',
+            [id, site_name]
+        );
+        res.status(201).json(result.rows[0]);
+    } catch (err) {
+        if (err.code === '23505') { // unique_violation
+            return res.status(409).json({ error: 'A site with that name already exists for this project.' });
+        }
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Rename a work site
+app.patch('/admin/sites/:id', ensureAuthenticated, ensureAdmin, async (req, res) => {
+    const { id } = req.params;
+    const { site_name } = req.body;
+    if (!site_name) return res.status(400).json({ error: 'New site name is required.' });
+
+    try {
+        const result = await db.query(
+            'UPDATE work_sites SET site_name = $1 WHERE id = $2 RETURNING *',
+            [site_name, id]
+        );
+        if (result.rows.length === 0) return res.status(404).json({ error: 'Site not found.' });
+        res.json(result.rows[0]);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Delete a work site
+app.delete('/admin/sites/:id', ensureAuthenticated, ensureAdmin, async (req, res) => {
+    const { id } = req.params;
+    try {
+        const result = await db.query('DELETE FROM work_sites WHERE id = $1 RETURNING id', [id]);
+        if (result.rows.length === 0) return res.status(404).json({ error: 'Site not found.' });
+        res.json({ message: 'Site deleted successfully.' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// "My Projects" — projects the current user can see for status-management
+// purposes. Global roles (Executive/Admin) get every project; Manager (and,
+// pending BACKLOG.md's open questions, Supervisor) only see projects they're
+// assigned to.
+app.get('/my-projects', ensureAuthenticated, async (req, res) => {
+    try {
+        const userRole = req.user.role;
+        if (roles.isGlobalRole(userRole)) {
+            const result = await db.query('SELECT id, name, status FROM projects ORDER BY name ASC');
+            return res.json(result.rows);
+        }
+        const result = await db.query(
+            `SELECT DISTINCT p.id, p.name, p.status
+             FROM projects p
+             JOIN project_assignments pa ON pa.project_id = p.id
+             WHERE pa.user_id = $1
+             ORDER BY p.name ASC`,
+            [req.user.id]
+        );
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// Update a project's status (active / completed / maintenance).
+// Global roles can act on any project; Manager must be assigned to it.
+app.patch('/projects/:id/status', ensureAuthenticated, async (req, res) => {
+    const { id } = req.params;
+    const { status } = req.body;
+    const validStatuses = ['active', 'completed', 'maintenance'];
+
+    if (!status || !validStatuses.includes(status)) {
+        return res.status(400).json({ error: `Status must be one of: ${validStatuses.join(', ')}.` });
+    }
+    if (!roles.canManageProjectStatus(req.user.role)) {
+        return res.status(403).json({ error: 'You do not have permission to change project status.' });
+    }
+
+    try {
+        if (!roles.isGlobalRole(req.user.role)) {
+            const assignCheck = await db.query(
+                'SELECT 1 FROM project_assignments WHERE user_id = $1 AND project_id = $2',
+                [req.user.id, id]
+            );
+            if (assignCheck.rows.length === 0) {
+                return res.status(403).json({ error: 'You are not assigned to this project.' });
+            }
+        }
+
+        const result = await db.query(
+            'UPDATE projects SET status = $1 WHERE id = $2 RETURNING *',
+            [status, id]
+        );
+        if (result.rows.length === 0) return res.status(404).json({ error: 'Project not found.' });
+        res.json(result.rows[0]);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// --- GOOGLE DRIVE INTEGRATION ---
+// See BACKLOG.md ("Google Drive integration") and driveService.js for the
+// full design. One shared account, connected once by an admin.
+
+// Lightweight check any authenticated user can call, so the upload UI
+// knows whether to offer "Attach from Drive" at all. Deliberately doesn't
+// reveal which account is connected -- that's admin-only (below).
+app.get('/drive/status', ensureAuthenticated, async (req, res) => {
+    try {
+        res.json({ connected: await driveService.isConnected() });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// Full connection details, admin-only.
+app.get('/admin/integrations/google-drive/status', ensureAuthenticated, ensureAdmin, async (req, res) => {
+    try {
+        const settings = await driveService.getSettings();
+        res.json({
+            configured: driveService.isConfigured(),
+            connected: !!(settings && settings.google_refresh_token),
+            connectedEmail: settings ? settings.google_connected_email : null,
+            connectedAt: settings ? settings.google_connected_at : null,
+            backupFolderName: settings ? settings.google_backup_folder_name : null,
+        });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// Kicks off the OAuth flow. Returns a URL for the frontend to navigate to
+// (rather than redirecting directly) since this call itself needs the
+// admin's Bearer token, which a plain top-level browser navigation can't
+// carry. The admin's own JWT is embedded as `state`: Google echoes it back
+// verbatim on the callback below, and re-verifying it there (a) tells us
+// which admin connected the account without needing cookies/sessions, and
+// (b) doubles as CSRF protection for free -- only someone with a valid JWT
+// could produce a state value that verifies.
+app.get('/admin/integrations/google-drive/connect', ensureAuthenticated, ensureAdmin, (req, res) => {
+    try {
+        const token = req.headers.authorization.split(' ')[1];
+        const url = driveService.getAuthUrl(token);
+        res.json({ url });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// Google redirects the browser here after consent -- a plain unauthenticated
+// top-level GET, so this route is intentionally NOT behind ensureAuthenticated.
+// See the comment above for how `state` substitutes for that.
+app.get('/admin/integrations/google-drive/callback', async (req, res) => {
+    const { code, state, error } = req.query;
+    if (error) {
+        return res.redirect(`/admin/integrations.html?drive_error=${encodeURIComponent(error)}`);
+    }
+    try {
+        const decoded = auth.verifyToken(state);
+        const liveRoleRes = await db.query('SELECT role FROM users WHERE id = $1', [decoded.userId]);
+        const liveRole = liveRoleRes.rows[0]?.role;
+        if (!roles.isGlobalRole(liveRole)) {
+            return res.redirect('/admin/integrations.html?drive_error=forbidden');
+        }
+
+        const { refreshToken, email } = await driveService.exchangeCodeForConnection(code);
+        await driveService.saveConnection({ refreshToken, email, connectedByUserId: decoded.userId });
+        res.redirect('/admin/integrations.html?drive_connected=1');
+    } catch (err) {
+        console.error('Google Drive connect error:', err);
+        res.redirect(`/admin/integrations.html?drive_error=${encodeURIComponent(err.message)}`);
+    }
+});
+
+app.post('/admin/integrations/google-drive/disconnect', ensureAuthenticated, ensureAdmin, async (req, res) => {
+    try {
+        await driveService.disconnect();
+        res.json({ message: 'Google Drive disconnected.' });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// Browse/search files in the connected account, for the "Attach from
+// Drive" picker on the upload form. Any authenticated user -- listing
+// doesn't grant document access on its own, same reasoning as
+// GET /projects/:id/sites.
+app.get('/drive/files', ensureAuthenticated, async (req, res) => {
+    try {
+        if (!(await driveService.isConnected())) {
+            return res.status(409).json({ message: 'Google Drive is not connected.' });
+        }
+        const data = await driveService.listFiles({ query: req.query.q, pageToken: req.query.pageToken });
+        res.json(data);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// Creates a document record for an EXISTING Drive file the user picked,
+// instead of uploading a local file. Deliberately re-fetches the file's
+// name/link from Drive server-side via fileId rather than trusting
+// whatever the client sent -- mirrors the validation /upload does for
+// local files.
+app.post('/documents/drive-attach', ensureAuthenticated, async (req, res) => {
+    try {
+        const { fileId, recipientId, projectId, siteId, departmentId, isUrgent } = req.body;
+        if (!fileId) return res.status(400).json({ message: 'fileId is required.' });
+
+        const uploadedBy = req.user.id;
+        const userRole = req.user.role;
+
+        if (projectId && !roles.isGlobalRole(userRole)) {
+            const assignCheck = await db.query(
+                'SELECT 1 FROM project_assignments WHERE user_id = $1 AND project_id = $2',
+                [uploadedBy, projectId]
+            );
+            if (assignCheck.rows.length === 0) {
+                return res.status(403).json({ message: 'Unauthorized: You are not assigned to this project.' });
+            }
+        }
+
+        const file = await driveService.getFileMetadata(fileId);
+
+        const insertRes = await db.query(
+            `INSERT INTO public.documents (filename, sender_id, recipient_id, project_id, site_id, department_id, is_urgent, drive_attachment_id, drive_web_link)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+             RETURNING id`,
+            [file.name, uploadedBy, recipientId || null, projectId || null, siteId || null, departmentId || null, !!isUrgent, file.id, file.webViewLink]
+        );
+        const newDocId = insertRes.rows[0].id;
+
+        await auditLog(uploadedBy, 'DOCUMENT_DRIVE_ATTACH', newDocId);
+
+        if (recipientId) {
+            if (isUrgent) {
+                const userRes = await db.query('SELECT email, display_name FROM users WHERE id = $1', [recipientId]);
+                if (userRes.rows.length > 0) {
+                    const targetEmail = userRes.rows[0].email;
+                    const targetName = userRes.rows[0].display_name;
+                    const subject = `🔴 URGENT Document: ${file.name}`;
+                    const text = `Hello ${targetName},\n\nAn URGENT document "${file.name}" has been shared and routed to your inbox by ${req.user.display_name}. Please log into DocHandler to review it immediately.`;
+                    const html = `
+                        <h3 style="color:#b91c1c;">🔴 Urgent Document</h3>
+                        <p>Hello ${targetName},</p>
+                        <p>An <strong style="color:#b91c1c;">URGENT</strong> document <strong>${file.name}</strong> has been routed to your inbox by ${req.user.display_name}.</p>
+                        <p>Please log in to review it immediately.</p>
+                    `;
+                    sendMail(targetEmail, subject, text, html);
+                }
+            } else {
+                await db.query(
+                    `INSERT INTO public.notification_queue (document_id, recipient_id) VALUES ($1, $2)`,
+                    [newDocId, recipientId]
+                );
+            }
+        }
+
+        res.status(200).json({ message: 'Document shared from Drive!' });
+    } catch (err) {
+        console.error('Drive attach error:', err);
+        res.status(500).json({ message: err.message });
     }
 });
 
@@ -1221,8 +1560,10 @@ app.patch('/documents/:id/approval-step', ensureAuthenticated, async (req, res) 
 
         const liveRoleRes = await db.query('SELECT role FROM users WHERE id = $1', [req.user.id]);
         const liveRole = liveRoleRes.rows[0]?.role;
-        const isAdmin = liveRole === 'Admin';
-        if (curStep.approver_id !== req.user.id && !isAdmin) {
+        // See ALLOW_ADMIN_APPROVAL_OVERRIDE above — off by default, so only
+        // the exact assigned approver for this level can act.
+        const isAdminOverride = ALLOW_ADMIN_APPROVAL_OVERRIDE && liveRole === 'Admin';
+        if (curStep.approver_id !== req.user.id && !isAdminOverride) {
             return res.status(403).json({ message: 'You are not the assigned approver for the current level.' });
         }
         if (curStep.status !== 'pending') {

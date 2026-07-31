@@ -1,0 +1,81 @@
+diff a/Procurement-PWA/server.js b/Procurement-PWA/server.js	(rejected hunks)
+@@ -7,6 +7,8 @@ const fs = require('fs');
+ const multer = require('multer');
+ const auth = require('./auth'); // Imports JWT auth helpers
+ const db = require('./db');         // Imports PostgreSQL connection pool from db.js
++const roles = require('./roles');   // Centralized role/capability config (see roles.js)
++const driveService = require('./driveService'); // Google Drive integration (see driveService.js)
+ const { sendMail } = require('./utils/mailer');
+ const { runDigest } = require('./utils/digest');
+ const app = express();
+@@ -122,7 +132,24 @@ const ensureAdmin = async (req, res, next) => {
+ // API Endpoint to fetch existing company projects to build frontend selections dynamically
+ app.get('/projects', ensureAuthenticated, async (req, res) => {
+     try {
+-        const result = await db.query('SELECT id, name FROM projects ORDER BY name ASC');
++        const result = await db.query('SELECT id, name, status FROM projects ORDER BY name ASC');
++        res.json(result.rows);
++    } catch (err) {
++        res.status(500).json({ message: err.message });
++    }
++});
++
++// API Endpoint to fetch the work sites under a given project, for the
++// cascading Project -> Site dropdown on the upload form. Same openness as
++// /projects (any authenticated user) -- site *selection* doesn't grant
++// document access on its own; that's still enforced by the existing
++// project_assignments checks at upload/download/stream time.
++app.get('/projects/:id/sites', ensureAuthenticated, async (req, res) => {
++    try {
++        const result = await db.query(
++            'SELECT id, site_name FROM work_sites WHERE project_id = $1 ORDER BY site_name ASC',
++            [req.params.id]
++        );
+         res.json(result.rows);
+     } catch (err) {
+         res.status(500).json({ message: err.message });
+@@ -368,6 +430,7 @@ app.post('/upload', ensureAuthenticated, (req, res) => {
+             // 3. Capture & Sanitize Form Data (Convert empty strings to null for PG Int columns)
+             const recipientId = req.body.recipientId || null;
+             const projectId = req.body.projectId || null;
++            const siteId = req.body.siteId || null; // optional — Work Sites feature
+             const departmentId = req.body.departmentId || null;
+             // Checkboxes are omitted from multipart form data entirely when unchecked,
+             // and arrive as the string 'true'/'on' when checked -- never a real boolean.
+@@ -377,7 +440,7 @@ app.post('/upload', ensureAuthenticated, (req, res) => {
+             // Admin/Executive can upload to any project. Staff/Supervisor must be
+             // explicitly assigned to the target project or the upload is rejected.
+             const userRole = req.user.role;
+-            const isBypassRole = userRole === 'Admin' || userRole === 'Executive';
++            const isBypassRole = roles.isGlobalRole(userRole);
+             if (projectId && !isBypassRole) {
+                 const assignCheck = await db.query(
+                     'SELECT 1 FROM project_assignments WHERE user_id = $1 AND project_id = $2',
+@@ -394,11 +457,11 @@ app.post('/upload', ensureAuthenticated, (req, res) => {
+ 
+             // Perform strict table transaction mapping elements cleanly to table relations
+             const query = `
+-                INSERT INTO public.documents (filename, sender_id, recipient_id, project_id, department_id, is_urgent)
+-                VALUES ($1, $2, $3, $4, $5, $6)
++                INSERT INTO public.documents (filename, sender_id, recipient_id, project_id, site_id, department_id, is_urgent)
++                VALUES ($1, $2, $3, $4, $5, $6, $7)
+                 RETURNING id;
+             `;
+-            const values = [filename, uploadedBy, recipientId, projectId, departmentId, isUrgent];
++            const values = [filename, uploadedBy, recipientId, projectId, siteId, departmentId, isUrgent];
+             const insertRes = await db.query(query, values);
+             const newDocId = insertRes.rows[0].id;
+ 
+@@ -457,9 +535,10 @@ app.post('/upload', ensureAuthenticated, (req, res) => {
+ function buildInboxScopeClause(userRole, userId, deptId) {
+     let conditions = [];
+     let queryParams = [];
+-    if (userRole === 'Executive' || userRole === 'Admin') {
++    if (roles.isGlobalRole(userRole)) {
+         // no scoping clause — sees everything
+-    } else if (userRole === 'Supervisor') {
++    } else if (roles.isProjectScopedRole(userRole)) {
++        // Supervisor and Manager: scoped to their department + assigned projects
+         queryParams.push(deptId, userId);
+         conditions.push(`(d.department_id = $${queryParams.length - 1} OR d.project_id IN (SELECT project_id FROM project_assignments WHERE user_id = $${queryParams.length}))`);
+     } else {

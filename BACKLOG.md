@@ -120,6 +120,33 @@ Open questions, only answerable once the office confirms the hierarchy:
 
 ## Other deferred items
 
-- **Google Drive integration** — not started.
+- **Google Drive integration** — **Done (2026-07-31).** Single shared-account
+  connection (no Google Workspace for the office yet, so this is not per-user
+  OAuth) — see `driveService.js` for the full design rationale. Both
+  requested capabilities shipped: attaching an existing Drive file at
+  upload time, and best-effort auto-backup of every local upload to a
+  "DocHandler Uploads" folder in the connected account.
+
+  **To actually turn this on:**
+  1. Run `migrations/008_google_drive.sql`.
+  2. In the Google Cloud project for the OAuth client you already have,
+     confirm the client type is "Web application" and add an Authorized
+     redirect URI: `<your domain>/admin/integrations/google-drive/callback`.
+  3. Add three environment variables: `GOOGLE_CLIENT_ID` (can reuse the
+     same one auth.js already uses for Sign-In, or a separate client — see
+     driveService.js's header comment), `GOOGLE_CLIENT_SECRET`, and
+     `GOOGLE_DRIVE_REDIRECT_URI` (must exactly match what you registered
+     in step 2).
+  4. Add the Google account you want to connect as a **Test user** under
+     OAuth consent screen in Cloud Console — this app requests restricted
+     Drive scopes, so an unverified app can only be used by accounts on
+     that list. Expect a "Google hasn't verified this app" warning during
+     connect; that's expected for an internal unverified app.
+  5. As an Executive/Admin, go to Admin → Integrations → Connect.
+
+  Not built (flagging in case it's wanted later): a way to change which
+  Drive folder backups land in after the fact (currently auto-created once
+  on first connect and fixed), and any de-dup/versioning if the same file
+  gets attached twice.
 - **`schema_migrations` tracking table/runner** — proposed once, explicitly declined ("i dont need it").
-- **Admin approval-override relaxation** — currently Admin can act on any approval level (intentional for dev phase). Revisit at deployment: only the exact assigned approver should be able to act.
+- **Admin approval-override relaxation** — ~~currently Admin can act on any approval level (intentional for dev phase). Revisit at deployment: only the exact assigned approver should be able to act.~~ **Done (2026-07-31).** `PATCH /documents/:id/approval-step` now requires `curStep.approver_id === req.user.id` by default. The old blanket-Admin bypass is still available for local dev only, behind `ALLOW_ADMIN_APPROVAL_OVERRIDE=true` in the environment (unset/false in production). Note: this only touched the multi-level chain endpoint (`approval-step`) — the separate single-level `/documents/:id/status` endpoint intentionally still allows any Executive or Admin to act, since documents without a chain never had one single assigned approver to defer to in the first place.

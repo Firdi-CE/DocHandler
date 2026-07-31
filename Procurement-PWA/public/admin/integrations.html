@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Integrations — Admin</title>
+  <link rel="stylesheet" href="/theme.css">
+  <style>
+    body { padding: 2rem; }
+    .card { max-width: 640px; margin: auto; }
+    .status-msg { padding: 0.75rem; border-radius: 8px; margin-bottom: 1rem; display: none; }
+    .status-msg.success { display: block; background: var(--green-bg); border: 1px solid var(--green-border); color: var(--green-text); }
+    .status-msg.error { display: block; background: var(--red-bg); border: 1px solid var(--red-border); color: var(--red-text); }
+    .integration-row { display: flex; align-items: center; justify-content: space-between; padding: 1rem; border: 1px solid var(--border); border-radius: 8px; }
+    .integration-row + .integration-row { margin-top: 1rem; }
+    .integration-name { font-weight: 700; color: var(--navy); }
+    .integration-detail { font-size: 0.85rem; color: var(--text-muted); margin-top: 4px; }
+    .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+    .dot.on { background: #16A34A; }
+    .dot.off { background: #9CA3AF; }
+    .btn-connect { background: var(--steel); color: white; border: none; border-radius: 6px; padding: 8px 16px; cursor: pointer; font-weight: 600; }
+    .btn-connect:hover { background: var(--steel-hover); }
+    .btn-disconnect { background: transparent; color: #B91C1C; border: 1px solid #B91C1C; border-radius: 6px; padding: 8px 16px; cursor: pointer; font-weight: 600; }
+    .btn-disconnect:hover { background: #FEF2F2; }
+    .not-configured-note { font-size: 0.85rem; color: var(--text-muted); background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem; margin-top: 1rem; }
+  </style>
+</head>
+<body class="full-bleed">
+
+<div class="app-shell">
+  <aside class="app-sidebar">
+    <div class="sidebar-logo">
+      <img src="/assets/logo.png" alt="Pilar Energi">
+      <span>DocHandler</span>
+    </div>
+    <nav class="sidebar-nav">
+      <a class="sidebar-link" href="/dashboard.html">Documents</a>
+      <a class="sidebar-link" href="/dashboard.html?view=upload">Upload</a>
+      <a class="sidebar-link" href="/profile.html">Profile</a>
+
+      <div id="adminNavGroup">
+        <button class="sidebar-group-toggle open" id="adminGroupToggle" onclick="toggleSidebarGroup('adminSubmenu', this)">
+          Admin <span class="chevron">&#9660;</span>
+        </button>
+        <div class="sidebar-submenu open" id="adminSubmenu">
+          <a class="sidebar-link" href="/admin.html">Overview</a>
+          <a class="sidebar-link" href="/admin/users.html">Users</a>
+          <a class="sidebar-link" href="/admin/projects.html">Projects</a>
+          <a class="sidebar-link" href="/admin/approvals.html">Approvals</a>
+          <a class="sidebar-link active" href="/admin/integrations.html">Integrations</a>
+        </div>
+      </div>
+    </nav>
+  </aside>
+
+  <div class="app-main">
+    <div class="app-header">
+      <h2 style="color:var(--navy);font-size:1.1rem;">Integrations</h2>
+      <div class="header-user">
+        <button onclick="logout()">Sign out</button>
+      </div>
+    </div>
+
+    <div class="app-content">
+      <div class="card">
+        <div id="statusMessage" class="status-msg"></div>
+
+        <div class="integration-row">
+          <div>
+            <div class="integration-name"><span class="dot" id="driveDot"></span>Google Drive</div>
+            <div class="integration-detail" id="driveDetail">Checking status...</div>
+          </div>
+          <div id="driveAction"></div>
+        </div>
+
+        <p style="color:var(--text-muted);font-size:0.85rem;margin-top:1.2rem;">
+          One shared Google account, connected once, is used for everyone —
+          there's no Workspace account for the office yet, so this isn't
+          per-user. It lets people attach an existing Drive file when
+          uploading, and every upload is best-effort mirrored to a
+          "DocHandler Uploads" folder in that account.
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const API_BASE = '';
+  const token = localStorage.getItem('token');
+  if (!token) window.location.href = '/login.html?reason=expired';
+
+  function showStatus(msg, type) {
+    const el = document.getElementById('statusMessage');
+    el.textContent = msg; el.className = 'status-msg ' + type;
+  }
+
+  // Surface the redirect result from the OAuth callback, if any.
+  (function handleRedirectParams() {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('drive_connected')) {
+      showStatus('Google Drive connected successfully.', 'success');
+    } else if (params.get('drive_error')) {
+      showStatus('Could not connect Google Drive: ' + params.get('drive_error'), 'error');
+    }
+    if (params.toString()) {
+      window.history.replaceState({}, '', '/admin/integrations.html');
+    }
+  })();
+
+  async function loadStatus() {
+    try {
+      const res = await fetch(API_BASE + '/admin/integrations/google-drive/status', {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      if (res.status === 401) { window.location.href = '/login.html?reason=expired'; return; }
+      if (res.status === 403) { window.location.href = '/dashboard.html'; return; }
+      const data = await res.json();
+      render(data);
+    } catch (e) {
+      document.getElementById('driveDetail').textContent = 'Failed to load status.';
+    }
+  }
+
+  function render(data) {
+    const dot = document.getElementById('driveDot');
+    const detail = document.getElementById('driveDetail');
+    const action = document.getElementById('driveAction');
+
+    if (!data.configured) {
+      dot.className = 'dot off';
+      detail.innerHTML = 'Not set up yet — missing GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET / GOOGLE_DRIVE_REDIRECT_URI in the server environment.';
+      action.innerHTML = '';
+      return;
+    }
+
+    if (data.connected) {
+      dot.className = 'dot on';
+      detail.textContent = 'Connected as ' + data.connectedEmail +
+        (data.backupFolderName ? ' · backing up to "' + data.backupFolderName + '"' : '');
+      action.innerHTML = '<button class="btn-disconnect" onclick="disconnectDrive()">Disconnect</button>';
+    } else {
+      dot.className = 'dot off';
+      detail.textContent = 'Not connected.';
+      action.innerHTML = '<button class="btn-connect" onclick="connectDrive()">Connect</button>';
+    }
+  }
+
+  async function connectDrive() {
+    try {
+      const res = await fetch(API_BASE + '/admin/integrations/google-drive/connect', {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      const data = await res.json();
+      if (res.ok && data.url) {
+        window.location.href = data.url;
+      } else {
+        showStatus(data.message || 'Failed to start the connection.', 'error');
+      }
+    } catch (e) {
+      showStatus('Network error while starting the connection.', 'error');
+    }
+  }
+
+  async function disconnectDrive() {
+    if (!confirm('Disconnect Google Drive? Existing Drive-attached documents will no longer be viewable, and new uploads will stop backing up to Drive.')) return;
+    try {
+      const res = await fetch(API_BASE + '/admin/integrations/google-drive/disconnect', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      if (res.ok) {
+        showStatus('Google Drive disconnected.', 'success');
+        loadStatus();
+      } else {
+        const data = await res.json();
+        showStatus(data.message || 'Failed to disconnect.', 'error');
+      }
+    } catch (e) {
+      showStatus('Network error while disconnecting.', 'error');
+    }
+  }
+
+  function logout() {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    window.location.href = '/login.html';
+  }
+
+  function toggleSidebarGroup(submenuId, toggleBtn) {
+    const submenu = document.getElementById(submenuId);
+    const isOpen = submenu.classList.toggle('open');
+    toggleBtn.classList.toggle('open', isOpen);
+  }
+
+  (async () => {
+    try {
+      const res = await fetch('/auth/me', { headers: { 'Authorization': 'Bearer ' + token } });
+      if (res.status === 401) { window.location.href = '/login.html?reason=expired'; return; }
+      const user = await res.json();
+      if (user.role !== 'Executive' && user.role !== 'Admin') {
+        window.location.href = '/dashboard.html';
+        return;
+      }
+      loadStatus();
+    } catch (e) { loadStatus(); }
+  })();
+</script>
+
+</body>
+</html>
