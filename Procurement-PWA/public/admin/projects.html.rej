@@ -12,7 +12,16 @@ diff a/Procurement-PWA/public/admin/projects.html b/Procurement-PWA/public/admin
    </style>
  </head>
  <body class="full-bleed">
-@@ -72,9 +79,9 @@
+@@ -47,6 +53,8 @@
+           <a class="sidebar-link" href="/admin/users.html">Users</a>
+           <a class="sidebar-link active" href="/admin/projects.html">Projects</a>
+           <a class="sidebar-link" href="/admin/approvals.html">Approvals</a>
++          <a class="sidebar-link" href="/admin/integrations.html">Integrations</a>
++          <a class="sidebar-link" href="/admin/audit-log.html">Audit Log</a>
+         </div>
+       </div>
+     </nav>
+@@ -72,9 +80,9 @@
  
          <h3 style="margin-bottom:1rem;">Existing Projects</h3>
          <table>
@@ -24,7 +33,7 @@ diff a/Procurement-PWA/public/admin/projects.html b/Procurement-PWA/public/admin
            </tbody>
          </table>
        </div>
-@@ -113,6 +140,7 @@
+@@ -113,6 +141,7 @@
    })();
  
    let renameProjectId = null;
@@ -32,7 +41,7 @@ diff a/Procurement-PWA/public/admin/projects.html b/Procurement-PWA/public/admin
  
    function showStatus(msg, type) {
      const el = document.getElementById('statusMessage');
-@@ -130,14 +158,16 @@
+@@ -130,14 +159,16 @@
        const projects = await res.json();
        const tbody = document.getElementById('projectsBody');
        if (projects.length === 0) {
@@ -50,7 +59,7 @@ diff a/Procurement-PWA/public/admin/projects.html b/Procurement-PWA/public/admin
              <button class="btn-rename" onclick="openRenameModal(${p.id}, '${p.name.replace(/'/g, "\\'")}')">Rename</button>
              <button class="btn-delete" onclick="deleteProject(${p.id}, '${p.name.replace(/'/g, "\\'")}')">Delete</button>
            </td>
-@@ -145,7 +175,7 @@
+@@ -145,7 +176,7 @@
        `).join('');
      } catch (e) {
        document.getElementById('projectsBody').innerHTML =

@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Audit Log — Admin</title>
+  <link rel="stylesheet" href="/theme.css">
+  <style>
+    body { padding: 2rem; }
+    .card { max-width: 920px; margin: auto; }
+    table { width: 100%; border-collapse: collapse; }
+    th { text-align: left; padding: 0.6rem 0.5rem; border-bottom: 1px solid var(--border); font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted); }
+    td { padding: 0.6rem 0.5rem; border-bottom: 1px solid var(--border); font-size: 0.83rem; vertical-align: top; }
+    .search-row { display: flex; gap: 8px; margin-bottom: 1rem; }
+    .search-row input { flex: 1; padding: 8px; border-radius: 6px; border: 1px solid var(--border); }
+    .action-pill { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 0.72rem; font-weight: 700; background: var(--bg-muted); border: 1px solid var(--border); }
+    .pagination { display: flex; justify-content: space-between; align-items: center; margin-top: 1rem; font-size: 0.82rem; color: var(--text-muted); }
+    .pagination button { padding: 6px 12px; border-radius: 6px; border: 1px solid var(--border); background: white; cursor: pointer; }
+    .pagination button:disabled { opacity: 0.5; cursor: not-allowed; }
+  </style>
+</head>
+<body class="full-bleed">
+
+<div class="app-shell">
+  <aside class="app-sidebar">
+    <div class="sidebar-logo">
+      <img src="/assets/logo.png" alt="Pilar Energi">
+      <span>DocHandler</span>
+    </div>
+    <nav class="sidebar-nav">
+      <a class="sidebar-link" href="/dashboard.html">Documents</a>
+      <a class="sidebar-link" href="/dashboard.html?view=upload">Upload</a>
+      <a class="sidebar-link" href="/profile.html">Profile</a>
+
+      <div id="adminNavGroup">
+        <button class="sidebar-group-toggle open" id="adminGroupToggle" onclick="toggleSidebarGroup('adminSubmenu', this)">
+          Admin <span class="chevron">&#9660;</span>
+        </button>
+        <div class="sidebar-submenu open" id="adminSubmenu">
+          <a class="sidebar-link" href="/admin.html">Overview</a>
+          <a class="sidebar-link" href="/admin/users.html">Users</a>
+          <a class="sidebar-link" href="/admin/projects.html">Projects</a>
+          <a class="sidebar-link" href="/admin/approvals.html">Approvals</a>
+          <a class="sidebar-link" href="/admin/integrations.html">Integrations</a>
+          <a class="sidebar-link active" href="/admin/audit-log.html">Audit Log</a>
+        </div>
+      </div>
+    </nav>
+  </aside>
+
+  <div class="app-main">
+    <div class="app-header">
+      <h2 style="color:var(--navy);font-size:1.1rem;">Audit Log</h2>
+      <div class="header-user">
+        <button onclick="logout()">Sign out</button>
+      </div>
+    </div>
+
+    <div class="app-content">
+      <div class="card">
+        <div class="search-row">
+          <input type="text" id="searchInput" placeholder="Search by action, user, or document..." oninput="debouncedSearch()">
+        </div>
+        <table>
+          <thead><tr><th>When</th><th>Actor</th><th>Action</th><th>Document</th></tr></thead>
+          <tbody id="logBody">
+            <tr><td colspan="4" style="text-align:center;padding:2rem;color:var(--text-muted);">Loading...</td></tr>
+          </tbody>
+        </table>
+        <div class="pagination">
+          <span id="paginationSummary"></span>
+          <div>
+            <button id="prevBtn" onclick="changePage(-1)">Prev</button>
+            <button id="nextBtn" onclick="changePage(1)">Next</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const API_BASE = '';
+  const token = localStorage.getItem('token');
+  if (!token) window.location.href = '/login.html?reason=expired';
+
+  let currentPage = 1;
+  let totalPages = 1;
+  let searchDebounceTimer = null;
+
+  function escapeHtml(str) {
+    return String(str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
+  function debouncedSearch() {
+    clearTimeout(searchDebounceTimer);
+    searchDebounceTimer = setTimeout(() => { currentPage = 1; loadLog(); }, 350);
+  }
+
+  function changePage(delta) {
+    const next = currentPage + delta;
+    if (next < 1 || next > totalPages) return;
+    currentPage = next;
+    loadLog();
+  }
+
+  function formatTimestamp(isoString) {
+    const d = new Date(isoString);
+    const now = new Date();
+    const sameDay = d.toDateString() === now.toDateString();
+    return sameDay
+      ? d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+      : d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+  }
+
+  async function loadLog() {
+    const tbody = document.getElementById('logBody');
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:2rem;color:var(--text-muted);">Loading...</td></tr>';
+    const q = document.getElementById('searchInput').value.trim();
+    const params = new URLSearchParams({ page: currentPage, limit: 25 });
+    if (q) params.set('q', q);
+
+    try {
+      const res = await fetch(API_BASE + '/admin/audit-log?' + params.toString(), {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      if (res.status === 401) { window.location.href = '/login.html?reason=expired'; return; }
+      if (res.status === 403) { window.location.href = '/dashboard.html'; return; }
+      const data = await res.json();
+      totalPages = data.totalPages || 1;
+      currentPage = data.page || currentPage;
+
+      if (!data.entries || data.entries.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:2rem;color:var(--text-muted);">No matching entries.</td></tr>';
+      } else {
+        tbody.innerHTML = data.entries.map(e => `
+          <tr>
+            <td style="white-space:nowrap;color:var(--text-muted);">${formatTimestamp(e.created_at)}</td>
+            <td>${escapeHtml(e.user_name || e.user_email || 'Unknown')}</td>
+            <td><span class="action-pill">${escapeHtml(e.action_type)}</span></td>
+            <td>${e.document_filename ? escapeHtml(e.document_filename) : (e.entity_id ? '#' + e.entity_id : '—')}</td>
+          </tr>
+        `).join('');
+      }
+
+      document.getElementById('paginationSummary').textContent = `Page ${currentPage} of ${totalPages} · ${data.total} total`;
+      document.getElementById('prevBtn').disabled = currentPage <= 1;
+      document.getElementById('nextBtn').disabled = currentPage >= totalPages;
+    } catch (e) {
+      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:2rem;color:var(--text-muted);">Failed to load.</td></tr>';
+    }
+  }
+
+  function logout() {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    window.location.href = '/login.html';
+  }
+
+  function toggleSidebarGroup(submenuId, toggleBtn) {
+    const submenu = document.getElementById(submenuId);
+    const isOpen = submenu.classList.toggle('open');
+    toggleBtn.classList.toggle('open', isOpen);
+  }
+
+  (async () => {
+    try {
+      const res = await fetch('/auth/me', { headers: { 'Authorization': 'Bearer ' + token } });
+      if (res.status === 401) { window.location.href = '/login.html?reason=expired'; return; }
+      const user = await res.json();
+      if (user.role !== 'Executive' && user.role !== 'Admin') {
+        window.location.href = '/dashboard.html';
+        return;
+      }
+      loadLog();
+    } catch (e) { loadLog(); }
+  })();
+</script>
+
+</body>
+</html>

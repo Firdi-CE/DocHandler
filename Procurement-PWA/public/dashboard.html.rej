@@ -7,7 +7,16 @@ diff a/Procurement-PWA/public/dashboard.html b/Procurement-PWA/public/dashboard.
  
        <div id="adminNavGroup" style="display:none;">
          <button class="sidebar-group-toggle" id="adminGroupToggle" onclick="toggleSidebarGroup('adminSubmenu', this)">
-@@ -115,17 +117,41 @@
+@@ -28,6 +29,8 @@
+           <a class="sidebar-link" href="/admin/users.html">Users</a>
+           <a class="sidebar-link" href="/admin/projects.html">Projects</a>
+           <a class="sidebar-link" href="/admin/approvals.html">Approvals</a>
++          <a class="sidebar-link" href="/admin/integrations.html">Integrations</a>
++          <a class="sidebar-link" href="/admin/audit-log.html">Audit Log</a>
+         </div>
+       </div>
+     </nav>
+@@ -115,17 +121,41 @@
  
            <form id="uploadForm">
              <div class="filter-group" style="margin-bottom:1.1rem;">
@@ -51,7 +60,37 @@ diff a/Procurement-PWA/public/dashboard.html b/Procurement-PWA/public/dashboard.
              <div class="filter-group" style="margin-bottom:1.1rem;">
                <label style="display:block;font-weight:600;margin-bottom:4px;font-size:0.9rem;">Department:</label>
                <select id="uploadDeptDropdown" name="departmentId" onchange="loadUploadUsers()" required style="width:100%;">
-@@ -282,6 +321,11 @@
+@@ -169,6 +199,29 @@
+ </div>
+ 
+ 
++<div class="modal-overlay" id="versionsModal">
++  <div class="modal" style="max-width:480px;">
++    <h3 id="versionsModalTitle">Version History</h3>
++    <div id="versionsList" style="max-height:340px;overflow-y:auto;margin-bottom:0.75rem;"></div>
++    <div class="btn-group">
++      <button class="btn-cancel" onclick="closeVersionsModal()">Close</button>
++    </div>
++  </div>
++</div>
++
++<div class="modal-overlay" id="driveBrowseModal">
++  <div class="modal" style="max-width:480px;">
++    <h3>Attach from Google Drive</h3>
++    <input type="text" id="driveSearchInput" placeholder="Search files..." oninput="debouncedDriveSearch()">
++    <div id="driveFileList" style="max-height:280px;overflow-y:auto;margin-bottom:0.75rem;">
++      <p style="color:var(--text-muted);font-size:0.85rem;text-align:center;padding:1rem;">Loading...</p>
++    </div>
++    <div class="btn-group">
++      <button class="btn-cancel" onclick="closeDriveBrowseModal()">Cancel</button>
++    </div>
++  </div>
++</div>
++
+ <div class="modal-overlay" id="renameModal">
+   <div class="modal">
+     <h3>Rename Document</h3>
+@@ -282,6 +335,11 @@
        if (isAdmin) {
          document.getElementById('adminNavGroup').style.display = 'block';
        }
@@ -63,7 +102,62 @@ diff a/Procurement-PWA/public/dashboard.html b/Procurement-PWA/public/dashboard.
      } catch (e) { /* non-fatal — page still works without display name */ }
  
      try {
-@@ -364,6 +448,92 @@
+@@ -317,6 +375,36 @@
+   // page's session state (token/currentUser) and can refresh the inbox
+   // in place after a successful send, instead of a full page redirect.
+   let uploadFormLoaded = false;
++  let uploadSource = 'computer';
++  let selectedDriveFile = null;
++  let resubmitContext = null; // { originalId, filename } while resubmitting a rejected document
++
++  function setUploadSource(mode) {
++    uploadSource = mode;
++    const computerBtn = document.getElementById('sourceComputerBtn');
++    const driveBtn = document.getElementById('sourceDriveBtn');
++    const computerGroup = document.getElementById('computerFileGroup');
++    const driveGroup = document.getElementById('driveFileGroup');
++    const fileInput = document.getElementById('documentFileInput');
++
++    const activeStyle = 'flex:1;padding:8px;border-radius:6px;border:1px solid var(--steel);background:var(--steel);color:#fff;font-weight:600;cursor:pointer;';
++    const inactiveStyle = 'flex:1;padding:8px;border-radius:6px;border:1px solid var(--border-strong);background:var(--bg-muted);color:var(--text-secondary);font-weight:600;cursor:pointer;';
++
++    if (mode === 'drive') {
++      computerBtn.style.cssText = inactiveStyle;
++      driveBtn.style.cssText = activeStyle + 'display:block;';
++      computerGroup.style.display = 'none';
++      driveGroup.style.display = 'block';
++      fileInput.required = false;
++    } else {
++      computerBtn.style.cssText = activeStyle;
++      driveBtn.style.cssText = inactiveStyle + (driveBtn.dataset.available === '1' ? 'display:block;' : 'display:none;');
++      computerGroup.style.display = 'block';
++      driveGroup.style.display = 'none';
++      fileInput.required = true;
++    }
++  }
++
+   function showView(view) {
+     document.getElementById('documentsView').style.display = view === 'documents' ? 'block' : 'none';
+     document.getElementById('uploadView').style.display = view === 'upload' ? 'block' : 'none';
+@@ -332,6 +420,17 @@
+   }
+ 
+   function initUploadForm() {
++    // Only show "Attach from Google Drive" if a shared account is actually
++    // connected (see BACKLOG.md "Google Drive integration").
++    fetch(API_BASE + '/drive/status', { headers: { 'Authorization': 'Bearer ' + token } })
++      .then(res => res.ok ? res.json() : { connected: false })
++      .then(data => {
++        const driveBtn = document.getElementById('sourceDriveBtn');
++        driveBtn.dataset.available = data.connected ? '1' : '0';
++        if (data.connected) driveBtn.style.display = 'block';
++      })
++      .catch(() => {});
++
+     // Load projects + departments for the upload dropdowns
+     Promise.all([
+       fetch(API_BASE + '/projects', { headers: { 'Authorization': 'Bearer ' + token } }),
+@@ -364,6 +463,92 @@
      });
    }
  
@@ -156,3 +250,79 @@ diff a/Procurement-PWA/public/dashboard.html b/Procurement-PWA/public/dashboard.
    async function loadUploadUsers() {
      const deptId = document.getElementById('uploadDeptDropdown').value;
      const picDropdown = document.getElementById('uploadPicDropdown');
+@@ -404,10 +589,75 @@
+     document.getElementById('submitBtn').textContent = 'Send';
+   }
+ 
++  async function submitDriveAttach(formEl) {
++    if (!selectedDriveFile) {
++      showUploadError('Choose a file from Drive first.');
++      return;
++    }
++
++    document.getElementById('submitBtn').disabled = true;
++    document.getElementById('submitBtn').textContent = 'Sending...';
++
++    const body = {
++      fileId: selectedDriveFile.id,
++      recipientId: document.getElementById('uploadPicDropdown').value || null,
++      projectId: document.getElementById('uploadProjectDropdown').value || null,
++      siteId: document.getElementById('uploadSiteDropdown').value || null,
++      departmentId: document.getElementById('uploadDeptDropdown').value || null,
++      isUrgent: document.getElementById('urgentCheckbox').checked,
++    };
++    if (resubmitContext) body.resubmitOf = resubmitContext.originalId;
++
++    try {
++      const res = await fetch(API_BASE + '/documents/drive-attach', {
++        method: 'POST',
++        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
++        body: JSON.stringify(body)
++      });
++      const data = await res.json().catch(() => ({}));
++      document.getElementById('submitBtn').disabled = false;
++      document.getElementById('submitBtn').textContent = 'Send';
++
++      if (res.ok) {
++        showUploadStatus(resubmitContext ? 'Resubmitted successfully!' : 'Document shared from Drive successfully!', 'success');
++        const landOnSent = !!resubmitContext;
++        clearResubmitState();
++        setTimeout(async () => {
++          formEl.reset();
++          selectedDriveFile = null;
++          document.getElementById('selectedDriveFileName').textContent = 'No file selected';
++          document.getElementById('selectedDriveFileName').style.color = 'var(--text-muted)';
++          setUploadSource('computer');
++          resetUploadUI();
++          showUploadStatus('', '');
++          document.getElementById('uploadStatusMessage').className = 'status-msg';
++          currentTab = landOnSent ? 'sent' : 'inbox';
++          currentPage = 1;
++          document.getElementById('tabInbox').classList.toggle('active', !landOnSent);
++          document.getElementById('tabSent').classList.toggle('active', landOnSent);
++          document.getElementById('filterBar').style.display = 'flex';
++          showView('documents');
++          await loadDocs();
++        }, 900);
++      } else {
++        showUploadError(data.message || `Failed to share file (HTTP ${res.status}).`);
++      }
++    } catch (e) {
++      document.getElementById('submitBtn').disabled = false;
++      document.getElementById('submitBtn').textContent = 'Send';
++      showUploadError('Network error: could not reach the server. Please check your connection.');
++    }
++  }
++
+   document.getElementById('uploadForm').onsubmit = (e) => {
+     e.preventDefault();
+     resetUploadUI();
+ 
++    if (uploadSource === 'drive') {
++      submitDriveAttach(e.target);
++      return;
++    }
++
+     const formData = new FormData(e.target);
+     const xhr = new XMLHttpRequest();
+ 

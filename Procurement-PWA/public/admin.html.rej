@@ -1,5 +1,14 @@
 diff a/Procurement-PWA/public/admin.html b/Procurement-PWA/public/admin.html	(rejected hunks)
-@@ -169,6 +170,7 @@
+@@ -42,6 +42,8 @@
+           <a class="sidebar-link" href="/admin/users.html">Users</a>
+           <a class="sidebar-link" href="/admin/projects.html">Projects</a>
+           <a class="sidebar-link" href="/admin/approvals.html">Approvals</a>
++          <a class="sidebar-link" href="/admin/integrations.html">Integrations</a>
++          <a class="sidebar-link" href="/admin/audit-log.html">Audit Log</a>
+         </div>
+       </div>
+     </nav>
+@@ -169,6 +171,7 @@
            <select id="role-${req.id}">
              <option value="Staff">Staff</option>
              <option value="Supervisor">Supervisor</option>
@@ -7,7 +16,7 @@ diff a/Procurement-PWA/public/admin.html b/Procurement-PWA/public/admin.html	(re
              <option value="Executive">Executive</option>
            </select>
            <select id="dept-${req.id}">
-@@ -197,6 +199,7 @@
+@@ -197,6 +200,7 @@
            <select id="role-user-${user.id}">
              <option value="Staff" ${user.role === 'Staff' ? 'selected' : ''}>Staff</option>
              <option value="Supervisor" ${user.role === 'Supervisor' ? 'selected' : ''}>Supervisor</option>

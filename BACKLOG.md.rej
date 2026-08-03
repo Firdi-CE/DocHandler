@@ -30,3 +30,94 @@ diff a/BACKLOG.md b/BACKLOG.md	(rejected hunks)
  Full architecture prompt to run when this is picked up (paste as-is into a
  fresh session so the "1-Feature Rule" framing and phase structure stay
  intact):
+@@ -96,6 +120,84 @@ Open questions, only answerable once the office confirms the hierarchy:
+ 
+ ## Other deferred items
+ 
+-- **Google Drive integration** — not started.
++- **Google Drive integration** — **Done (2026-07-31).** Single shared-account
++  connection (no Google Workspace for the office yet, so this is not per-user
++  OAuth) — see `driveService.js` for the full design rationale. Both
++  requested capabilities shipped: attaching an existing Drive file at
++  upload time, and best-effort auto-backup of every local upload to a
++  "DocHandler Uploads" folder in the connected account.
++
++  **To actually turn this on:**
++  1. Run `migrations/008_google_drive.sql`.
++  2. In the Google Cloud project for the OAuth client you already have,
++     confirm the client type is "Web application" and add an Authorized
++     redirect URI: `<your domain>/admin/integrations/google-drive/callback`.
++  3. Add three environment variables: `GOOGLE_CLIENT_ID` (can reuse the
++     same one auth.js already uses for Sign-In, or a separate client — see
++     driveService.js's header comment), `GOOGLE_CLIENT_SECRET`, and
++     `GOOGLE_DRIVE_REDIRECT_URI` (must exactly match what you registered
++     in step 2).
++  4. Add the Google account you want to connect as a **Test user** under
++     OAuth consent screen in Cloud Console — this app requests restricted
++     Drive scopes, so an unverified app can only be used by accounts on
++     that list. Expect a "Google hasn't verified this app" warning during
++     connect; that's expected for an internal unverified app.
++  5. As an Executive/Admin, go to Admin → Integrations → Connect.
++
++  Not built (flagging in case it's wanted later): a way to change which
++  Drive folder backups land in after the fact (currently auto-created once
++  on first connect and fixed), and any de-dup/versioning if the same file
++  gets attached twice.
+ - **`schema_migrations` tracking table/runner** — proposed once, explicitly declined ("i dont need it").
+-- **Admin approval-override relaxation** — currently Admin can act on any approval level (intentional for dev phase). Revisit at deployment: only the exact assigned approver should be able to act.
++- **Admin approval-override relaxation** — ~~currently Admin can act on any approval level (intentional for dev phase). Revisit at deployment: only the exact assigned approver should be able to act.~~ **Done (2026-07-31).** `PATCH /documents/:id/approval-step` now requires `curStep.approver_id === req.user.id` by default. The old blanket-Admin bypass is still available for local dev only, behind `ALLOW_ADMIN_APPROVAL_OVERRIDE=true` in the environment (unset/false in production). Note: this only touched the multi-level chain endpoint (`approval-step`) — the separate single-level `/documents/:id/status` endpoint intentionally still allows any Executive or Admin to act, since documents without a chain never had one single assigned approver to defer to in the first place.
++
++## Follow-up items (from a "any other ideas?" review after the above)
++
++- **Document versioning** — **Done (2026-08-03).** A rejected document can
++  now be corrected and resubmitted as a new version, instead of becoming a
++  disconnected new upload — see `migrations/009_document_versioning.sql`
++  (`version_group_id` self-reference + `version_number`) and
++  `resolveResubmission()` / `checkDocumentAccess()` in server.js. Works for
++  both local re-uploads and Drive-attach resubmissions. Inbox/Sent lists
++  only ever show the latest version of a chain (`LATEST_VERSION_ONLY_CLAUSE`);
++  older versions stay reachable via the "Versions" button →
++  `GET /documents/:id/versions`.
++
++  Not built: the new version does NOT inherit the original's multi-level
++  approval chain (if it had one) — it starts fresh with no chain, so it'll
++  go through the simple single-level Executive/Admin approval unless
++  someone re-sets a chain on it via the existing "Set Chain" action. Copying
++  the old chain automatically would be a reasonable follow-up if that
++  friction turns out to matter in practice.
++
++  Also folded in a small unrelated cleanup found while wiring this up:
++  migration 002 had added `drive_file_id`/`drive_view_link`/`file_type` to
++  `documents`, but nothing ever read or wrote them (dead columns predating
++  the real Drive integration in migration 008) — dropped in
++  `009_document_versioning.sql`, confirmed unused via a full grep first.
++
++- **Inbox/Sent filter by site** — **Done (2026-08-03).** The filter bar
++  (previously Inbox-only) now shows on both tabs, with a new Site dropdown
++  alongside Project/Person/FileType. `/documents/my-outbox` gained the same
++  server-side filtering `/documents/my-inbox` already had (it had none
++  before — only pagination), and a new `outbox-filter-options` endpoint
++  mirrors the inbox one. On Sent, "Sender" becomes "Recipient" (filtering
++  by yourself would be pointless).
++
++- **Admin view audit log** — **Done (2026-08-03).** New
++  `GET /admin/audit-log` (paginated, searchable by action/user/document) and
++  an Admin → Audit Log page. `audit_logs.entity_id` is generic per its
++  original migration comment ("document id, or other entity in the
++  future") but every action logged so far is document-related, so the
++  viewer joins straight to `documents` for a filename; a future non-document
++  action type would just show `#<id>` instead.
++
++- **Admin backfill backup** — **Done (2026-08-03).** New
++  `POST /admin/integrations/google-drive/backfill` (+ a `backfill-status`
++  endpoint for progress) mirrors every local upload that predates Drive
++  being connected into the backup folder, using the same
++  `driveService.backupLocalFile()` the automatic per-upload backup uses.
++  Runs in the background after responding immediately (no job-queue
++  infrastructure in this app to track it properly otherwise) — the
++  Integrations page polls status every few seconds while it runs. Surfaced
++  automatically whenever Drive is connected.
++
++ me(firdi) have added the google drive redirect link with the /admin/integrations/google-drive/callback on google cloud console
++ and have ran migration 008 and 009
++ i have yet to do anything else outside what i have mentioned above 

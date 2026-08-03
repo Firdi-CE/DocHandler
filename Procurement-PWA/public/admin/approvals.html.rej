@@ -1,5 +1,14 @@
 diff a/Procurement-PWA/public/admin/approvals.html b/Procurement-PWA/public/admin/approvals.html	(rejected hunks)
-@@ -133,6 +134,7 @@
+@@ -42,6 +42,8 @@
+           <a class="sidebar-link" href="/admin/users.html">Users</a>
+           <a class="sidebar-link" href="/admin/projects.html">Projects</a>
+           <a class="sidebar-link active" href="/admin/approvals.html">Approvals</a>
++          <a class="sidebar-link" href="/admin/integrations.html">Integrations</a>
++          <a class="sidebar-link" href="/admin/audit-log.html">Audit Log</a>
+         </div>
+       </div>
+     </nav>
+@@ -133,6 +135,7 @@
                <select id="role-${r.id}">
                  <option value="Staff">Staff</option>
                  <option value="Supervisor">Supervisor</option>

@@ -194,6 +194,59 @@ async function auditLog(userId, actionType, entityId) {
     }
 }
 
+// Shared "can this user see this document" check, used by download,
+// stream, and the version-history endpoint so all three always agree.
+// Global roles see everything; project-scoped roles (Supervisor/Manager)
+// need a department or project-assignment match; everyone else (Staff)
+// needs to be the sender, the recipient, or assigned to the project.
+async function checkDocumentAccess(doc, userId, userRole, deptId) {
+    if (roles.isGlobalRole(userRole)) return true;
+    const projCheck = await db.query(
+        'SELECT 1 FROM project_assignments WHERE user_id = $1 AND project_id = $2',
+        [userId, doc.project_id]
+    );
+    if (roles.isProjectScopedRole(userRole)) {
+        return doc.department_id === deptId || projCheck.rows.length > 0;
+    }
+    return doc.sender_id === userId || doc.recipient_id === userId || projCheck.rows.length > 0;
+}
+
+// Document versioning (see BACKLOG.md "Document versioning" +
+// migrations/009_document_versioning.sql). Validates a resubmission
+// request and computes where the new document sits in its version chain.
+// Shared by /upload and /documents/drive-attach so a corrected document
+// can come back either as a local re-upload or a Drive attachment.
+// Throws an Error with a `status` property for the caller to respond with.
+async function resolveResubmission(resubmitOfId, requesterId, requesterRole) {
+    const origRes = await db.query(
+        'SELECT id, sender_id, status, version_group_id FROM documents WHERE id = $1',
+        [resubmitOfId]
+    );
+    if (origRes.rows.length === 0) {
+        const err = new Error('The document being resubmitted was not found.');
+        err.status = 404;
+        throw err;
+    }
+    const orig = origRes.rows[0];
+    if (orig.sender_id !== requesterId && !roles.isGlobalRole(requesterRole)) {
+        const err = new Error('Only the original sender can resubmit this document.');
+        err.status = 403;
+        throw err;
+    }
+    if (orig.status !== 'rejected') {
+        const err = new Error('Only a rejected document can be resubmitted.');
+        err.status = 409;
+        throw err;
+    }
+    const groupId = orig.version_group_id || orig.id;
+    const maxVersionRes = await db.query(
+        'SELECT MAX(version_number) as max_version FROM documents WHERE COALESCE(version_group_id, id) = $1',
+        [groupId]
+    );
+    const nextVersion = (maxVersionRes.rows[0].max_version || 1) + 1;
+    return { version_group_id: groupId, version_number: nextVersion };
+}
+
 // --- Req 4: OUTBOX ---
 app.get('/documents/my-outbox', ensureAuthenticated, async (req, res) => {
     try {
@@ -204,12 +257,39 @@ app.get('/documents/my-outbox', ensureAuthenticated, async (req, res) => {
         const limit = Math.min(Math.max(parseInt(req.query.limit) || 10, 1), 100);
         const offset = (page - 1) * limit;
 
+        // Same filter shape as /documents/my-inbox, mirrored for the sent
+        // direction: recipientId instead of senderId (you sent everything
+        // here, so filtering by yourself would be pointless), plus site and
+        // the version-chain "latest only" rule shared with the inbox.
+        let conditions = ['d.sender_id = $1'];
+        let queryParams = [userId];
+        if (req.query.projectId) {
+            queryParams.push(req.query.projectId);
+            conditions.push(`d.project_id = $${queryParams.length}`);
+        }
+        if (req.query.recipientId) {
+            queryParams.push(req.query.recipientId);
+            conditions.push(`d.recipient_id = $${queryParams.length}`);
+        }
+        if (req.query.siteId) {
+            queryParams.push(req.query.siteId);
+            conditions.push(`d.site_id = $${queryParams.length}`);
+        }
+        if (req.query.fileType) {
+            queryParams.push('%.' + req.query.fileType.replace(/^\./, ''));
+            conditions.push(`d.filename ILIKE $${queryParams.length}`);
+        }
+        conditions.push(LATEST_VERSION_ONLY_CLAUSE);
+        const whereClause = `WHERE ${conditions.join(' AND ')}`;
+
         const countResult = await db.query(
-            `SELECT COUNT(*)::int as total FROM documents d WHERE d.sender_id = $1`,
-            [userId]
+            `SELECT COUNT(*)::int as total FROM documents d ${whereClause}`,
+            queryParams
         );
         const total = countResult.rows[0].total;
 
+        const limitIdx = queryParams.length + 1;
+        const offsetIdx = queryParams.length + 2;
         const result = await db.query(`
             SELECT d.*, p.name as project_name,
                    recipient.email as recipient_email, recipient.display_name as recipient_name,
@@ -223,10 +303,10 @@ app.get('/documents/my-outbox', ensureAuthenticated, async (req, res) => {
             LEFT JOIN projects p ON d.project_id = p.id
             LEFT JOIN users recipient ON d.recipient_id = recipient.id
             LEFT JOIN departments dept ON d.department_id = dept.id
-            WHERE d.sender_id = $1
+            ${whereClause}
             ORDER BY d.created_at DESC
-            LIMIT $2 OFFSET $3
-        `, [userId, limit, offset]);
+            LIMIT $${limitIdx} OFFSET $${offsetIdx}
+        `, [...queryParams, limit, offset]);
 
         res.json({
             documents: result.rows,
@@ -374,6 +454,37 @@ app.get('/documents/:id/stream', ensureAuthenticated, async (req, res) => {
         res.status(500).json({ message: 'Server error while streaming document.' });
     }
 });
+
+// Document versioning: list every version in the same chain as :id
+// (including itself), oldest first. Access is checked against the
+// requested document specifically -- having access to one version implies
+// access to its history, since they're the same underlying document.
+app.get('/documents/:id/versions', ensureAuthenticated, async (req, res) => {
+    try {
+        const docRes = await db.query('SELECT * FROM documents WHERE id = $1', [req.params.id]);
+        if (docRes.rows.length === 0) return res.status(404).json({ message: 'Document not found.' });
+        const doc = docRes.rows[0];
+
+        const hasAccess = await checkDocumentAccess(doc, req.user.id, req.user.role, req.user.department_id);
+        if (!hasAccess) return res.status(403).json({ message: 'Access denied to this document.' });
+
+        const groupId = doc.version_group_id || doc.id;
+        const versions = await db.query(
+            `SELECT d.id, d.filename, d.status, d.version_number, d.created_at, d.notes,
+                    u.display_name as sender_name
+             FROM documents d
+             LEFT JOIN users u ON u.id = d.sender_id
+             WHERE COALESCE(d.version_group_id, d.id) = $1
+             ORDER BY d.version_number ASC`,
+            [groupId]
+        );
+        res.json(versions.rows);
+    } catch (err) {
+        console.error('Version History Error:', err);
+        res.status(500).json({ message: 'Server error while fetching version history.' });
+    }
+});
+
 // Endpoint handling physical multi-part upload write transactions and relational database linking
 app.post('/upload', ensureAuthenticated, (req, res) => {
     // Use the Multer callback pattern instead of passing upload.single() as standard
@@ -574,10 +685,15 @@ app.get('/documents/my-inbox', ensureAuthenticated, async (req, res) => {
             queryParams.push(req.query.senderId);
             conditions.push(`d.sender_id = $${queryParams.length}`);
         }
+        if (req.query.siteId) {
+            queryParams.push(req.query.siteId);
+            conditions.push(`d.site_id = $${queryParams.length}`);
+        }
         if (req.query.fileType) {
             queryParams.push('%.' + req.query.fileType.replace(/^\./, ''));
             conditions.push(`d.filename ILIKE $${queryParams.length}`);
         }
+        conditions.push(LATEST_VERSION_ONLY_CLAUSE);
 
         const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
 
@@ -630,9 +746,10 @@ app.get('/documents/inbox-filter-options', ensureAuthenticated, async (req, res)
         const deptId = req.user.department_id;
 
         const { conditions, queryParams } = buildInboxScopeClause(userRole, userId, deptId);
+        conditions.push(LATEST_VERSION_ONLY_CLAUSE);
         const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
 
-        const [projectsRes, sendersRes, typesRes] = await Promise.all([
+        const [projectsRes, sendersRes, typesRes, sitesRes] = await Promise.all([
             db.query(
                 `SELECT DISTINCT p.id, p.name FROM documents d JOIN projects p ON d.project_id = p.id ${whereClause} ORDER BY p.name`,
                 queryParams
@@ -645,15 +762,59 @@ app.get('/documents/inbox-filter-options', ensureAuthenticated, async (req, res)
                 `SELECT DISTINCT lower(substring(d.filename from '\\.([^.]+)$')) as ext FROM documents d ${whereClause} ORDER BY ext`,
                 queryParams
             ),
+            db.query(
+                `SELECT DISTINCT s.id, s.site_name FROM documents d JOIN work_sites s ON d.site_id = s.id ${whereClause} ORDER BY s.site_name`,
+                queryParams
+            ),
         ]);
 
         res.json({
             projects: projectsRes.rows,
             senders: sendersRes.rows,
-            fileTypes: typesRes.rows.map(r => r.ext).filter(Boolean)
+            fileTypes: typesRes.rows.map(r => r.ext).filter(Boolean),
+            sites: sitesRes.rows
         });
     } catch (err) {
         console.error('Inbox Filter Options Error:', err);
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// Mirrors inbox-filter-options for the Sent tab: distinct values scoped to
+// documents the current user sent, with "recipient" instead of "sender"
+// since filtering the sent list by yourself would be pointless.
+app.get('/documents/outbox-filter-options', ensureAuthenticated, async (req, res) => {
+    try {
+        const whereClause = `WHERE d.sender_id = $1 AND ${LATEST_VERSION_ONLY_CLAUSE}`;
+        const queryParams = [req.user.id];
+
+        const [projectsRes, recipientsRes, typesRes, sitesRes] = await Promise.all([
+            db.query(
+                `SELECT DISTINCT p.id, p.name FROM documents d JOIN projects p ON d.project_id = p.id ${whereClause} ORDER BY p.name`,
+                queryParams
+            ),
+            db.query(
+                `SELECT DISTINCT u.id, COALESCE(u.display_name, u.email) as name FROM documents d JOIN users u ON d.recipient_id = u.id ${whereClause} ORDER BY name`,
+                queryParams
+            ),
+            db.query(
+                `SELECT DISTINCT lower(substring(d.filename from '\\.([^.]+)$')) as ext FROM documents d ${whereClause} ORDER BY ext`,
+                queryParams
+            ),
+            db.query(
+                `SELECT DISTINCT s.id, s.site_name FROM documents d JOIN work_sites s ON d.site_id = s.id ${whereClause} ORDER BY s.site_name`,
+                queryParams
+            ),
+        ]);
+
+        res.json({
+            projects: projectsRes.rows,
+            recipients: recipientsRes.rows,
+            fileTypes: typesRes.rows.map(r => r.ext).filter(Boolean),
+            sites: sitesRes.rows
+        });
+    } catch (err) {
+        console.error('Outbox Filter Options Error:', err);
         res.status(500).json({ message: err.message });
     }
 });
@@ -1171,6 +1332,411 @@ app.post('/documents/drive-attach', ensureAuthenticated, async (req, res) => {
         res.status(200).json({ message: 'Document shared from Drive!' });
     } catch (err) {
         console.error('Drive attach error:', err);
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// --- WORK SITES & MAINTENANCE LIFECYCLE ---
+// Placeholder-role feature (see roles.js + BACKLOG.md). Site CRUD is admin
+// only, same as project CRUD above; status changes are opened up to the
+// `Manager` role (and global roles) via roles.canManageProjectStatus.
+
+// Create a work site under a project
+app.post('/admin/projects/:id/sites', ensureAuthenticated, ensureAdmin, async (req, res) => {
+    const { id } = req.params;
+    const { site_name } = req.body;
+    if (!site_name) return res.status(400).json({ error: 'Site name is required.' });
+
+    try {
+        const result = await db.query(
+            'INSERT INTO work_sites (project_id, site_name) VALUES ($1, $2) RETURNING *',
+            [id, site_name]
+        );
+        res.status(201).json(result.rows[0]);
+    } catch (err) {
+        if (err.code === '23505') { // unique_violation
+            return res.status(409).json({ error: 'A site with that name already exists for this project.' });
+        }
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Rename a work site
+app.patch('/admin/sites/:id', ensureAuthenticated, ensureAdmin, async (req, res) => {
+    const { id } = req.params;
+    const { site_name } = req.body;
+    if (!site_name) return res.status(400).json({ error: 'New site name is required.' });
+
+    try {
+        const result = await db.query(
+            'UPDATE work_sites SET site_name = $1 WHERE id = $2 RETURNING *',
+            [site_name, id]
+        );
+        if (result.rows.length === 0) return res.status(404).json({ error: 'Site not found.' });
+        res.json(result.rows[0]);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Delete a work site
+app.delete('/admin/sites/:id', ensureAuthenticated, ensureAdmin, async (req, res) => {
+    const { id } = req.params;
+    try {
+        const result = await db.query('DELETE FROM work_sites WHERE id = $1 RETURNING id', [id]);
+        if (result.rows.length === 0) return res.status(404).json({ error: 'Site not found.' });
+        res.json({ message: 'Site deleted successfully.' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// "My Projects" — projects the current user can see for status-management
+// purposes. Global roles (Executive/Admin) get every project; Manager (and,
+// pending BACKLOG.md's open questions, Supervisor) only see projects they're
+// assigned to.
+app.get('/my-projects', ensureAuthenticated, async (req, res) => {
+    try {
+        const userRole = req.user.role;
+        if (roles.isGlobalRole(userRole)) {
+            const result = await db.query('SELECT id, name, status FROM projects ORDER BY name ASC');
+            return res.json(result.rows);
+        }
+        const result = await db.query(
+            `SELECT DISTINCT p.id, p.name, p.status
+             FROM projects p
+             JOIN project_assignments pa ON pa.project_id = p.id
+             WHERE pa.user_id = $1
+             ORDER BY p.name ASC`,
+            [req.user.id]
+        );
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// Update a project's status (active / completed / maintenance).
+// Global roles can act on any project; Manager must be assigned to it.
+app.patch('/projects/:id/status', ensureAuthenticated, async (req, res) => {
+    const { id } = req.params;
+    const { status } = req.body;
+    const validStatuses = ['active', 'completed', 'maintenance'];
+
+    if (!status || !validStatuses.includes(status)) {
+        return res.status(400).json({ error: `Status must be one of: ${validStatuses.join(', ')}.` });
+    }
+    if (!roles.canManageProjectStatus(req.user.role)) {
+        return res.status(403).json({ error: 'You do not have permission to change project status.' });
+    }
+
+    try {
+        if (!roles.isGlobalRole(req.user.role)) {
+            const assignCheck = await db.query(
+                'SELECT 1 FROM project_assignments WHERE user_id = $1 AND project_id = $2',
+                [req.user.id, id]
+            );
+            if (assignCheck.rows.length === 0) {
+                return res.status(403).json({ error: 'You are not assigned to this project.' });
+            }
+        }
+
+        const result = await db.query(
+            'UPDATE projects SET status = $1 WHERE id = $2 RETURNING *',
+            [status, id]
+        );
+        if (result.rows.length === 0) return res.status(404).json({ error: 'Project not found.' });
+        res.json(result.rows[0]);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// --- GOOGLE DRIVE INTEGRATION ---
+// See BACKLOG.md ("Google Drive integration") and driveService.js for the
+// full design. One shared account, connected once by an admin.
+
+// Lightweight check any authenticated user can call, so the upload UI
+// knows whether to offer "Attach from Drive" at all. Deliberately doesn't
+// reveal which account is connected -- that's admin-only (below).
+app.get('/drive/status', ensureAuthenticated, async (req, res) => {
+    try {
+        res.json({ connected: await driveService.isConnected() });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// Full connection details, admin-only.
+app.get('/admin/integrations/google-drive/status', ensureAuthenticated, ensureAdmin, async (req, res) => {
+    try {
+        const settings = await driveService.getSettings();
+        res.json({
+            configured: driveService.isConfigured(),
+            connected: !!(settings && settings.google_refresh_token),
+            connectedEmail: settings ? settings.google_connected_email : null,
+            connectedAt: settings ? settings.google_connected_at : null,
+            backupFolderName: settings ? settings.google_backup_folder_name : null,
+        });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// Kicks off the OAuth flow. Returns a URL for the frontend to navigate to
+// (rather than redirecting directly) since this call itself needs the
+// admin's Bearer token, which a plain top-level browser navigation can't
+// carry. The admin's own JWT is embedded as `state`: Google echoes it back
+// verbatim on the callback below, and re-verifying it there (a) tells us
+// which admin connected the account without needing cookies/sessions, and
+// (b) doubles as CSRF protection for free -- only someone with a valid JWT
+// could produce a state value that verifies.
+app.get('/admin/integrations/google-drive/connect', ensureAuthenticated, ensureAdmin, (req, res) => {
+    try {
+        const token = req.headers.authorization.split(' ')[1];
+        const url = driveService.getAuthUrl(token);
+        res.json({ url });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// Google redirects the browser here after consent -- a plain unauthenticated
+// top-level GET, so this route is intentionally NOT behind ensureAuthenticated.
+// See the comment above for how `state` substitutes for that.
+app.get('/admin/integrations/google-drive/callback', async (req, res) => {
+    const { code, state, error } = req.query;
+    if (error) {
+        return res.redirect(`/admin/integrations.html?drive_error=${encodeURIComponent(error)}`);
+    }
+    try {
+        const decoded = auth.verifyToken(state);
+        const liveRoleRes = await db.query('SELECT role FROM users WHERE id = $1', [decoded.userId]);
+        const liveRole = liveRoleRes.rows[0]?.role;
+        if (!roles.isGlobalRole(liveRole)) {
+            return res.redirect('/admin/integrations.html?drive_error=forbidden');
+        }
+
+        const { refreshToken, email } = await driveService.exchangeCodeForConnection(code);
+        await driveService.saveConnection({ refreshToken, email, connectedByUserId: decoded.userId });
+        res.redirect('/admin/integrations.html?drive_connected=1');
+    } catch (err) {
+        console.error('Google Drive connect error:', err);
+        res.redirect(`/admin/integrations.html?drive_error=${encodeURIComponent(err.message)}`);
+    }
+});
+
+app.post('/admin/integrations/google-drive/disconnect', ensureAuthenticated, ensureAdmin, async (req, res) => {
+    try {
+        await driveService.disconnect();
+        res.json({ message: 'Google Drive disconnected.' });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// Browse/search files in the connected account, for the "Attach from
+// Drive" picker on the upload form. Any authenticated user -- listing
+// doesn't grant document access on its own, same reasoning as
+// GET /projects/:id/sites.
+app.get('/drive/files', ensureAuthenticated, async (req, res) => {
+    try {
+        if (!(await driveService.isConnected())) {
+            return res.status(409).json({ message: 'Google Drive is not connected.' });
+        }
+        const data = await driveService.listFiles({ query: req.query.q, pageToken: req.query.pageToken });
+        res.json(data);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// Creates a document record for an EXISTING Drive file the user picked,
+// instead of uploading a local file. Deliberately re-fetches the file's
+// name/link from Drive server-side via fileId rather than trusting
+// whatever the client sent -- mirrors the validation /upload does for
+// local files.
+app.post('/documents/drive-attach', ensureAuthenticated, async (req, res) => {
+    try {
+        const { fileId, recipientId, projectId, siteId, departmentId, isUrgent, resubmitOf } = req.body;
+        if (!fileId) return res.status(400).json({ message: 'fileId is required.' });
+
+        const uploadedBy = req.user.id;
+        const userRole = req.user.role;
+
+        if (projectId && !roles.isGlobalRole(userRole)) {
+            const assignCheck = await db.query(
+                'SELECT 1 FROM project_assignments WHERE user_id = $1 AND project_id = $2',
+                [uploadedBy, projectId]
+            );
+            if (assignCheck.rows.length === 0) {
+                return res.status(403).json({ message: 'Unauthorized: You are not assigned to this project.' });
+            }
+        }
+
+        // Document versioning — see resolveResubmission() and BACKLOG.md.
+        let versionGroupId = null;
+        let versionNumber = 1;
+        if (resubmitOf) {
+            try {
+                const v = await resolveResubmission(resubmitOf, uploadedBy, userRole);
+                versionGroupId = v.version_group_id;
+                versionNumber = v.version_number;
+            } catch (resubmitErr) {
+                return res.status(resubmitErr.status || 400).json({ message: resubmitErr.message });
+            }
+        }
+
+        const file = await driveService.getFileMetadata(fileId);
+
+        const insertRes = await db.query(
+            `INSERT INTO public.documents (filename, sender_id, recipient_id, project_id, site_id, department_id, is_urgent, drive_attachment_id, drive_web_link, version_group_id, version_number)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+             RETURNING id`,
+            [file.name, uploadedBy, recipientId || null, projectId || null, siteId || null, departmentId || null, !!isUrgent, file.id, file.webViewLink, versionGroupId, versionNumber]
+        );
+        const newDocId = insertRes.rows[0].id;
+
+        await auditLog(uploadedBy, resubmitOf ? `DOCUMENT_RESUBMIT:OF_${resubmitOf}` : 'DOCUMENT_DRIVE_ATTACH', newDocId);
+
+        if (recipientId) {
+            if (isUrgent) {
+                const userRes = await db.query('SELECT email, display_name FROM users WHERE id = $1', [recipientId]);
+                if (userRes.rows.length > 0) {
+                    const targetEmail = userRes.rows[0].email;
+                    const targetName = userRes.rows[0].display_name;
+                    const subject = `🔴 URGENT Document: ${file.name}`;
+                    const text = `Hello ${targetName},\n\nAn URGENT document "${file.name}" has been shared and routed to your inbox by ${req.user.display_name}. Please log into DocHandler to review it immediately.`;
+                    const html = `
+                        <h3 style="color:#b91c1c;">🔴 Urgent Document</h3>
+                        <p>Hello ${targetName},</p>
+                        <p>An <strong style="color:#b91c1c;">URGENT</strong> document <strong>${file.name}</strong> has been routed to your inbox by ${req.user.display_name}.</p>
+                        <p>Please log in to review it immediately.</p>
+                    `;
+                    sendMail(targetEmail, subject, text, html);
+                }
+            } else {
+                await db.query(
+                    `INSERT INTO public.notification_queue (document_id, recipient_id) VALUES ($1, $2)`,
+                    [newDocId, recipientId]
+                );
+            }
+        }
+
+        res.status(200).json({ message: 'Document shared from Drive!' });
+    } catch (err) {
+        console.error('Drive attach error:', err);
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// --- AUDIT LOG VIEWER ---
+// See BACKLOG.md ("Admin view audit log"). audit_logs.entity_id is
+// generic ("document id, or other entity in the future" per migration
+// 004) but every action logged so far is document-related, so this joins
+// to documents to show a filename -- if a future action type logs a
+// non-document entity, that join will just come back NULL, which is fine.
+app.get('/admin/audit-log', ensureAuthenticated, ensureAdmin, async (req, res) => {
+    try {
+        const page = Math.max(parseInt(req.query.page) || 1, 1);
+        const limit = Math.min(Math.max(parseInt(req.query.limit) || 25, 1), 100);
+        const offset = (page - 1) * limit;
+
+        let conditions = [];
+        let queryParams = [];
+        if (req.query.q) {
+            queryParams.push(`%${req.query.q}%`);
+            conditions.push(`(a.action_type ILIKE $${queryParams.length} OR u.display_name ILIKE $${queryParams.length} OR u.email ILIKE $${queryParams.length} OR d.filename ILIKE $${queryParams.length})`);
+        }
+        const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+
+        const countRes = await db.query(
+            `SELECT COUNT(*)::int as total FROM audit_logs a
+             LEFT JOIN users u ON u.id = a.user_id
+             LEFT JOIN documents d ON d.id = a.entity_id
+             ${whereClause}`,
+            queryParams
+        );
+        const total = countRes.rows[0].total;
+
+        const limitIdx = queryParams.length + 1;
+        const offsetIdx = queryParams.length + 2;
+        const rowsRes = await db.query(
+            `SELECT a.id, a.action_type, a.entity_id, a.created_at,
+                    u.display_name as user_name, u.email as user_email,
+                    d.filename as document_filename
+             FROM audit_logs a
+             LEFT JOIN users u ON u.id = a.user_id
+             LEFT JOIN documents d ON d.id = a.entity_id
+             ${whereClause}
+             ORDER BY a.created_at DESC
+             LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
+            [...queryParams, limit, offset]
+        );
+
+        res.json({
+            entries: rowsRes.rows,
+            total,
+            page,
+            limit,
+            totalPages: Math.max(Math.ceil(total / limit), 1)
+        });
+    } catch (err) {
+        console.error('Audit Log Fetch Error:', err);
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// --- GOOGLE DRIVE BACKFILL ---
+// See BACKLOG.md ("Admin backfill backup"). Best-effort mirrors every
+// EXISTING local upload (from before Drive was connected, or from before
+// this feature existed) into the backup folder -- same mechanism as the
+// automatic per-upload backup in POST /upload, just run once over
+// everything that's missing it. Drive-attached documents are skipped
+// (nothing local to back up; they already live in Drive).
+app.get('/admin/integrations/google-drive/backfill-status', ensureAuthenticated, ensureAdmin, async (req, res) => {
+    try {
+        const totalRes = await db.query('SELECT COUNT(*)::int as total FROM documents WHERE drive_attachment_id IS NULL');
+        const doneRes = await db.query('SELECT COUNT(*)::int as done FROM documents WHERE drive_attachment_id IS NULL AND drive_backup_id IS NOT NULL');
+        const total = totalRes.rows[0].total;
+        const done = doneRes.rows[0].done;
+        res.json({ total, done, remaining: total - done });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+app.post('/admin/integrations/google-drive/backfill', ensureAuthenticated, ensureAdmin, async (req, res) => {
+    try {
+        if (!(await driveService.isConnected())) {
+            return res.status(409).json({ message: 'Google Drive is not connected.' });
+        }
+        const pending = await db.query(
+            'SELECT id, filename FROM documents WHERE drive_attachment_id IS NULL AND drive_backup_id IS NULL ORDER BY id ASC'
+        );
+
+        // Respond immediately -- this can be a lot of documents, and there's
+        // no job-queue infrastructure in this app to track long-running work
+        // properly. The admin page polls backfill-status above for progress.
+        res.json({ message: 'Backfill started.', count: pending.rows.length });
+
+        (async () => {
+            for (const doc of pending.rows) {
+                try {
+                    const filePath = path.join(__dirname, 'uploads', doc.filename);
+                    if (!fs.existsSync(filePath)) {
+                        console.warn(`Drive backfill: skipping document ${doc.id}, file missing on disk (${doc.filename})`);
+                        continue;
+                    }
+                    const { id, webViewLink } = await driveService.backupLocalFile({ filePath, displayName: doc.filename });
+                    await db.query('UPDATE documents SET drive_backup_id = $1, drive_web_link = $2 WHERE id = $3', [id, webViewLink, doc.id]);
+                } catch (err) {
+                    console.warn(`Drive backfill failed for document ${doc.id} (${doc.filename}):`, err.message);
+                }
+            }
+            console.log('Google Drive backfill complete.');
+        })();
+    } catch (err) {
         res.status(500).json({ message: err.message });
     }
 });

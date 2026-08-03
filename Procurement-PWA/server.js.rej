@@ -8,6 +8,38 @@ diff a/Procurement-PWA/server.js b/Procurement-PWA/server.js	(rejected hunks)
  const { sendMail } = require('./utils/mailer');
  const { runDigest } = require('./utils/digest');
  const app = express();
+@@ -22,6 +24,14 @@ const transporter = nodemailer.createTransport({
+ });
+ const PORT = process.env.PORT || 3000;
+ 
++// BACKLOG.md: "Admin approval-override relaxation" — Admin used to be able
++// to act on ANY approval-chain level regardless of who was actually
++// assigned, which was only ever meant as a dev-phase convenience. Default
++// is now strict (assigned approver only); set
++// ALLOW_ADMIN_APPROVAL_OVERRIDE=true in the environment to restore the old
++// dev-only behavior locally. Do not set this in production.
++const ALLOW_ADMIN_APPROVAL_OVERRIDE = process.env.ALLOW_ADMIN_APPROVAL_OVERRIDE === 'true';
++
+ // --- 1. MIDDLEWARE CONFIGURATION ---
+ app.use(express.json());
+ app.use(express.urlencoded({ extended: true }));
+@@ -100,14 +110,14 @@ const ensureAuthenticated = (req, res, next) => {
+ };
+ 
+ // Middleware to ensure user is an admin/executive.
+-// Accepts both 'Executive' and 'Admin' roles (Req 7).
++// Accepts both 'Executive' and 'Admin' roles (Req 7) — i.e. roles.GLOBAL_ROLES.
+ // Re-verifies role against the DB so stale JWTs can't exploit cached role values.
+ const ensureAdmin = async (req, res, next) => {
+     try {
+         const dbRes = await db.query('SELECT role FROM users WHERE id = $1', [req.user.id]);
+         if (dbRes.rows.length === 0) return res.status(403).json({ message: 'Forbidden: User not found.' });
+         const liveRole = dbRes.rows[0].role;
+-        if (liveRole === 'Executive' || liveRole === 'Admin') {
++        if (roles.isGlobalRole(liveRole)) {
+             req.user.role = liveRole; // keep req.user in sync with DB truth
+             return next();
+         }
 @@ -122,7 +132,24 @@ const ensureAdmin = async (req, res, next) => {
  // API Endpoint to fetch existing company projects to build frontend selections dynamically
  app.get('/projects', ensureAuthenticated, async (req, res) => {
@@ -34,7 +66,86 @@ diff a/Procurement-PWA/server.js b/Procurement-PWA/server.js	(rejected hunks)
          res.json(result.rows);
      } catch (err) {
          res.status(500).json({ message: err.message });
-@@ -368,6 +430,7 @@ app.post('/upload', ensureAuthenticated, (req, res) => {
+@@ -241,19 +348,28 @@ app.get('/documents/:id/download', async (req, res) => {
+         if (docRes.rows.length === 0) return res.status(404).json({ message: 'Document not found.' });
+         const doc = docRes.rows[0];
+ 
+-        let hasAccess = false;
+-        if (user.role === 'Executive' || user.role === 'Admin') {
+-            hasAccess = true;
+-        } else if (user.role === 'Supervisor') {
+-            const projCheck = await db.query('SELECT 1 FROM project_assignments WHERE user_id = $1 AND project_id = $2', [user.id, doc.project_id]);
+-            if (doc.department_id === user.department_id || projCheck.rows.length > 0) hasAccess = true;
+-        } else {
+-            const projCheck = await db.query('SELECT 1 FROM project_assignments WHERE user_id = $1 AND project_id = $2', [user.id, doc.project_id]);
+-            if (doc.sender_id === user.id || doc.recipient_id === user.id || projCheck.rows.length > 0) hasAccess = true;
+-        }
+-
++        const hasAccess = await checkDocumentAccess(doc, user.id, user.role, user.department_id);
+         if (!hasAccess) return res.status(403).json({ message: 'Access denied.' });
+ 
++        // Drive-attached documents have no local file -- proxy the bytes
++        // through our server (rather than redirecting to Drive) so this
++        // app's access control above is what actually gates the download,
++        // not whatever sharing permissions happen to exist on the
++        // connected Drive account.
++        if (doc.drive_attachment_id) {
++            try {
++                const meta = await driveService.getFileMetadata(doc.drive_attachment_id);
++                const stream = await driveService.getFileStream(doc.drive_attachment_id);
++                res.setHeader('Content-Disposition', `attachment; filename="${doc.filename}"`);
++                if (meta.mimeType) res.setHeader('Content-Type', meta.mimeType);
++                stream.pipe(res);
++            } catch (driveErr) {
++                console.error('Drive download error:', driveErr);
++                res.status(502).json({ message: 'Could not fetch this file from Google Drive.' });
++            }
++            return;
++        }
++
+         const filePath = path.join(__dirname, 'uploads', doc.filename);
+         if (!fs.existsSync(filePath)) return res.status(404).json({ message: 'Physical file missing from server.' });
+ 
+@@ -281,21 +397,27 @@ app.get('/documents/:id/stream', ensureAuthenticated, async (req, res) => {
+         const doc = docRes.rows[0];
+ 
+         // 2. Enforce Role-Based Scoping
+-        let hasAccess = false;
+-        if (userRole === 'Executive' || userRole === 'Admin') {
+-            hasAccess = true;
+-        } else if (userRole === 'Supervisor') {
+-            const projCheck = await db.query(`SELECT 1 FROM project_assignments WHERE user_id = $1 AND project_id = $2`, [userId, doc.project_id]);
+-            if (doc.department_id === deptId || projCheck.rows.length > 0) hasAccess = true;
+-        } else { // Staff
+-            const projCheck = await db.query(`SELECT 1 FROM project_assignments WHERE user_id = $1 AND project_id = $2`, [userId, doc.project_id]);
+-            if (doc.sender_id === userId || doc.recipient_id === userId || projCheck.rows.length > 0) hasAccess = true;
+-        }
+-
++        const hasAccess = await checkDocumentAccess(doc, userId, userRole, deptId);
+         if (!hasAccess) {
+             return res.status(403).json({ message: 'Access denied to this document.' });
+         }
+ 
++        // Drive-attached documents have no local file -- proxy from Drive
++        // instead, same reasoning as the download route above.
++        if (doc.drive_attachment_id) {
++            try {
++                const meta = await driveService.getFileMetadata(doc.drive_attachment_id);
++                const stream = await driveService.getFileStream(doc.drive_attachment_id);
++                res.setHeader('Content-Type', meta.mimeType || 'application/pdf');
++                res.setHeader('Content-Disposition', `inline; filename="${doc.filename}"`);
++                stream.pipe(res);
++            } catch (driveErr) {
++                console.error('Drive stream error:', driveErr);
++                res.status(502).json({ message: 'Could not fetch this file from Google Drive.' });
++            }
++            return;
++        }
++
+         // 3. Stream File
+         const filePath = path.join(__dirname, 'uploads', doc.filename);
+         if (!fs.existsSync(filePath)) {
+@@ -368,6 +521,7 @@ app.post('/upload', ensureAuthenticated, (req, res) => {
              // 3. Capture & Sanitize Form Data (Convert empty strings to null for PG Int columns)
              const recipientId = req.body.recipientId || null;
              const projectId = req.body.projectId || null;
@@ -42,7 +153,7 @@ diff a/Procurement-PWA/server.js b/Procurement-PWA/server.js	(rejected hunks)
              const departmentId = req.body.departmentId || null;
              // Checkboxes are omitted from multipart form data entirely when unchecked,
              // and arrive as the string 'true'/'on' when checked -- never a real boolean.
-@@ -377,7 +440,7 @@ app.post('/upload', ensureAuthenticated, (req, res) => {
+@@ -377,7 +531,7 @@ app.post('/upload', ensureAuthenticated, (req, res) => {
              // Admin/Executive can upload to any project. Staff/Supervisor must be
              // explicitly assigned to the target project or the upload is rejected.
              const userRole = req.user.role;
@@ -51,22 +162,89 @@ diff a/Procurement-PWA/server.js b/Procurement-PWA/server.js	(rejected hunks)
              if (projectId && !isBypassRole) {
                  const assignCheck = await db.query(
                      'SELECT 1 FROM project_assignments WHERE user_id = $1 AND project_id = $2',
-@@ -394,11 +457,11 @@ app.post('/upload', ensureAuthenticated, (req, res) => {
+@@ -392,20 +546,38 @@ app.post('/upload', ensureAuthenticated, (req, res) => {
+                 }
+             }
  
++            // Document versioning: if this upload is a corrected resubmission of a
++            // rejected document, link it into that document's version chain.
++            let versionGroupId = null;
++            let versionNumber = 1;
++            const resubmitOf = req.body.resubmitOf || null;
++            if (resubmitOf) {
++                try {
++                    const v = await resolveResubmission(resubmitOf, uploadedBy, userRole);
++                    versionGroupId = v.version_group_id;
++                    versionNumber = v.version_number;
++                } catch (resubmitErr) {
++                    fs.unlink(req.file.path, (unlinkErr) => {
++                        if (unlinkErr) console.warn('Could not clean up rejected upload:', unlinkErr.message);
++                    });
++                    return res.status(resubmitErr.status || 400).json({ message: resubmitErr.message });
++                }
++            }
++
              // Perform strict table transaction mapping elements cleanly to table relations
              const query = `
 -                INSERT INTO public.documents (filename, sender_id, recipient_id, project_id, department_id, is_urgent)
 -                VALUES ($1, $2, $3, $4, $5, $6)
-+                INSERT INTO public.documents (filename, sender_id, recipient_id, project_id, site_id, department_id, is_urgent)
-+                VALUES ($1, $2, $3, $4, $5, $6, $7)
++                INSERT INTO public.documents (filename, sender_id, recipient_id, project_id, site_id, department_id, is_urgent, version_group_id, version_number)
++                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
                  RETURNING id;
              `;
 -            const values = [filename, uploadedBy, recipientId, projectId, departmentId, isUrgent];
-+            const values = [filename, uploadedBy, recipientId, projectId, siteId, departmentId, isUrgent];
++            const values = [filename, uploadedBy, recipientId, projectId, siteId, departmentId, isUrgent, versionGroupId, versionNumber];
              const insertRes = await db.query(query, values);
              const newDocId = insertRes.rows[0].id;
  
-@@ -457,9 +535,10 @@ app.post('/upload', ensureAuthenticated, (req, res) => {
+             console.log(`Document transaction completed successfully: ${filename}`);
+ 
+             // Req 6: Audit trail
+-            await auditLog(uploadedBy, 'DOCUMENT_UPLOAD', newDocId);
++            await auditLog(uploadedBy, resubmitOf ? `DOCUMENT_RESUBMIT:OF_${resubmitOf}` : 'DOCUMENT_UPLOAD', newDocId);
+ 
+             // --- NOTIFY RECIPIENT: urgent bypasses the digest and emails immediately;
+             //     everything else queues for the next digest run. ---
+@@ -437,6 +609,21 @@ app.post('/upload', ensureAuthenticated, (req, res) => {
+ 
+             res.status(200).json({ message: 'Document sent!' });
+ 
++            // --- BACKUP TO GOOGLE DRIVE (best-effort, fire-and-forget) ---
++            // Runs after the response so a slow/unreachable Drive never
++            // delays or fails the upload itself. See BACKLOG.md ("Google
++            // Drive integration") and driveService.js.
++            driveService.isConnected().then((connected) => {
++                if (!connected) return;
++                driveService.backupLocalFile({ filePath, displayName: filename, mimeType: req.file.mimetype })
++                    .then(({ id, webViewLink }) => db.query(
++                        'UPDATE documents SET drive_backup_id = $1, drive_web_link = $2 WHERE id = $3',
++                        [id, webViewLink, newDocId]
++                    ))
++                    .catch((driveErr) => console.warn(`Drive backup failed for document ${newDocId} (local copy is unaffected):`, driveErr.message));
++            }).catch(() => {}); // isConnected() failing just means "skip the backup"
++            // ---------------------------------------------------------------
++
+         } catch (dbErr) {
+             // DB/business logic failure after a successful file write -- clean up the
+             // orphaned file so uploads/ doesn't accumulate files with no DB record.
+@@ -451,15 +638,27 @@ app.post('/upload', ensureAuthenticated, (req, res) => {
+     });
+ });
+ 
++// Document versioning: only the newest version in each chain should show
++// up in list views (my-inbox/my-outbox/filter-options) — older, superseded
++// versions stay individually reachable via GET /documents/:id/versions,
++// but shouldn't clutter the active lists. No bound params needed, so this
++// can just be pushed straight into a `conditions` array.
++const LATEST_VERSION_ONLY_CLAUSE = `NOT EXISTS (
++    SELECT 1 FROM documents newer
++    WHERE COALESCE(newer.version_group_id, newer.id) = COALESCE(d.version_group_id, d.id)
++      AND newer.version_number > d.version_number
++)`;
++
+ // Endpoint to capture inbox layout listings targeting single identity profile logs
+ // Shared by /documents/my-inbox and /documents/inbox-filter-options so both
+ // always agree on which documents a given user is allowed to see.
  function buildInboxScopeClause(userRole, userId, deptId) {
      let conditions = [];
      let queryParams = [];
@@ -79,3 +257,16 @@ diff a/Procurement-PWA/server.js b/Procurement-PWA/server.js	(rejected hunks)
          queryParams.push(deptId, userId);
          conditions.push(`(d.department_id = $${queryParams.length - 1} OR d.project_id IN (SELECT project_id FROM project_assignments WHERE user_id = $${queryParams.length}))`);
      } else {
+@@ -1085,8 +1739,10 @@ app.patch('/documents/:id/approval-step', ensureAuthenticated, async (req, res)
+ 
+         const liveRoleRes = await db.query('SELECT role FROM users WHERE id = $1', [req.user.id]);
+         const liveRole = liveRoleRes.rows[0]?.role;
+-        const isAdmin = liveRole === 'Admin';
+-        if (curStep.approver_id !== req.user.id && !isAdmin) {
++        // See ALLOW_ADMIN_APPROVAL_OVERRIDE above — off by default, so only
++        // the exact assigned approver for this level can act.
++        const isAdminOverride = ALLOW_ADMIN_APPROVAL_OVERRIDE && liveRole === 'Admin';
++        if (curStep.approver_id !== req.user.id && !isAdminOverride) {
+             return res.status(403).json({ message: 'You are not the assigned approver for the current level.' });
+         }
+         if (curStep.status !== 'pending') {
