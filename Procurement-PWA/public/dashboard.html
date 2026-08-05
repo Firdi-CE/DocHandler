@@ -980,7 +980,7 @@
         <td style="font-size:0.8rem;">${d.project_name || '—'}</td>
         <td style="font-size:0.8rem;">${personCol}</td>
         <td style="font-size:0.75rem;color:var(--text-muted);">${formatTimestamp(d.created_at)}</td>
-        <td>${getStatusBadge(d.status)}</td>
+        <td>${getStatusBadge(d.status)}${(d.status || '').toLowerCase() === 'rejected' && d.notes ? `<div style="font-size:0.72rem;color:var(--text-muted);margin-top:3px;font-style:italic;max-width:180px;">"${escapeHtml(d.notes)}"</div>` : ''}</td>
         <td>${actionBtns}</td>
       </tr>`;
     }).join('');

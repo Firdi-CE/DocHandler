@@ -30,7 +30,7 @@ diff a/BACKLOG.md b/BACKLOG.md	(rejected hunks)
  Full architecture prompt to run when this is picked up (paste as-is into a
  fresh session so the "1-Feature Rule" framing and phase structure stay
  intact):
-@@ -96,6 +120,84 @@ Open questions, only answerable once the office confirms the hierarchy:
+@@ -96,6 +120,97 @@ Open questions, only answerable once the office confirms the hierarchy:
  
  ## Other deferred items
  
@@ -63,6 +63,13 @@ diff a/BACKLOG.md b/BACKLOG.md	(rejected hunks)
 +  Drive folder backups land in after the fact (currently auto-created once
 +  on first connect and fixed), and any de-dup/versioning if the same file
 +  gets attached twice.
++
++  **Fix (2026-08-03, self-audit):** `backupLocalFile()` used to trust a
++  cached backup-folder ID forever. If someone manually deleted the
++  "DocHandler Uploads" folder from Drive, every future backup would fail
++  silently (just a console warning) until an admin noticed and fixed it
++  directly in the database. It's now self-healing: a failed folder move
++  triggers one retry against a freshly-created folder.
  - **`schema_migrations` tracking table/runner** — proposed once, explicitly declined ("i dont need it").
 -- **Admin approval-override relaxation** — currently Admin can act on any approval level (intentional for dev phase). Revisit at deployment: only the exact assigned approver should be able to act.
 +- **Admin approval-override relaxation** — ~~currently Admin can act on any approval level (intentional for dev phase). Revisit at deployment: only the exact assigned approver should be able to act.~~ **Done (2026-07-31).** `PATCH /documents/:id/approval-step` now requires `curStep.approver_id === req.user.id` by default. The old blanket-Admin bypass is still available for local dev only, behind `ALLOW_ADMIN_APPROVAL_OVERRIDE=true` in the environment (unset/false in production). Note: this only touched the multi-level chain endpoint (`approval-step`) — the separate single-level `/documents/:id/status` endpoint intentionally still allows any Executive or Admin to act, since documents without a chain never had one single assigned approver to defer to in the first place.
@@ -85,6 +92,12 @@ diff a/BACKLOG.md b/BACKLOG.md	(rejected hunks)
 +  someone re-sets a chain on it via the existing "Set Chain" action. Copying
 +  the old chain automatically would be a reasonable follow-up if that
 +  friction turns out to matter in practice.
++
++  **Fix (2026-08-03):** the rejection reason (`documents.notes`) was only
++  ever visible in the Versions modal, which itself only appeared once a
++  document had already been resubmitted — so a *first-time* rejection had
++  no in-app way to see why (only the rejection email). Now shown inline in
++  the document row for any rejected document, regardless of version count.
 +
 +  Also folded in a small unrelated cleanup found while wiring this up:
 +  migration 002 had added `drive_file_id`/`drive_view_link`/`file_type` to
@@ -117,7 +130,3 @@ diff a/BACKLOG.md b/BACKLOG.md	(rejected hunks)
 +  infrastructure in this app to track it properly otherwise) — the
 +  Integrations page polls status every few seconds while it runs. Surfaced
 +  automatically whenever Drive is connected.
-+
-+ me(firdi) have added the google drive redirect link with the /admin/integrations/google-drive/callback on google cloud console
-+ and have ran migration 008 and 009
-+ i have yet to do anything else outside what i have mentioned above 

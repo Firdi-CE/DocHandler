@@ -162,6 +162,46 @@
   </div>
 </div>
 
+<!-- Manage Sites Modal (Work Sites & Maintenance Lifecycle feature) -->
+<div class="modal-overlay" id="sitesModal">
+  <div class="modal">
+    <h3 id="sitesModalTitle">Manage Sites</h3>
+    <div class="form-row">
+      <input type="text" id="newSiteName" placeholder="Site name (e.g. North Yard)" onkeydown="if(event.key==='Enter') createSite()">
+      <button onclick="createSite()">Add</button>
+    </div>
+    <table>
+      <thead><tr><th>Site</th><th>Actions</th></tr></thead>
+      <tbody id="sitesBody">
+        <tr><td colspan="2" style="text-align:center;padding:1rem;color:var(--text-muted);">Loading...</td></tr>
+      </tbody>
+    </table>
+    <div class="btn-group">
+      <button class="btn-cancel" onclick="closeSitesModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Manage Sites Modal (Work Sites & Maintenance Lifecycle feature) -->
+<div class="modal-overlay" id="sitesModal">
+  <div class="modal">
+    <h3 id="sitesModalTitle">Manage Sites</h3>
+    <div class="form-row">
+      <input type="text" id="newSiteName" placeholder="Site name (e.g. North Yard)" onkeydown="if(event.key==='Enter') createSite()">
+      <button onclick="createSite()">Add</button>
+    </div>
+    <table>
+      <thead><tr><th>Site</th><th>Actions</th></tr></thead>
+      <tbody id="sitesBody">
+        <tr><td colspan="2" style="text-align:center;padding:1rem;color:var(--text-muted);">Loading...</td></tr>
+      </tbody>
+    </table>
+    <div class="btn-group">
+      <button class="btn-cancel" onclick="closeSitesModal()">Close</button>
+    </div>
+  </div>
+</div>
+
 <script>
   const API_BASE = '';
   const token = localStorage.getItem('token');
@@ -289,6 +329,212 @@
       }
     } catch (e) {
       showStatus('Network error while deleting project.', 'error');
+    }
+  }
+
+  // --- Manage Sites (Work Sites & Maintenance Lifecycle feature) ---
+
+  function openSitesModal(projectId, projectName) {
+    currentSitesProjectId = projectId;
+    document.getElementById('sitesModalTitle').textContent = 'Manage Sites — ' + projectName;
+    document.getElementById('newSiteName').value = '';
+    document.getElementById('sitesModal').classList.add('open');
+    loadSites();
+  }
+
+  function closeSitesModal() {
+    document.getElementById('sitesModal').classList.remove('open');
+    currentSitesProjectId = null;
+  }
+
+  async function loadSites() {
+    const tbody = document.getElementById('sitesBody');
+    tbody.innerHTML = '<tr><td colspan="2" style="text-align:center;padding:1rem;color:var(--text-muted);">Loading...</td></tr>';
+    try {
+      const res = await fetch(API_BASE + '/projects/' + currentSitesProjectId + '/sites', {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      const sites = await res.json();
+      if (sites.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="2" style="text-align:center;padding:1rem;color:var(--text-muted);">No sites yet.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = sites.map(s => `
+        <tr>
+          <td>${s.site_name}</td>
+          <td>
+            <button class="btn-rename" onclick="renameSite(${s.id}, '${s.site_name.replace(/'/g, "\\'")}')">Rename</button>
+            <button class="btn-delete" onclick="deleteSite(${s.id}, '${s.site_name.replace(/'/g, "\\'")}')">Delete</button>
+          </td>
+        </tr>
+      `).join('');
+    } catch (e) {
+      tbody.innerHTML = '<tr><td colspan="2" style="text-align:center;padding:1rem;color:var(--text-muted);">Failed to load.</td></tr>';
+    }
+  }
+
+  async function createSite() {
+    const site_name = document.getElementById('newSiteName').value.trim();
+    if (!site_name) { showStatus('Enter a site name.', 'error'); return; }
+
+    try {
+      const res = await fetch(API_BASE + '/admin/projects/' + currentSitesProjectId + '/sites', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ site_name })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        document.getElementById('newSiteName').value = '';
+        loadSites();
+      } else {
+        showStatus(data.error || 'Failed to add site.', 'error');
+      }
+    } catch (e) {
+      showStatus('Network error while adding site.', 'error');
+    }
+  }
+
+  async function renameSite(id, currentName) {
+    const site_name = prompt('New site name:', currentName);
+    if (!site_name || site_name.trim() === '') return;
+
+    try {
+      const res = await fetch(API_BASE + '/admin/sites/' + id, {
+        method: 'PATCH',
+        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ site_name: site_name.trim() })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        loadSites();
+      } else {
+        showStatus(data.error || 'Failed to rename site.', 'error');
+      }
+    } catch (e) {
+      showStatus('Network error while renaming site.', 'error');
+    }
+  }
+
+  async function deleteSite(id, name) {
+    if (!confirm(`Delete site "${name}"? This cannot be undone.`)) return;
+
+    try {
+      const res = await fetch(API_BASE + '/admin/sites/' + id, {
+        method: 'DELETE',
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      const data = await res.json();
+      if (res.ok) {
+        loadSites();
+      } else {
+        showStatus(data.error || 'Failed to delete site.', 'error');
+      }
+    } catch (e) {
+      showStatus('Network error while deleting site.', 'error');
+    }
+  }
+
+  // --- Manage Sites (Work Sites & Maintenance Lifecycle feature) ---
+
+  function openSitesModal(projectId, projectName) {
+    currentSitesProjectId = projectId;
+    document.getElementById('sitesModalTitle').textContent = 'Manage Sites — ' + projectName;
+    document.getElementById('newSiteName').value = '';
+    document.getElementById('sitesModal').classList.add('open');
+    loadSites();
+  }
+
+  function closeSitesModal() {
+    document.getElementById('sitesModal').classList.remove('open');
+    currentSitesProjectId = null;
+  }
+
+  async function loadSites() {
+    const tbody = document.getElementById('sitesBody');
+    tbody.innerHTML = '<tr><td colspan="2" style="text-align:center;padding:1rem;color:var(--text-muted);">Loading...</td></tr>';
+    try {
+      const res = await fetch(API_BASE + '/projects/' + currentSitesProjectId + '/sites', {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      const sites = await res.json();
+      if (sites.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="2" style="text-align:center;padding:1rem;color:var(--text-muted);">No sites yet.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = sites.map(s => `
+        <tr>
+          <td>${s.site_name}</td>
+          <td>
+            <button class="btn-rename" onclick="renameSite(${s.id}, '${s.site_name.replace(/'/g, "\\'")}')">Rename</button>
+            <button class="btn-delete" onclick="deleteSite(${s.id}, '${s.site_name.replace(/'/g, "\\'")}')">Delete</button>
+          </td>
+        </tr>
+      `).join('');
+    } catch (e) {
+      tbody.innerHTML = '<tr><td colspan="2" style="text-align:center;padding:1rem;color:var(--text-muted);">Failed to load.</td></tr>';
+    }
+  }
+
+  async function createSite() {
+    const site_name = document.getElementById('newSiteName').value.trim();
+    if (!site_name) { showStatus('Enter a site name.', 'error'); return; }
+
+    try {
+      const res = await fetch(API_BASE + '/admin/projects/' + currentSitesProjectId + '/sites', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ site_name })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        document.getElementById('newSiteName').value = '';
+        loadSites();
+      } else {
+        showStatus(data.error || 'Failed to add site.', 'error');
+      }
+    } catch (e) {
+      showStatus('Network error while adding site.', 'error');
+    }
+  }
+
+  async function renameSite(id, currentName) {
+    const site_name = prompt('New site name:', currentName);
+    if (!site_name || site_name.trim() === '') return;
+
+    try {
+      const res = await fetch(API_BASE + '/admin/sites/' + id, {
+        method: 'PATCH',
+        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ site_name: site_name.trim() })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        loadSites();
+      } else {
+        showStatus(data.error || 'Failed to rename site.', 'error');
+      }
+    } catch (e) {
+      showStatus('Network error while renaming site.', 'error');
+    }
+  }
+
+  async function deleteSite(id, name) {
+    if (!confirm(`Delete site "${name}"? This cannot be undone.`)) return;
+
+    try {
+      const res = await fetch(API_BASE + '/admin/sites/' + id, {
+        method: 'DELETE',
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      const data = await res.json();
+      if (res.ok) {
+        loadSites();
+      } else {
+        showStatus(data.error || 'Failed to delete site.', 'error');
+      }
+    } catch (e) {
+      showStatus('Network error while deleting site.', 'error');
     }
   }
 

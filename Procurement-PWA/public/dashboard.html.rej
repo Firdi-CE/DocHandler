@@ -16,6 +16,19 @@ diff a/Procurement-PWA/public/dashboard.html b/Procurement-PWA/public/dashboard.
          </div>
        </div>
      </nav>
+@@ -60,8 +63,11 @@
+           <select id="projectFilter" onchange="filterDocs()">
+             <option value="">All Projects</option>
+           </select>
++          <select id="siteFilter" onchange="filterDocs()">
++            <option value="">All Sites</option>
++          </select>
+           <select id="senderFilter" onchange="filterDocs()">
+-            <option value="">All Senders</option>
++            <option value="" id="senderFilterAllLabel">All Senders</option>
+           </select>
+           <select id="fileTypeFilter" onchange="filterDocs()">
+             <option value="">All File Types</option>
 @@ -115,17 +121,41 @@
  
            <form id="uploadForm">
@@ -90,6 +103,15 @@ diff a/Procurement-PWA/public/dashboard.html b/Procurement-PWA/public/dashboard.
  <div class="modal-overlay" id="renameModal">
    <div class="modal">
      <h3>Rename Document</h3>
+@@ -260,7 +313,7 @@
+   let rowsPerPage = 10;
+   let totalRecords = 0;
+   let totalPages = 1;
+-  let filterOptionsLoaded = false;
++  let filterOptionsLoadedFor = null; // tracks which tab's filter options are currently loaded
+ 
+   function logout() {
+     localStorage.removeItem('token');
 @@ -282,6 +335,11 @@
        if (isAdmin) {
          document.getElementById('adminNavGroup').style.display = 'block';
@@ -326,3 +348,289 @@ diff a/Procurement-PWA/public/dashboard.html b/Procurement-PWA/public/dashboard.
      const formData = new FormData(e.target);
      const xhr = new XMLHttpRequest();
  
+@@ -436,17 +686,20 @@
+         document.getElementById('progressFill').style.width = '100%';
+         document.getElementById('progressFill').classList.add('complete');
+         document.getElementById('progressPct').textContent = '100%';
+-        showUploadStatus('File uploaded and routed successfully!', 'success');
++        showUploadStatus(resubmitContext ? 'Resubmitted successfully!' : 'File uploaded and routed successfully!', 'success');
+         // Refresh the inbox in place and switch back — no full page redirect needed
++        const landOnSent = !!resubmitContext;
++        clearResubmitState();
+         setTimeout(async () => {
+           e.target.reset();
+           resetUploadUI();
+           showUploadStatus('', '');
+           document.getElementById('uploadStatusMessage').className = 'status-msg';
+-          currentTab = 'inbox';
++          currentTab = landOnSent ? 'sent' : 'inbox';
+           currentPage = 1;
+-          document.getElementById('tabInbox').classList.add('active');
+-          document.getElementById('tabSent').classList.remove('active');
++          document.getElementById('tabInbox').classList.toggle('active', !landOnSent);
++          document.getElementById('tabSent').classList.toggle('active', landOnSent);
++          document.getElementById('filterBar').style.display = 'flex';
+           showView('documents');
+           await loadDocs();
+         }, 900);
+@@ -476,6 +729,7 @@
+ 
+     xhr.open('POST', API_BASE + '/upload');
+     xhr.setRequestHeader('Authorization', 'Bearer ' + token);
++    if (resubmitContext) formData.append('resubmitOf', resubmitContext.originalId);
+     xhr.send(formData);
+   };
+ 
+@@ -487,21 +741,28 @@
+     document.getElementById('tabSent').classList.toggle('active', tab === 'sent');
+     document.getElementById('pageTitle').textContent = tab === 'inbox' ? 'My Inbox' : 'Sent';
+     document.getElementById('thFromTo').textContent = tab === 'inbox' ? 'Sender' : 'Recipient';
+-    document.getElementById('filterBar').style.display = tab === 'inbox' ? 'flex' : 'none';
++    document.getElementById('filterBar').style.display = 'flex';
++    // Sender/Recipient is direction-specific and doesn't carry over cleanly
++    // between tabs, so reset it (and reload its options for the new
++    // direction) on every switch. Project/Site/FileType stay put.
++    document.getElementById('senderFilter').value = '';
++    document.getElementById('senderFilterAllLabel').textContent = tab === 'inbox' ? 'All Senders' : 'All Recipients';
++    filterOptionsLoadedFor = null;
+     await loadDocs();
+   }
+ 
+   async function loadDocs() {
+     const endpoint = currentTab === 'inbox' ? '/documents/my-inbox' : '/documents/my-outbox';
+     const params = new URLSearchParams({ page: currentPage, limit: rowsPerPage });
+-    if (currentTab === 'inbox') {
+-      const projectId = document.getElementById('projectFilter').value;
+-      const senderId = document.getElementById('senderFilter').value;
+-      const fileType = document.getElementById('fileTypeFilter').value;
+-      if (projectId) params.set('projectId', projectId);
+-      if (senderId) params.set('senderId', senderId);
+-      if (fileType) params.set('fileType', fileType);
+-    }
++    const projectId = document.getElementById('projectFilter').value;
++    const siteId = document.getElementById('siteFilter').value;
++    const personId = document.getElementById('senderFilter').value;
++    const fileType = document.getElementById('fileTypeFilter').value;
++    if (projectId) params.set('projectId', projectId);
++    if (siteId) params.set('siteId', siteId);
++    if (fileType) params.set('fileType', fileType);
++    if (personId) params.set(currentTab === 'inbox' ? 'senderId' : 'recipientId', personId);
++
+     const url = `${API_BASE}${endpoint}?${params.toString()}`;
+     try {
+       const res = await fetch(url, { headers: { 'Authorization': 'Bearer ' + token } });
+@@ -511,8 +772,8 @@
+       totalRecords = data.total || 0;
+       totalPages = data.totalPages || 1;
+       currentPage = data.page || currentPage;
+-      if (currentTab === 'inbox' && !filterOptionsLoaded) {
+-        filterOptionsLoaded = true;
++      if (filterOptionsLoadedFor !== currentTab) {
++        filterOptionsLoadedFor = currentTab;
+         loadFilterOptions();
+       }
+       renderAll();
+@@ -549,10 +810,14 @@
+   }
+ 
+   // Req 4 follow-up: filter options now come from the server, covering the
+-  // user's whole scoped inbox — not just whichever page happens to be loaded.
++  // user's whole scoped inbox/outbox — not just whichever page happens to
++  // be loaded. Inbox and Sent use mirrored endpoints (see
++  // outbox-filter-options server-side) since "filter by sender" doesn't
++  // make sense once every document in the list is one you sent.
+   async function loadFilterOptions() {
+     try {
+-      const res = await fetch(API_BASE + '/documents/inbox-filter-options', {
++      const endpoint = currentTab === 'inbox' ? '/documents/inbox-filter-options' : '/documents/outbox-filter-options';
++      const res = await fetch(API_BASE + endpoint, {
+         headers: { 'Authorization': 'Bearer ' + token }
+       });
+       if (!res.ok) return;
+@@ -561,19 +826,27 @@
+       const projectFilter = document.getElementById('projectFilter');
+       const currentProjectVal = projectFilter.value;
+       projectFilter.innerHTML = '<option value="">All Projects</option>' +
+-        data.projects.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
++        data.projects.map(p => `<option value="${p.id}">${escapeHtml(p.name)}</option>`).join('');
+       projectFilter.value = currentProjectVal;
+ 
++      const siteFilter = document.getElementById('siteFilter');
++      const currentSiteVal = siteFilter.value;
++      siteFilter.innerHTML = '<option value="">All Sites</option>' +
++        (data.sites || []).map(s => `<option value="${s.id}">${escapeHtml(s.site_name)}</option>`).join('');
++      siteFilter.value = currentSiteVal;
++
++      const people = currentTab === 'inbox' ? data.senders : data.recipients;
+       const senderFilter = document.getElementById('senderFilter');
+       const currentSenderVal = senderFilter.value;
+-      senderFilter.innerHTML = '<option value="">All Senders</option>' +
+-        data.senders.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
++      const allLabel = currentTab === 'inbox' ? 'All Senders' : 'All Recipients';
++      senderFilter.innerHTML = `<option value="">${allLabel}</option>` +
++        (people || []).map(s => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
+       senderFilter.value = currentSenderVal;
+ 
+       const fileTypeFilter = document.getElementById('fileTypeFilter');
+       const currentTypeVal = fileTypeFilter.value;
+       fileTypeFilter.innerHTML = '<option value="">All File Types</option>' +
+-        data.fileTypes.map(ext => `<option value="${ext}">${ext.toUpperCase()}</option>`).join('');
++        data.fileTypes.map(ext => `<option value="${escapeHtml(ext)}">${escapeHtml(ext.toUpperCase())}</option>`).join('');
+       fileTypeFilter.value = currentTypeVal;
+     } catch (e) { /* non-fatal — filters just show base options */ }
+   }
+@@ -605,6 +878,19 @@
+     const hasChain = (d.chain_total_levels || 0) > 0;
+     const safeName = d.filename.replace(/'/g, "\\'");
+ 
++    // Document versioning: version_number > 1 on a row means older
++    // versions exist (list views only ever show the latest version of a
++    // chain — see LATEST_VERSION_ONLY_CLAUSE server-side).
++    if (d.version_number > 1) {
++      btns += ` <button class="btn btn-rename" onclick="openVersionsModal(${d.id}, '${safeName}')">Versions (v${d.version_number})</button>`;
++    }
++    // Resubmit: only the original sender, only once it's actually rejected,
++    // only from the Sent view (it's "your document to correct").
++    const stForResubmit = (d.status || 'pending').toLowerCase();
++    if (currentTab === 'sent' && stForResubmit === 'rejected' && currentUser && d.sender_id === currentUser.id) {
++      btns += ` <button class="btn btn-rename" style="background:#3B6D11;color:white;" onclick="startResubmit(${d.id})">Resubmit</button>`;
++    }
++
+     // Anyone who can set a chain (sender in outbox, Executive/Admin anywhere)
+     // gets a button to define or redefine it, as long as it hasn't finished.
+     const st = (d.status || 'pending').toLowerCase();
+@@ -641,6 +927,117 @@
+     return btns;
+   }
+ 
++  // --- Document versioning: resubmit a rejected document ---
++
++  function waitForDropdownReady(selectId, maxWaitMs) {
++    maxWaitMs = maxWaitMs || 3000;
++    return new Promise(resolve => {
++      const start = Date.now();
++      (function check() {
++        const el = document.getElementById(selectId);
++        if (el && el.options.length > 1) return resolve();
++        if (Date.now() - start > maxWaitMs) return resolve(); // give up gracefully; prefill just won't apply
++        setTimeout(check, 100);
++      })();
++    });
++  }
++
++  async function startResubmit(docId) {
++    const doc = allDocs.find(d => d.id === docId);
++    if (!doc) return;
++    resubmitContext = { originalId: docId, filename: doc.filename };
++
++    showView('upload');
++    await waitForDropdownReady('uploadProjectDropdown');
++
++    document.getElementById('uploadProjectDropdown').value = doc.project_id || '';
++    await loadUploadSites();
++    if (doc.site_id) document.getElementById('uploadSiteDropdown').value = doc.site_id;
++    document.getElementById('uploadDeptDropdown').value = doc.department_id || '';
++    await loadUploadUsers();
++    if (doc.recipient_id) document.getElementById('uploadPicDropdown').value = doc.recipient_id;
++    document.getElementById('urgentCheckbox').checked = !!doc.is_urgent;
++
++    // Nice-to-have, not required: default to the same source the original
++    // used, if that source is still available.
++    if (doc.drive_attachment_id && document.getElementById('sourceDriveBtn').dataset.available === '1') {
++      setUploadSource('drive');
++    }
++
++    showResubmitBanner(doc.filename);
++  }
++
++  function showResubmitBanner(filename) {
++    let banner = document.getElementById('resubmitBanner');
++    if (!banner) {
++      banner = document.createElement('div');
++      banner.id = 'resubmitBanner';
++      banner.style.cssText = 'background:#FEF3C7;border:1px solid #F59E0B;color:#92400E;padding:8px 12px;border-radius:6px;margin-bottom:1rem;font-size:0.85rem;display:flex;justify-content:space-between;align-items:center;gap:8px;';
++      document.getElementById('uploadForm').prepend(banner);
++    }
++    banner.innerHTML = `<span>Resubmitting a corrected version of <strong>${escapeHtml(filename)}</strong></span>`;
++    const cancelBtn = document.createElement('button');
++    cancelBtn.type = 'button';
++    cancelBtn.textContent = 'Cancel';
++    cancelBtn.style.cssText = 'background:none;border:none;color:#92400E;text-decoration:underline;cursor:pointer;font-size:0.85rem;';
++    cancelBtn.onclick = cancelResubmit;
++    banner.appendChild(cancelBtn);
++  }
++
++  function cancelResubmit() {
++    clearResubmitState();
++    document.getElementById('uploadForm').reset();
++    resetUploadUI();
++  }
++
++  function clearResubmitState() {
++    resubmitContext = null;
++    const banner = document.getElementById('resubmitBanner');
++    if (banner) banner.remove();
++  }
++
++  // --- Document versioning: view history ---
++
++  async function openVersionsModal(docId, filename) {
++    document.getElementById('versionsModalTitle').textContent = 'Version History — ' + filename;
++    document.getElementById('versionsModal').classList.add('open');
++    const listEl = document.getElementById('versionsList');
++    listEl.innerHTML = '<p style="color:var(--text-muted);font-size:0.85rem;text-align:center;padding:1rem;">Loading...</p>';
++    try {
++      const res = await fetch(API_BASE + '/documents/' + docId + '/versions', {
++        headers: { 'Authorization': 'Bearer ' + token }
++      });
++      const versions = await res.json();
++      if (!res.ok || !Array.isArray(versions) || versions.length === 0) {
++        listEl.innerHTML = '<p style="color:var(--text-muted);font-size:0.85rem;text-align:center;padding:1rem;">No version history.</p>';
++        return;
++      }
++      listEl.innerHTML = versions.map(v => `
++        <div style="padding:10px;border-bottom:1px solid var(--border);">
++          <div style="display:flex;justify-content:space-between;align-items:center;">
++            <strong style="font-size:0.85rem;">v${v.version_number} — ${escapeHtml(v.filename)}</strong>
++            ${getStatusBadge(v.status)}
++          </div>
++          <div style="font-size:0.78rem;color:var(--text-muted);margin-top:2px;">
++            ${escapeHtml(v.sender_name || '—')} · ${formatTimestamp(v.created_at)}
++          </div>
++          ${v.notes ? `<div style="font-size:0.8rem;margin-top:4px;font-style:italic;">"${escapeHtml(v.notes)}"</div>` : ''}
++          <div style="margin-top:6px;">
++            <button class="btn btn-view" onclick="viewDocument(${v.id}, '${String(v.filename).replace(/'/g, "\\'")}')">View</button>
++            <button class="btn btn-rename" style="background:var(--steel);color:white;" onclick="downloadDocument(${v.id})">Download</button>
++          </div>
++        </div>
++      `).join('');
++    } catch (e) {
++      listEl.innerHTML = '<p style="color:var(--text-muted);font-size:0.85rem;text-align:center;padding:1rem;">Failed to load version history.</p>';
++    }
++  }
++
++  function closeVersionsModal() {
++    document.getElementById('versionsModal').classList.remove('open');
++  }
++
++
+   // Smart timestamp:
+   // - Today → shows "10:32 AM", no date
+   // - Older → shows "14 Jul 2025", no time
+@@ -684,7 +1081,7 @@
+         <td style="font-size:0.8rem;">${d.project_name || '—'}</td>
+         <td style="font-size:0.8rem;">${personCol}</td>
+         <td style="font-size:0.75rem;color:var(--text-muted);">${formatTimestamp(d.created_at)}</td>
+-        <td>${getStatusBadge(d.status)}</td>
++        <td>${getStatusBadge(d.status)}${(d.status || '').toLowerCase() === 'rejected' && d.notes ? `<div style="font-size:0.72rem;color:var(--text-muted);margin-top:3px;font-style:italic;max-width:180px;">"${escapeHtml(d.notes)}"</div>` : ''}</td>
+         <td>${actionBtns}</td>
+       </tr>`;
+     }).join('');
+@@ -699,6 +1096,7 @@
+ 
+   function clearFilters() {
+     document.getElementById('projectFilter').value = '';
++    document.getElementById('siteFilter').value = '';
+     document.getElementById('senderFilter').value = '';
+     document.getElementById('fileTypeFilter').value = '';
+     filterDocs();
