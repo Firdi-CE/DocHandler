@@ -177,9 +177,14 @@ async function ensureBackupFolder(client) {
 // Two-step (raw media upload, then a metadata PATCH to name + move it)
 // instead of hand-rolling a multipart/related body. Returns
 // { id, webViewLink }.
+//
+// Self-healing: if the cached backup folder ID no longer resolves (e.g.
+// someone deleted "DocHandler Uploads" by hand in Drive), a stale ID would
+// otherwise silently break every future backup until an admin noticed and
+// fixed it in the database directly. Instead, a failed move retries once
+// against a freshly-created folder.
 async function backupLocalFile({ filePath, displayName, mimeType }) {
     const client = await getAuthedClient();
-    const folderId = await ensureBackupFolder(client);
     const fileBytes = fs.readFileSync(filePath);
 
     const uploadRes = await client.request({
@@ -190,6 +195,20 @@ async function backupLocalFile({ filePath, displayName, mimeType }) {
     });
     const fileId = uploadRes.data.id;
 
+    let folderId = await ensureBackupFolder(client);
+    try {
+        return await moveIntoFolder(client, fileId, folderId, displayName);
+    } catch (moveErr) {
+        console.warn('Drive backup folder move failed, recreating the backup folder and retrying once:', moveErr.message);
+        await db.query(
+            `UPDATE integration_settings SET google_backup_folder_id = NULL, google_backup_folder_name = NULL, updated_at = NOW() WHERE id = 1`
+        );
+        folderId = await ensureBackupFolder(client);
+        return await moveIntoFolder(client, fileId, folderId, displayName);
+    }
+}
+
+async function moveIntoFolder(client, fileId, folderId, displayName) {
     const patchRes = await client.request({
         url: `https://www.googleapis.com/drive/v3/files/${fileId}`,
         method: 'PATCH',

@@ -48,6 +48,7 @@
           <a class="sidebar-link" href="/admin/projects.html">Projects</a>
           <a class="sidebar-link" href="/admin/approvals.html">Approvals</a>
           <a class="sidebar-link active" href="/admin/integrations.html">Integrations</a>
+          <a class="sidebar-link" href="/admin/audit-log.html">Audit Log</a>
         </div>
       </div>
     </nav>
@@ -80,6 +81,18 @@
           uploading, and every upload is best-effort mirrored to a
           "DocHandler Uploads" folder in that account.
         </p>
+
+        <div id="backfillSection" style="margin-top:1.5rem;padding-top:1.2rem;border-top:1px solid var(--border);display:none;">
+          <div class="integration-name" style="margin-bottom:6px;">Backfill existing uploads</div>
+          <p style="color:var(--text-muted);font-size:0.85rem;margin-bottom:0.75rem;">
+            The automatic backup only runs on new uploads going forward.
+            Documents uploaded before Drive was connected have no backup yet
+            — run this once to catch them up. Drive-attached documents are
+            skipped (they already live in Drive).
+          </p>
+          <div id="backfillProgress" style="font-size:0.85rem;color:var(--text-muted);margin-bottom:0.75rem;">Checking...</div>
+          <button class="btn-connect" id="backfillBtn" onclick="runBackfill()">Run Backfill</button>
+        </div>
       </div>
     </div>
   </div>
@@ -139,10 +152,73 @@
       detail.textContent = 'Connected as ' + data.connectedEmail +
         (data.backupFolderName ? ' · backing up to "' + data.backupFolderName + '"' : '');
       action.innerHTML = '<button class="btn-disconnect" onclick="disconnectDrive()">Disconnect</button>';
+      document.getElementById('backfillSection').style.display = 'block';
+      loadBackfillStatus();
     } else {
       dot.className = 'dot off';
       detail.textContent = 'Not connected.';
       action.innerHTML = '<button class="btn-connect" onclick="connectDrive()">Connect</button>';
+      document.getElementById('backfillSection').style.display = 'none';
+    }
+  }
+
+  async function loadBackfillStatus() {
+    try {
+      const res = await fetch(API_BASE + '/admin/integrations/google-drive/backfill-status', {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      const data = await res.json();
+      const progressEl = document.getElementById('backfillProgress');
+      const btn = document.getElementById('backfillBtn');
+      if (data.remaining === 0) {
+        progressEl.textContent = `All ${data.total} local uploads are backed up.`;
+        btn.disabled = true;
+        btn.textContent = 'Up to date';
+      } else {
+        progressEl.textContent = `${data.done} of ${data.total} local uploads backed up — ${data.remaining} remaining.`;
+        btn.disabled = false;
+        btn.textContent = 'Run Backfill';
+      }
+      return data;
+    } catch (e) {
+      document.getElementById('backfillProgress').textContent = 'Could not check backfill status.';
+      return null;
+    }
+  }
+
+  let backfillPollTimer = null;
+
+  async function runBackfill() {
+    const btn = document.getElementById('backfillBtn');
+    btn.disabled = true;
+    btn.textContent = 'Starting...';
+    try {
+      const res = await fetch(API_BASE + '/admin/integrations/google-drive/backfill', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        showStatus(data.message || 'Failed to start backfill.', 'error');
+        btn.disabled = false;
+        btn.textContent = 'Run Backfill';
+        return;
+      }
+      document.getElementById('backfillProgress').textContent = `Backfilling ${data.count} document(s) in the background...`;
+      btn.textContent = 'Running...';
+      // This runs in the background server-side with no push updates, so
+      // just poll status every few seconds until it settles.
+      clearInterval(backfillPollTimer);
+      backfillPollTimer = setInterval(async () => {
+        const status = await loadBackfillStatus();
+        if (status && status.remaining === 0) {
+          clearInterval(backfillPollTimer);
+        }
+      }, 4000);
+    } catch (e) {
+      showStatus('Network error while starting the backfill.', 'error');
+      btn.disabled = false;
+      btn.textContent = 'Run Backfill';
     }
   }
 
