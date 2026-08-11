@@ -67,7 +67,7 @@
             <option value="">All Sites</option>
           </select>
           <select id="senderFilter" onchange="filterDocs()">
-            <option value="" id="senderFilterAllLabel">All Senders</option>
+            <option value="">All Senders</option>
           </select>
           <select id="fileTypeFilter" onchange="filterDocs()">
             <option value="">All File Types</option>
@@ -745,8 +745,12 @@
     // Sender/Recipient is direction-specific and doesn't carry over cleanly
     // between tabs, so reset it (and reload its options for the new
     // direction) on every switch. Project/Site/FileType stay put.
-    document.getElementById('senderFilter').value = '';
-    document.getElementById('senderFilterAllLabel').textContent = tab === 'inbox' ? 'All Senders' : 'All Recipients';
+    // Rebuilding the whole dropdown (rather than updating a specific child
+    // option by id) is deliberate: loadFilterOptions() below replaces this
+    // dropdown's entire innerHTML once it runs, which would otherwise leave
+    // a stale id reference here pointing at a removed element.
+    document.getElementById('senderFilter').innerHTML =
+      '<option value="">' + (tab === 'inbox' ? 'All Senders' : 'All Recipients') + '</option>';
     filterOptionsLoadedFor = null;
     await loadDocs();
   }
