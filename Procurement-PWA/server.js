@@ -523,6 +523,7 @@ app.post('/upload', ensureAuthenticated, (req, res) => {
             const projectId = req.body.projectId || null;
             const siteId = req.body.siteId || null; // optional — Work Sites feature
             const departmentId = req.body.departmentId || null;
+            const documentTypeId = req.body.documentTypeId || null; // optional -- Phase 1 of engine generalization
             // Checkboxes are omitted from multipart form data entirely when unchecked,
             // and arrive as the string 'true'/'on' when checked -- never a real boolean.
             const isUrgent = req.body.isUrgent === 'true' || req.body.isUrgent === 'on';
@@ -566,11 +567,11 @@ app.post('/upload', ensureAuthenticated, (req, res) => {
 
             // Perform strict table transaction mapping elements cleanly to table relations
             const query = `
-                INSERT INTO public.documents (filename, sender_id, recipient_id, project_id, site_id, department_id, is_urgent, version_group_id, version_number)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                INSERT INTO public.documents (filename, sender_id, recipient_id, project_id, site_id, department_id, document_type_id, is_urgent, version_group_id, version_number)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
                 RETURNING id;
             `;
-            const values = [filename, uploadedBy, recipientId, projectId, siteId, departmentId, isUrgent, versionGroupId, versionNumber];
+            const values = [filename, uploadedBy, recipientId, projectId, siteId, departmentId, documentTypeId, isUrgent, versionGroupId, versionNumber];
             const insertRes = await db.query(query, values);
             const newDocId = insertRes.rows[0].id;
 
@@ -578,6 +579,68 @@ app.post('/upload', ensureAuthenticated, (req, res) => {
 
             // Req 6: Audit trail
             await auditLog(uploadedBy, resubmitOf ? `DOCUMENT_RESUBMIT:OF_${resubmitOf}` : 'DOCUMENT_UPLOAD', newDocId);
+
+            // Phase 2 of engine generalization: if the uploader picked a document type
+            // that has a default approval chain configured, auto-create it here instead
+            // of requiring a separate manual /approval-chain call afterward. Best-effort --
+            // a type with no defaults, or a role nobody currently holds, just means fewer
+            // (or zero) levels get created; created levels are renumbered contiguously
+            // from 1 so current_level never points at a level that doesn't exist. This
+            // never fails the upload itself -- a chain can always be set manually after.
+            if (documentTypeId) {
+                try {
+                    const typeRes = await db.query(
+                        'SELECT department_id, is_active FROM document_types WHERE id = $1',
+                        [documentTypeId]
+                    );
+                    if (typeRes.rows.length > 0 && typeRes.rows[0].is_active) {
+                        const typeDeptId = typeRes.rows[0].department_id;
+                        const defaultsRes = await db.query(
+                            `SELECT level, approver_role, approver_user_id
+                             FROM document_type_default_approvers
+                             WHERE document_type_id = $1
+                             ORDER BY level ASC`,
+                            [documentTypeId]
+                        );
+
+                        let sequentialLevel = 0;
+                        for (const step of defaultsRes.rows) {
+                            let approverId = step.approver_user_id;
+                            if (!approverId && step.approver_role) {
+                                const roleRes = await db.query(
+                                    `SELECT id FROM users
+                                     WHERE department_id = $1 AND role = $2 AND is_approved = true
+                                     ORDER BY id LIMIT 1`,
+                                    [typeDeptId, step.approver_role]
+                                );
+                                approverId = roleRes.rows[0]?.id || null;
+                            }
+                            if (!approverId) {
+                                console.warn(`Skipping default chain level ${step.level} for document ${newDocId}: no user resolves for role "${step.approver_role}" in department ${typeDeptId}.`);
+                                continue;
+                            }
+                            sequentialLevel++;
+                            await db.query(
+                                `INSERT INTO approval_chain_steps (document_id, level, approver_id, status)
+                                 VALUES ($1, $2, $3, $4)`,
+                                [newDocId, sequentialLevel, approverId, sequentialLevel === 1 ? 'pending' : 'waiting']
+                            );
+                        }
+
+                        if (sequentialLevel > 0) {
+                            await db.query(
+                                `UPDATE documents SET current_level = 1, status = 'pending' WHERE id = $1`,
+                                [newDocId]
+                            );
+                            await auditLog(uploadedBy, 'APPROVAL_CHAIN_SET', newDocId);
+                        }
+                    }
+                } catch (chainErr) {
+                    // Never fail the upload over chain auto-creation -- the document
+                    // still exists and a chain can always be set manually afterward.
+                    console.error(`Auto-chain creation failed for document ${newDocId} (upload still succeeded):`, chainErr.message);
+                }
+            }
 
             // --- NOTIFY RECIPIENT: urgent bypasses the digest and emails immediately;
             //     everything else queues for the next digest run. ---
