@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document Types — Admin</title>
+  <link rel="stylesheet" href="/theme.css">
+  <style>
+    body { padding: 2rem; }
+    .card { max-width: 900px; margin: auto; }
+    .form-row { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+    .form-row input, .form-row select { flex: 1; min-width: 160px; }
+    .form-row button { background: var(--steel); color: white; border: none; border-radius: 6px; padding: 10px 20px; cursor: pointer; font-weight: 700; }
+    .form-row button:hover { background: var(--steel-hover); }
+    table { width: 100%; border-collapse: collapse; }
+    th { text-align: left; padding: 0.75rem 0.5rem; border-bottom: 1px solid var(--border); font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted); }
+    td { padding: 0.75rem 0.5rem; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
+    .status-msg { padding: 0.75rem; border-radius: 8px; margin-bottom: 1rem; display: none; }
+    .status-msg.success { display: block; background: var(--green-bg); border: 1px solid var(--green-border); color: var(--green-text); }
+    .status-msg.error { display: block; background: var(--red-bg); border: 1px solid var(--red-border); color: var(--red-text); }
+    .btn-edit { background: #854F0B; color: white; border: none; border-radius: 6px; padding: 4px 12px; cursor: pointer; font-weight: 600; font-size: 0.8rem; }
+    .btn-edit:hover { background: #6c3f08; }
+    .btn-delete { background: #A32D2D; color: white; border: none; border-radius: 6px; padding: 4px 12px; cursor: pointer; font-weight: 600; font-size: 0.8rem; }
+    .btn-delete:hover { background: #872424; }
+    .btn-chain { background: var(--steel); color: white; border: none; border-radius: 6px; padding: 4px 12px; cursor: pointer; font-weight: 600; font-size: 0.8rem; }
+    .btn-chain:hover { background: var(--steel-hover); }
+    .modal .btn-save { background: var(--steel); color: white; }
+    .status-badge { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 0.75rem; font-weight: 700; }
+    .status-badge.active { background: var(--green-bg); color: var(--green-text); }
+    .status-badge.inactive { background: #E5E7EB; color: #374151; }
+    .chain-row { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem; }
+    .chain-row .level-label { width: 60px; font-weight: 600; color: var(--text-muted); font-size: 0.85rem; }
+    .chain-row select, .chain-row input { flex: 1; }
+    .chain-row .btn-remove-step { background: none; border: none; color: #A32D2D; cursor: pointer; font-weight: 700; font-size: 1.1rem; padding: 0 6px; }
+    .btn-add-step { background: var(--bg-muted); border: 1px solid var(--border-strong); border-radius: 6px; padding: 6px 14px; cursor: pointer; font-weight: 600; font-size: 0.85rem; margin-bottom: 1rem; }
+  </style>
+</head>
+<body class="full-bleed">
+
+<div class="app-shell">
+  <aside class="app-sidebar">
+    <div class="sidebar-logo">
+      <img src="/assets/logo.png" alt="Pilar Energi">
+      <span>DocHandler</span>
+    </div>
+    <nav class="sidebar-nav">
+      <a class="sidebar-link" href="/dashboard.html">Documents</a>
+      <a class="sidebar-link" href="/dashboard.html?view=upload">Upload</a>
+      <a class="sidebar-link" href="/profile.html">Profile</a>
+
+      <div id="adminNavGroup">
+        <button class="sidebar-group-toggle open" id="adminGroupToggle" onclick="toggleSidebarGroup('adminSubmenu', this)">
+          Admin <span class="chevron">&#9660;</span>
+        </button>
+        <div class="sidebar-submenu open" id="adminSubmenu">
+          <a class="sidebar-link" href="/admin.html">Overview</a>
+          <a class="sidebar-link" href="/admin/users.html">Users</a>
+          <a class="sidebar-link" href="/admin/projects.html">Projects</a>
+          <a class="sidebar-link active" href="/admin/document-types.html">Document Types</a>
+          <a class="sidebar-link" href="/admin/approvals.html">Approvals</a>
+          <a class="sidebar-link" href="/admin/integrations.html">Integrations</a>
+          <a class="sidebar-link" href="/admin/audit-log.html">Audit Log</a>
+        </div>
+      </div>
+    </nav>
+  </aside>
+
+  <div class="app-main">
+    <div class="app-header">
+      <h2 style="color:var(--navy);font-size:1.1rem;">Document Types</h2>
+      <div class="header-user">
+        <button onclick="logout()">Sign out</button>
+      </div>
+    </div>
+
+    <div class="app-content">
+      <div class="card">
+        <div id="statusMessage" class="status-msg"></div>
+
+        <h3 style="margin-bottom:1rem;">Create New Document Type</h3>
+        <div class="form-row">
+          <input type="text" id="typeName" placeholder="Name (e.g. Purchase Request)">
+          <select id="typeDepartment"><option value="">No department (global)</option></select>
+          <input type="text" id="typeDescription" placeholder="Description (optional)">
+          <button onclick="createType()">Create</button>
+        </div>
+
+        <h3 style="margin-bottom:1rem;">Existing Document Types</h3>
+        <table>
+          <thead><tr><th>Name</th><th>Department</th><th>Status</th><th>Default Chain</th><th>Actions</th></tr></thead>
+          <tbody id="typesBody">
+            <tr><td colspan="5" style="text-align:center;padding:2rem;color:var(--text-muted);">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Document Type Modal -->
+<div class="modal-overlay" id="editModal">
+  <div class="modal">
+    <h3>Edit Document Type</h3>
+    <label for="editName">Name:</label>
+    <input type="text" id="editName" placeholder="Document type name">
+    <label for="editDepartment">Department:</label>
+    <select id="editDepartment"><option value="">No department (global)</option></select>
+    <label for="editDescription">Description:</label>
+    <input type="text" id="editDescription" placeholder="Description">
+    <label for="editActive">Status:</label>
+    <select id="editActive">
+      <option value="true">Active</option>
+      <option value="false">Inactive</option>
+    </select>
+    <div class="btn-group">
+      <button class="btn-save" onclick="saveEdit()">Save</button>
+      <button class="btn-cancel" onclick="closeEditModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Default Approval Chain Modal -->
+<div class="modal-overlay" id="chainModal">
+  <div class="modal" style="max-width:600px;">
+    <h3 id="chainModalTitle">Default Approval Chain</h3>
+    <p style="margin-bottom:1rem;color:var(--text-muted);font-size:0.85rem;">
+      Each level is either a fixed role (resolved to whoever holds it at chain-creation time) or a specific person.
+      This chain is copied onto new uploads of this type — editing it here does not change chains already in flight.
+    </p>
+    <div id="chainSteps"></div>
+    <button class="btn-add-step" onclick="addChainStep()">+ Add Level</button>
+    <div class="btn-group">
+      <button class="btn-save" onclick="saveChain()">Save Chain</button>
+      <button class="btn-cancel" onclick="closeChainModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const API_BASE = '';
+  const token = localStorage.getItem('token');
+  if (!token) window.location.href = '/login.html?reason=expired';
+
+  const APPROVER_ROLES = ['Staff', 'Supervisor', 'Manager', 'Executive', 'Admin'];
+
+  // Gate: only Executive and Admin roles can access admin pages
+  (async () => {
+    try {
+      const res = await fetch('/auth/me', { headers: { 'Authorization': 'Bearer ' + token } });
+      if (res.status === 401) { window.location.href = '/login.html?reason=expired'; return; }
+      const user = await res.json();
+      if (user.role !== 'Executive' && user.role !== 'Admin') {
+        window.location.href = '/dashboard.html';
+      }
+    } catch (e) { /* non-fatal, backend will enforce via 403 */ }
+  })();
+
+  let editTypeId = null;
+  let currentChainTypeId = null;
+  let departmentsCache = [];
+  let usersCache = [];
+
+  function showStatus(msg, type) {
+    const el = document.getElementById('statusMessage');
+    el.textContent = msg; el.className = 'status-msg ' + type;
+    el.style.display = 'block';
+    setTimeout(() => el.style.display = 'none', 3000);
+  }
+
+  function logout() {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    window.location.href = '/login.html';
+  }
+
+  function toggleSidebarGroup(submenuId, toggleBtn) {
+    const submenu = document.getElementById(submenuId);
+    const isOpen = submenu.classList.toggle('open');
+    toggleBtn.classList.toggle('open', isOpen);
+  }
+
+  async function loadDepartments() {
+    try {
+      const res = await fetch(API_BASE + '/departments', { headers: { 'Authorization': 'Bearer ' + token } });
+      departmentsCache = await res.json();
+      const opts = departmentsCache.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+      document.getElementById('typeDepartment').innerHTML = '<option value="">No department (global)</option>' + opts;
+      document.getElementById('editDepartment').innerHTML = '<option value="">No department (global)</option>' + opts;
+    } catch (e) { /* non-fatal, department dropdown just stays empty */ }
+  }
+
+  async function loadUsers() {
+    try {
+      const res = await fetch(API_BASE + '/admin/users', { headers: { 'Authorization': 'Bearer ' + token } });
+      usersCache = await res.json();
+    } catch (e) { /* non-fatal, "specific person" option just won't populate */ }
+  }
+
+  async function loadTypes() {
+    try {
+      const res = await fetch(API_BASE + '/admin/document-types', {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      if (res.status === 401) { logout(); return; }
+      if (res.status === 403) { window.location.href = '/dashboard.html'; return; }
+      const types = await res.json();
+      const tbody = document.getElementById('typesBody');
+      if (types.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:2rem;color:#888;">No document types yet.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = types.map(t => `
+        <tr>
+          <td><strong>${t.name}</strong>${t.description ? '<br><span style="color:var(--text-muted);font-size:0.8rem;">' + t.description + '</span>' : ''}</td>
+          <td>${t.department_name || '—'}</td>
+          <td><span class="status-badge ${t.is_active ? 'active' : 'inactive'}">${t.is_active ? 'Active' : 'Inactive'}</span></td>
+          <td>${t.default_approver_count} level${t.default_approver_count === 1 ? '' : 's'}</td>
+          <td>
+            <button class="btn-chain" onclick="openChainModal(${t.id}, '${t.name.replace(/'/g, "\\'")}')">Chain</button>
+            <button class="btn-edit" onclick="openEditModal(${t.id})">Edit</button>
+            <button class="btn-delete" onclick="deleteType(${t.id}, '${t.name.replace(/'/g, "\\'")}')">Delete</button>
+          </td>
+        </tr>
+      `).join('');
+    } catch (e) {
+      document.getElementById('typesBody').innerHTML =
+        '<tr><td colspan="5" style="text-align:center;padding:2rem;color:#888;">Failed to load.</td></tr>';
+    }
+  }
+
+  async function createType() {
+    const name = document.getElementById('typeName').value.trim();
+    const department_id = document.getElementById('typeDepartment').value || null;
+    const description = document.getElementById('typeDescription').value.trim() || null;
+    if (!name) { showStatus('Enter a document type name.', 'error'); return; }
+
+    try {
+      const res = await fetch(API_BASE + '/admin/document-types', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, department_id, description })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showStatus('Document type created!', 'success');
+        document.getElementById('typeName').value = '';
+        document.getElementById('typeDescription').value = '';
+        document.getElementById('typeDepartment').value = '';
+        loadTypes();
+      } else {
+        showStatus(data.error || 'Failed to create document type.', 'error');
+      }
+    } catch (e) {
+      showStatus('Network error while creating document type.', 'error');
+    }
+  }
+
+  async function openEditModal(id) {
+    editTypeId = id;
+    try {
+      const res = await fetch(API_BASE + '/admin/document-types/' + id, {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      const t = await res.json();
+      if (!res.ok) { showStatus(t.error || 'Failed to load document type.', 'error'); return; }
+      document.getElementById('editName').value = t.name;
+      document.getElementById('editDepartment').value = t.department_id || '';
+      document.getElementById('editDescription').value = t.description || '';
+      document.getElementById('editActive').value = String(t.is_active);
+      document.getElementById('editModal').classList.add('open');
+    } catch (e) {
+      showStatus('Network error while loading document type.', 'error');
+    }
+  }
+
+  function closeEditModal() {
+    document.getElementById('editModal').classList.remove('open');
+    editTypeId = null;
+  }
+
+  async function saveEdit() {
+    const name = document.getElementById('editName').value.trim();
+    const department_id = document.getElementById('editDepartment').value || null;
+    const description = document.getElementById('editDescription').value.trim() || null;
+    const is_active = document.getElementById('editActive').value === 'true';
+    if (!name) { showStatus('Enter a document type name.', 'error'); return; }
+
+    try {
+      const res = await fetch(API_BASE + '/admin/document-types/' + editTypeId, {
+        method: 'PATCH',
+        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, department_id, description, is_active })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showStatus('Document type updated!', 'success');
+        closeEditModal();
+        loadTypes();
+      } else {
+        showStatus(data.error || 'Failed to update document type.', 'error');
+      }
+    } catch (e) {
+      showStatus('Network error while updating document type.', 'error');
+    }
+  }
+
+  async function deleteType(id, name) {
+    if (!confirm(`Delete document type "${name}"?\n\nDocuments already tagged with this type will keep their record but lose the type tag. This cannot be undone.`)) return;
+
+    try {
+      const res = await fetch(API_BASE + '/admin/document-types/' + id, {
+        method: 'DELETE',
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showStatus('Document type deleted.', 'success');
+        loadTypes();
+      } else {
+        showStatus(data.error || 'Failed to delete document type.', 'error');
+      }
+    } catch (e) {
+      showStatus('Network error while deleting document type.', 'error');
+    }
+  }
+
+  // --- Default Approval Chain ---
+
+  function chainStepHtml(level, step) {
+    step = step || {};
+    const isUser = !!step.approver_user_id;
+    const roleOpts = APPROVER_ROLES.map(r => `<option value="${r}" ${!isUser && step.approver_role === r ? 'selected' : ''}>${r}</option>`).join('');
+    const userOpts = usersCache.map(u => `<option value="${u.id}" ${isUser && step.approver_user_id === u.id ? 'selected' : ''}>${u.email}</option>`).join('');
+    return `
+      <div class="chain-row" data-level="${level}">
+        <span class="level-label">Level ${level}</span>
+        <select class="chain-kind" onchange="toggleChainKind(this)">
+          <option value="role" ${!isUser ? 'selected' : ''}>Role</option>
+          <option value="user" ${isUser ? 'selected' : ''}>Specific person</option>
+        </select>
+        <select class="chain-role" style="${isUser ? 'display:none;' : ''}">${roleOpts}</select>
+        <select class="chain-user" style="${isUser ? '' : 'display:none;'}">${userOpts}</select>
+        <button class="btn-remove-step" onclick="this.closest('.chain-row').remove()" title="Remove level">&times;</button>
+      </div>`;
+  }
+
+  function toggleChainKind(select) {
+    const row = select.closest('.chain-row');
+    const isUser = select.value === 'user';
+    row.querySelector('.chain-role').style.display = isUser ? 'none' : '';
+    row.querySelector('.chain-user').style.display = isUser ? '' : 'none';
+  }
+
+  function addChainStep() {
+    const container = document.getElementById('chainSteps');
+    const nextLevel = container.children.length + 1;
+    container.insertAdjacentHTML('beforeend', chainStepHtml(nextLevel, null));
+  }
+
+  async function openChainModal(typeId, typeName) {
+    currentChainTypeId = typeId;
+    document.getElementById('chainModalTitle').textContent = 'Default Approval Chain — ' + typeName;
+    const container = document.getElementById('chainSteps');
+    container.innerHTML = '<p style="color:var(--text-muted);">Loading...</p>';
+    document.getElementById('chainModal').classList.add('open');
+
+    try {
+      const res = await fetch(API_BASE + '/admin/document-types/' + typeId + '/default-approvers', {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      const steps = await res.json();
+      container.innerHTML = '';
+      if (steps.length === 0) {
+        addChainStep();
+      } else {
+        steps.forEach((s, i) => container.insertAdjacentHTML('beforeend', chainStepHtml(i + 1, s)));
+      }
+    } catch (e) {
+      container.innerHTML = '<p style="color:var(--red-text);">Failed to load chain.</p>';
+    }
+  }
+
+  function closeChainModal() {
+    document.getElementById('chainModal').classList.remove('open');
+    currentChainTypeId = null;
+  }
+
+  async function saveChain() {
+    const rows = [...document.getElementById('chainSteps').querySelectorAll('.chain-row')];
+    const steps = rows.map((row, i) => {
+      const kind = row.querySelector('.chain-kind').value;
+      const step = { level: i + 1 };
+      if (kind === 'user') {
+        step.approver_user_id = parseInt(row.querySelector('.chain-user').value);
+      } else {
+        step.approver_role = row.querySelector('.chain-role').value;
+      }
+      return step;
+    });
+
+    try {
+      const res = await fetch(API_BASE + '/admin/document-types/' + currentChainTypeId + '/default-approvers', {
+        method: 'PUT',
+        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ steps })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showStatus('Default approval chain saved.', 'success');
+        closeChainModal();
+        loadTypes();
+      } else {
+        showStatus(data.error || 'Failed to save chain.', 'error');
+      }
+    } catch (e) {
+      showStatus('Network error while saving chain.', 'error');
+    }
+  }
+
+  loadDepartments();
+  loadUsers();
+  loadTypes();
+</script>
+
+</body>
+</html>

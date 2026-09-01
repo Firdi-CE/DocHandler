@@ -1012,6 +1012,173 @@ app.delete('/admin/projects/:id', ensureAuthenticated, ensureAdmin, async (req, 
     }
 });
 
+// --- DOCUMENT TYPE MANAGEMENT (ADMIN) ---
+// Phase 3 of engine generalization: admin CRUD for document types and their
+// default approval chains (schema from migration 010; wired into /upload in
+// Phase 2). Same shape/conventions as PROJECT MANAGEMENT above.
+
+// List all document types, with department name and default-chain length
+app.get('/admin/document-types', ensureAuthenticated, ensureAdmin, async (req, res) => {
+    try {
+        const result = await db.query(`
+            SELECT dt.id, dt.name, dt.department_id, dt.description, dt.is_active, dt.created_at,
+                   d.name AS department_name,
+                   COUNT(dta.id)::int AS default_approver_count
+            FROM document_types dt
+            LEFT JOIN departments d ON dt.department_id = d.id
+            LEFT JOIN document_type_default_approvers dta ON dta.document_type_id = dt.id
+            GROUP BY dt.id, d.name
+            ORDER BY dt.name ASC
+        `);
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Create a new document type
+app.post('/admin/document-types', ensureAuthenticated, ensureAdmin, async (req, res) => {
+    const { name, department_id, description } = req.body;
+    if (!name) return res.status(400).json({ error: 'Document type name is required.' });
+
+    try {
+        const result = await db.query(
+            'INSERT INTO document_types (name, department_id, description) VALUES ($1, $2, $3) RETURNING *',
+            [name, department_id || null, description || null]
+        );
+        res.status(201).json(result.rows[0]);
+    } catch (err) {
+        if (err.code === '23505') { // unique_violation
+            return res.status(409).json({ error: 'A document type with that name already exists for this department.' });
+        }
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Fetch a single document type
+app.get('/admin/document-types/:id', ensureAuthenticated, ensureAdmin, async (req, res) => {
+    const { id } = req.params;
+    try {
+        const result = await db.query(
+            `SELECT dt.id, dt.name, dt.department_id, dt.description, dt.is_active, dt.created_at,
+                    d.name AS department_name
+             FROM document_types dt
+             LEFT JOIN departments d ON dt.department_id = d.id
+             WHERE dt.id = $1`,
+            [id]
+        );
+        if (result.rows.length === 0) return res.status(404).json({ error: 'Document type not found.' });
+        res.json(result.rows[0]);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Update a document type (name / department / description / active flag)
+app.patch('/admin/document-types/:id', ensureAuthenticated, ensureAdmin, async (req, res) => {
+    const { id } = req.params;
+    const { name, department_id, description, is_active } = req.body;
+
+    try {
+        const result = await db.query(
+            `UPDATE document_types
+             SET name = COALESCE($1, name),
+                 department_id = $2,
+                 description = COALESCE($3, description),
+                 is_active = COALESCE($4, is_active)
+             WHERE id = $5 RETURNING *`,
+            [name || null, department_id !== undefined ? department_id : null, description || null, is_active, id]
+        );
+        if (result.rows.length === 0) return res.status(404).json({ error: 'Document type not found.' });
+        res.json(result.rows[0]);
+    } catch (err) {
+        if (err.code === '23505') {
+            return res.status(409).json({ error: 'A document type with that name already exists for this department.' });
+        }
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Delete a document type (existing documents keep their row; document_type_id -> NULL via ON DELETE SET NULL)
+app.delete('/admin/document-types/:id', ensureAuthenticated, ensureAdmin, async (req, res) => {
+    const { id } = req.params;
+    try {
+        const result = await db.query('DELETE FROM document_types WHERE id = $1 RETURNING id', [id]);
+        if (result.rows.length === 0) return res.status(404).json({ error: 'Document type not found.' });
+        res.json({ message: 'Document type deleted successfully.' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// List a document type's default approval chain, ordered by level
+app.get('/admin/document-types/:id/default-approvers', ensureAuthenticated, ensureAdmin, async (req, res) => {
+    const { id } = req.params;
+    try {
+        const result = await db.query(
+            `SELECT dta.id, dta.level, dta.approver_role, dta.approver_user_id, u.email AS approver_email
+             FROM document_type_default_approvers dta
+             LEFT JOIN users u ON dta.approver_user_id = u.id
+             WHERE dta.document_type_id = $1
+             ORDER BY dta.level ASC`,
+            [id]
+        );
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Replace a document type's default approval chain wholesale (delete + re-insert in a transaction,
+// same pattern as /admin/assign-project above). Body: { steps: [{ level, approver_role } | { level, approver_user_id }] }
+app.put('/admin/document-types/:id/default-approvers', ensureAuthenticated, ensureAdmin, async (req, res) => {
+    const { id } = req.params;
+    const { steps } = req.body;
+    if (!Array.isArray(steps)) return res.status(400).json({ error: 'steps must be an array.' });
+
+    for (const step of steps) {
+        const hasRole = !!step.approver_role;
+        const hasUser = !!step.approver_user_id;
+        if (hasRole === hasUser) {
+            return res.status(400).json({ error: 'Each step needs exactly one of approver_role or approver_user_id.' });
+        }
+    }
+
+    try {
+        await db.query('BEGIN');
+        const typeCheck = await db.query('SELECT id FROM document_types WHERE id = $1', [id]);
+        if (typeCheck.rows.length === 0) {
+            await db.query('ROLLBACK');
+            return res.status(404).json({ error: 'Document type not found.' });
+        }
+
+        await db.query('DELETE FROM document_type_default_approvers WHERE document_type_id = $1', [id]);
+
+        for (const step of steps) {
+            await db.query(
+                `INSERT INTO document_type_default_approvers (document_type_id, level, approver_role, approver_user_id)
+                 VALUES ($1, $2, $3, $4)`,
+                [id, step.level, step.approver_role || null, step.approver_user_id || null]
+            );
+        }
+
+        await db.query('COMMIT');
+        const result = await db.query(
+            `SELECT dta.id, dta.level, dta.approver_role, dta.approver_user_id, u.email AS approver_email
+             FROM document_type_default_approvers dta
+             LEFT JOIN users u ON dta.approver_user_id = u.id
+             WHERE dta.document_type_id = $1
+             ORDER BY dta.level ASC`,
+            [id]
+        );
+        res.json(result.rows);
+    } catch (err) {
+        await db.query('ROLLBACK');
+        console.error('Default Approver Chain Update Error:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // --- WORK SITES & MAINTENANCE LIFECYCLE ---
 // Placeholder-role feature (see roles.js + BACKLOG.md). Site CRUD is admin
 // only, same as project CRUD above; status changes are opened up to the
