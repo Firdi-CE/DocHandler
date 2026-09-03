@@ -201,7 +201,8 @@
           <select id="role-user-${user.id}">
             <option value="Staff" ${user.role === 'Staff' ? 'selected' : ''}>Staff</option>
             <option value="Supervisor" ${user.role === 'Supervisor' ? 'selected' : ''}>Supervisor</option>
-            <option value="Manager" ${user.role === 'Manager' ? 'selected' : ''}>Manager (placeholder — Work Sites feature)</option>
+            <option value="Manager" ${user.role === 'Manager' ? 'selected' : ''}>Manager</option>
+            <option value="HSE" ${user.role === 'HSE' ? 'selected' : ''}>HSE</option>
             <option value="Executive" ${user.role === 'Executive' ? 'selected' : ''}>Executive</option>
           </select>
           <select id="dept-user-${user.id}">

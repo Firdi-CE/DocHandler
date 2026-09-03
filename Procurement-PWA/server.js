@@ -110,14 +110,18 @@ const ensureAuthenticated = (req, res, next) => {
 };
 
 // Middleware to ensure user is an admin/executive.
-// Accepts both 'Executive' and 'Admin' roles (Req 7) — i.e. roles.GLOBAL_ROLES.
+// Accepts 'Executive' and 'Admin' roles (Req 7) — i.e. roles.ADMIN_ROLES.
+// Deliberately narrower than roles.GLOBAL_ROLES (visibility bypass): HSE
+// has cross-project document visibility but not admin-panel access, so
+// this must NOT use isGlobalRole() or HSE would get in too. See roles.js
+// for the full reasoning (confirmed 2026-09-03).
 // Re-verifies role against the DB so stale JWTs can't exploit cached role values.
 const ensureAdmin = async (req, res, next) => {
     try {
         const dbRes = await db.query('SELECT role FROM users WHERE id = $1', [req.user.id]);
         if (dbRes.rows.length === 0) return res.status(403).json({ message: 'Forbidden: User not found.' });
         const liveRole = dbRes.rows[0].role;
-        if (roles.isGlobalRole(liveRole)) {
+        if (roles.isAdminPanelRole(liveRole)) {
             req.user.role = liveRole; // keep req.user in sync with DB truth
             return next();
         }
