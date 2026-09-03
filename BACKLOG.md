@@ -5,6 +5,20 @@ these up — implement only the item in scope, no bleed into other features.
 
 ---
 
+## Papra-inspired feature development
+
+**See `PAPRA_FEATURE_ROADMAP.md`** (added 2026-09-03) for the full
+sequencing plan — 9 features analyzed against `reference/papra`'s actual
+source (branch `reference/papra-ui-ux`), each mapped onto DocHandler's
+Postgres/Express stack with a complexity estimate and dependency order.
+Recommended order: Custom Properties → Tags → Tagging Rules → OCR/Content
+Extraction (also resolves the previously-tabled OCR tooling decision, see
+that doc) → Full-Text Search → Document Share Links → Ingestion Folders →
+Intake Emails (recommend redesigning, not porting) → API Keys/Webhooks/SDK
+(defer until a concrete need exists).
+
+---
+
 ## Work Sites & Maintenance Lifecycle
 
 **Status: implemented (2026-07-30) with placeholder roles; role hierarchy
