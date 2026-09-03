@@ -1,0 +1,617 @@
+import type { DropdownMenuTriggerProps } from '@kobalte/core/dropdown-menu';
+import type { Component, JSX } from 'solid-js';
+import type { Document, DocumentActivity } from '../documents.types';
+import { formatBytes } from '@corentinth/chisels';
+import { A, useNavigate, useParams, useSearchParams } from '@solidjs/router';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/solid-query';
+import {
+  createEffect,
+  createSignal,
+  For,
+  Match,
+  onCleanup,
+  Show,
+  Suspense,
+  Switch,
+} from 'solid-js';
+import { useConfig } from '@/modules/config/config.provider';
+import { DocumentCustomPropertiesPanel } from '@/modules/custom-properties/components/document-custom-properties-panel.component';
+import { fetchCustomPropertyDefinitions } from '@/modules/custom-properties/custom-properties.services';
+import { useShareDocumentDialog } from '@/modules/document-share-links/components/share-document-dialog.component';
+import { RelativeTime } from '@/modules/i18n/components/RelativeTime';
+import { useI18n } from '@/modules/i18n/i18n.provider';
+import { debounce } from '@/modules/shared/utils/timing';
+import { DocumentTagsList } from '@/modules/tags/components/tag-list.component';
+import { TagLink } from '@/modules/tags/components/tag.component';
+import { Alert } from '@/modules/ui/components/alert';
+import { Button } from '@/modules/ui/components/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from '@/modules/ui/components/dropdown-menu';
+import { Separator } from '@/modules/ui/components/separator';
+import { createToast } from '@/modules/ui/components/sonner';
+import {
+  Tabs,
+  TabsContent,
+  TabsIndicator,
+  TabsList,
+  TabsTrigger,
+} from '@/modules/ui/components/tabs';
+import { TextArea } from '@/modules/ui/components/textarea';
+import { TextFieldLabel, TextFieldRoot } from '@/modules/ui/components/textfield';
+import { DocumentContentEditionPanel } from '../components/document-content-edition-panel.component';
+import { DocumentDatePicker } from '../components/document-date-picker.component';
+import { DocumentPreview } from '../components/document-preview.component';
+import { DocumentOpenWithDropdownItems } from '../components/open-with.component';
+import { useRenameDocumentDialog } from '../components/rename-document-button.component';
+import {
+  getDaysBeforePermanentDeletion,
+  getDocumentActivityIcon,
+  getDocumentOpenWithApps,
+} from '../document.models';
+import {
+  useDeleteDocument,
+  useDownloadDocument,
+  useRestoreDocument,
+} from '../documents.composables';
+import { fetchDocument, fetchDocumentActivities, updateDocument } from '../documents.services';
+
+type KeyValueItem = {
+  label: string | JSX.Element;
+  value: string | JSX.Element;
+  icon?: string;
+};
+
+const DocumentNotes: Component<{ documentId: string; organizationId: string; notes?: string }> = (
+  props,
+) => {
+  const { t } = useI18n();
+  const queryClient = useQueryClient();
+  const [notes, setNotes] = createSignal(props.notes ?? '');
+  const [getStatus, setStatus] = createSignal<'idle' | 'pending' | 'saved'>('idle');
+  const [getIsSavedVisible, setIsSavedVisible] = createSignal(false);
+
+  let fadeTimeout: ReturnType<typeof setTimeout> | undefined;
+  onCleanup(() => clearTimeout(fadeTimeout));
+
+  const updateNotesMutation = useMutation(() => ({
+    mutationFn: async ({ notes }: { notes: string }) =>
+      updateDocument({
+        documentId: props.documentId,
+        organizationId: props.organizationId,
+        notes,
+      }),
+    onSuccess: () => {
+      setStatus('saved');
+      setIsSavedVisible(true);
+
+      clearTimeout(fadeTimeout);
+      fadeTimeout = setTimeout(() => setIsSavedVisible(false), 2000);
+
+      void queryClient.invalidateQueries({
+        queryKey: ['organizations', props.organizationId, 'documents', props.documentId],
+        exact: true, // To avoid refetching the document file content
+      });
+    },
+    onError: () => {
+      setStatus('idle');
+      createToast({ type: 'error', message: t('documents.notes.save-error') });
+    },
+  }));
+
+  const debouncedSave = debounce(
+    (value: string) => updateNotesMutation.mutate({ notes: value }),
+    500,
+  );
+
+  const handleInput = (value: string) => {
+    setNotes(value);
+    setStatus('pending');
+    debouncedSave(value);
+  };
+
+  return (
+    <div>
+      <Separator class="mb-3" />
+      <TextFieldRoot>
+        <TextFieldLabel class="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide flex items-center gap-2">
+          {t('documents.notes.label')}
+
+          <Switch>
+            <Match when={getStatus() === 'pending'}>
+              <span class="flex items-center gap-1 normal-case tracking-normal">
+                <div class="i-tabler-loader-2 size-3 animate-spin" />
+                {t('documents.notes.saving')}
+              </span>
+            </Match>
+            <Match when={getStatus() === 'saved'}>
+              <span
+                class="flex items-center gap-1 normal-case tracking-normal text-primary transition-opacity duration-1000"
+                classList={{ 'opacity-0': !getIsSavedVisible() }}
+              >
+                <div class="i-tabler-check size-3" />
+                {t('documents.notes.saved')}
+              </span>
+            </Match>
+          </Switch>
+        </TextFieldLabel>
+
+        <TextArea
+          rows={2}
+          autoResize
+          value={notes()}
+          onInput={(e) => handleInput(e.currentTarget.value)}
+          placeholder={t('documents.notes.placeholder')}
+        />
+      </TextFieldRoot>
+    </div>
+  );
+};
+
+const KeyValues: Component<{ data?: KeyValueItem[] }> = (props) => {
+  return (
+    <For each={props.data}>
+      {(item) => (
+        <>
+          <div class="py-1 pr-2 text-sm text-muted-foreground flex items-center gap-2 whitespace-nowrap">
+            {item.icon && <div class={item.icon} />}
+            {item.label}
+          </div>
+          <div class="py-1 pl-2 text-sm min-w-0">{item.value}</div>
+        </>
+      )}
+    </For>
+  );
+};
+
+const ActivityItem: Component<{ activity: DocumentActivity }> = (props) => {
+  const { t, te } = useI18n();
+  const params = useParams();
+
+  return (
+    <div class="border-b py-3 flex items-center gap-2">
+      <div>
+        <div
+          class={`${getDocumentActivityIcon({ event: props.activity.event })} size-6 text-muted-foreground`}
+        />
+      </div>
+      <div>
+        <Switch
+          fallback={<span class="text-sm">{t(`activity.document.${props.activity.event}`)}</span>}
+        >
+          <Match when={['tagged', 'untagged'].includes(props.activity.event)}>
+            <span class="text-sm flex items-baseline gap-1">
+              {te(`activity.document.${props.activity.event}`, {
+                tag: props.activity.tag ? (
+                  <TagLink
+                    {...props.activity.tag}
+                    organizationId={params.organizationId}
+                    class="text-xs"
+                  />
+                ) : undefined,
+              })}
+            </span>
+          </Match>
+
+          <Match
+            when={
+              props.activity.event === 'updated' &&
+              (props.activity.eventData.updatedFields as string[]).length === 1
+            }
+          >
+            <span class="text-sm flex items-baseline gap-1">
+              {te(`activity.document.updated.single`, {
+                field: (
+                  <span class="font-bold">
+                    {(props.activity.eventData.updatedFields as string[])[0]}
+                  </span>
+                ),
+              })}
+            </span>
+          </Match>
+
+          <Match
+            when={
+              props.activity.event === 'updated' &&
+              (props.activity.eventData.updatedFields as string[]).length > 1
+            }
+          >
+            <span class="text-sm flex items-baseline gap-1">
+              {te(`activity.document.updated.multiple`, {
+                fields: (props.activity.eventData.updatedFields as string[]).join(', '),
+              })}
+            </span>
+          </Match>
+        </Switch>
+
+        <div class="flex items-center gap-1 text-xs text-muted-foreground">
+          <RelativeTime date={props.activity.createdAt} />
+          <Show when={props.activity.user}>
+            {(getUser) => (
+              <span>
+                {te('activity.document.user.name', {
+                  name: (
+                    <A
+                      href={`/organizations/${params.organizationId}/members`}
+                      class="underline hover:text-primary transition"
+                    >
+                      {getUser().name}
+                    </A>
+                  ),
+                })}
+              </span>
+            )}
+          </Show>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const tabs = ['info', 'content', 'activity'] as const;
+type Tab = (typeof tabs)[number];
+
+const DocumentOpenWithDropdown: Component<{ document: Document; organizationId: string }> = (
+  props,
+) => {
+  const { t } = useI18n();
+  const getApps = () => getDocumentOpenWithApps({ document: props.document });
+
+  return (
+    <Show when={getApps().length > 0}>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          as={(triggerProps: DropdownMenuTriggerProps) => (
+            <Button variant="outline" size="sm" {...triggerProps}>
+              <div class="i-tabler-app-window size-4 mr-2" />
+              {t('documents.open-with.label')}
+              <div class="i-tabler-chevron-down size-3 ml-1" />
+            </Button>
+          )}
+        />
+        <DropdownMenuContent>
+          <DocumentOpenWithDropdownItems apps={getApps()} />
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </Show>
+  );
+};
+
+export const DocumentPage: Component = () => {
+  const { t, formatRelativeTime } = useI18n();
+  const params = useParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { deleteDocument } = useDeleteDocument();
+  const { downloadDocument } = useDownloadDocument();
+  const { restore, getIsRestoring } = useRestoreDocument();
+  const navigate = useNavigate();
+  const { config } = useConfig();
+  const { openRenameDialog } = useRenameDocumentDialog();
+  const { openShareDialog } = useShareDocumentDialog();
+
+  const getInitialTab = (): Tab => {
+    const tab = searchParams.tab;
+    if (tab && typeof tab === 'string' && tabs.includes(tab as Tab)) {
+      return tab as Tab;
+    }
+    return 'info';
+  };
+
+  const [getTab, setTab] = createSignal<Tab>(getInitialTab());
+
+  createEffect(() => {
+    setSearchParams({ tab: getTab() }, { replace: true });
+  });
+
+  const documentQuery = useQuery(() => ({
+    queryKey: ['organizations', params.organizationId, 'documents', params.documentId],
+    queryFn: async () =>
+      fetchDocument({ documentId: params.documentId, organizationId: params.organizationId }),
+  }));
+
+  const customPropertyDefinitionsQuery = useQuery(() => ({
+    queryKey: ['organizations', params.organizationId, 'custom-properties'],
+    queryFn: async () => fetchCustomPropertyDefinitions({ organizationId: params.organizationId }),
+  }));
+
+  const activityPageSize = 20;
+  const activityQuery = useInfiniteQuery(() => ({
+    enabled: getTab() === 'activity',
+    queryKey: ['organizations', params.organizationId, 'documents', params.documentId, 'activity'],
+    queryFn: async ({ pageParam }) => {
+      const { activities } = await fetchDocumentActivities({
+        documentId: params.documentId,
+        organizationId: params.organizationId,
+        pageIndex: pageParam,
+        pageSize: activityPageSize,
+      });
+
+      return activities;
+    },
+    getNextPageParam: (lastPage, _pages, lastPageParam) => {
+      if (lastPage.length < activityPageSize) {
+        return undefined;
+      }
+
+      return lastPageParam + 1;
+    },
+    initialPageParam: 0,
+  }));
+
+  const deleteDoc = async () => {
+    if (!documentQuery.data) {
+      return;
+    }
+
+    const { hasDeleted } = await deleteDocument({
+      documentId: params.documentId,
+      organizationId: params.organizationId,
+      documentName: documentQuery.data.document.name,
+    });
+
+    if (!hasDeleted) {
+      return;
+    }
+
+    navigate(`/organizations/${params.organizationId}/documents`);
+  };
+
+  return (
+    <div class="p-6 flex gap-6 h-full flex-col md:flex-row max-w-7xl mx-auto">
+      <Suspense>
+        <div class="md:flex-1 md:min-w-0 md:border-r">
+          <Show when={documentQuery.data?.document}>
+            {(getDocument) => (
+              <div class="flex gap-4 md:pr-6">
+                <div class="flex-1 min-w-0">
+                  <Button
+                    variant="ghost"
+                    class="flex items-center gap-2 group bg-transparent! px-0 text-left h-auto max-w-full"
+                    onClick={() =>
+                      openRenameDialog({
+                        documentId: getDocument().id,
+                        organizationId: params.organizationId,
+                        documentName: getDocument().name,
+                      })
+                    }
+                  >
+                    <h1
+                      class="text-xl font-semibold lh-tight min-w-0 break-all"
+                      title={getDocument().name}
+                    >
+                      {getDocument().name}
+                    </h1>
+
+                    <div class="i-tabler-pencil size-4 text-muted-foreground group-hover:text-foreground transition-colors flex-shrink-0" />
+                  </Button>
+                  <p class="text-sm text-muted-foreground mb-6">{getDocument().id}</p>
+
+                  <div class="flex gap-2 mb-2">
+                    <Button
+                      onClick={async () =>
+                        downloadDocument({
+                          organizationId: getDocument().organizationId,
+                          documentId: getDocument().id,
+                        })
+                      }
+                      variant="outline"
+                      size="sm"
+                    >
+                      <div class="i-tabler-download size-4 mr-2" />
+                      {t('documents.actions.download.title')}
+                    </Button>
+
+                    <DocumentOpenWithDropdown
+                      document={getDocument()}
+                      organizationId={params.organizationId}
+                    />
+
+                    <Button
+                      onClick={() =>
+                        openShareDialog({
+                          documentId: getDocument().id,
+                          organizationId: params.organizationId,
+                          documentName: getDocument().name,
+                        })
+                      }
+                      variant="outline"
+                      size="sm"
+                    >
+                      <div class="i-tabler-share size-4 mr-2" />
+                      {t('document-share-links.share-action')}
+                    </Button>
+
+                    {getDocument().isDeleted ? (
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={async () => restore({ document: getDocument() })}
+                        isLoading={getIsRestoring()}
+                      >
+                        <div class="i-tabler-refresh size-4 mr-2" />
+                        {t('documents.actions.restore')}
+                      </Button>
+                    ) : (
+                      <Button variant="destructive" size="sm" onClick={deleteDoc}>
+                        <div class="i-tabler-trash size-4 mr-2" />
+                        {t('documents.actions.delete')}
+                      </Button>
+                    )}
+                  </div>
+                  <Separator class="my-3" />
+
+                  <DocumentTagsList
+                    documentId={params.documentId}
+                    organizationId={params.organizationId}
+                    tags={getDocument().tags}
+                    asLink
+                  />
+
+                  {getDocument().isDeleted && (
+                    <Alert variant="destructive" class="mt-6">
+                      {t('documents.deleted.message', {
+                        days:
+                          getDaysBeforePermanentDeletion({
+                            document: getDocument(),
+                            deletedDocumentsRetentionDays:
+                              config.documents.deletedDocumentsRetentionDays,
+                          }) ?? 0,
+                      })}
+                    </Alert>
+                  )}
+
+                  <Separator class="my-3" />
+
+                  <Tabs value={getTab()} onChange={setTab} class="w-full">
+                    <TabsList class="w-full h-8">
+                      <TabsTrigger value="info">{t('documents.tabs.info')}</TabsTrigger>
+                      <TabsTrigger value="content">{t('documents.tabs.content')}</TabsTrigger>
+                      <TabsTrigger value="activity">{t('documents.tabs.activity')}</TabsTrigger>
+                      <TabsIndicator />
+                    </TabsList>
+
+                    <TabsContent value="info">
+                      <div class="grid grid-cols-[max-content_1fr]">
+                        <KeyValues
+                          data={[
+                            {
+                              label: t('documents.info.id'),
+                              value: getDocument().id,
+                              icon: 'i-tabler-id',
+                            },
+                            {
+                              label: t('documents.info.name'),
+                              value: (
+                                <Button
+                                  variant="ghost"
+                                  class="flex items-center gap-2 group bg-transparent! p-0 h-auto text-left max-w-full"
+                                  onClick={() =>
+                                    openRenameDialog({
+                                      documentId: getDocument().id,
+                                      organizationId: params.organizationId,
+                                      documentName: getDocument().name,
+                                    })
+                                  }
+                                >
+                                  <span class="truncate" title={getDocument().name}>
+                                    {getDocument().name}
+                                  </span>
+
+                                  <div class="i-tabler-pencil size-4 text-muted-foreground group-hover:text-foreground transition-colors flex-shrink-0" />
+                                </Button>
+                              ),
+                              icon: 'i-tabler-file-text',
+                            },
+                            {
+                              label: t('documents.info.type'),
+                              value: getDocument().mimeType,
+                              icon: 'i-tabler-file-unknown',
+                            },
+                            {
+                              label: t('documents.info.size'),
+                              value: formatBytes({ bytes: getDocument().originalSize, base: 1000 }),
+                              icon: 'i-tabler-weight',
+                            },
+                            {
+                              label: t('documents.info.document-date'),
+                              value: (
+                                <DocumentDatePicker
+                                  document={getDocument()}
+                                  organizationId={params.organizationId}
+                                />
+                              ),
+                              icon: 'i-tabler-calendar-event',
+                            },
+                            {
+                              label: t('documents.info.created-at'),
+                              value: formatRelativeTime(getDocument().createdAt),
+                              icon: 'i-tabler-calendar',
+                            },
+                            {
+                              label: t('documents.info.updated-at'),
+                              value: getDocument().updatedAt ? (
+                                formatRelativeTime(getDocument().updatedAt!)
+                              ) : (
+                                <span class="text-muted-foreground">
+                                  {t('documents.info.never')}
+                                </span>
+                              ),
+                              icon: 'i-tabler-calendar',
+                            },
+                          ]}
+                        />
+
+                        <Show when={customPropertyDefinitionsQuery.data?.propertyDefinitions}>
+                          {(getDefinitions) => (
+                            <DocumentCustomPropertiesPanel
+                              document={getDocument()}
+                              organizationId={params.organizationId}
+                              propertyDefinitions={getDefinitions()}
+                            />
+                          )}
+                        </Show>
+                      </div>
+                      <DocumentNotes
+                        documentId={getDocument().id}
+                        organizationId={params.organizationId}
+                        notes={getDocument().notes}
+                      />
+                    </TabsContent>
+
+                    <TabsContent value="content">
+                      <DocumentContentEditionPanel
+                        documentId={getDocument().id}
+                        organizationId={params.organizationId}
+                        content={getDocument().content}
+                      />
+                    </TabsContent>
+                    <TabsContent value="activity">
+                      <Show when={activityQuery.data?.pages}>
+                        {(getActivitiesPages) => (
+                          <div class="flex flex-col">
+                            <For each={getActivitiesPages() ?? []}>
+                              {(activities) => (
+                                <For each={activities}>
+                                  {(activity) => <ActivityItem activity={activity} />}
+                                </For>
+                              )}
+                            </For>
+
+                            <Show
+                              when={activityQuery.hasNextPage}
+                              fallback={
+                                <div class="text-sm text-muted-foreground text-center py-4">
+                                  {t('activity.no-more-activities')}
+                                </div>
+                              }
+                            >
+                              <Button
+                                variant="outline"
+                                onClick={async () => activityQuery.fetchNextPage()}
+                                isLoading={activityQuery.isFetchingNextPage}
+                              >
+                                {t('activity.load-more')}
+                              </Button>
+                            </Show>
+                          </div>
+                        )}
+                      </Show>
+                    </TabsContent>
+                  </Tabs>
+                </div>
+              </div>
+            )}
+          </Show>
+        </div>
+
+        <div class="flex-1 min-h-50vh">
+          <Show when={documentQuery.data?.document}>
+            {(getDocument) => <DocumentPreview document={getDocument()} />}
+          </Show>
+        </div>
+      </Suspense>
+    </div>
+  );
+};

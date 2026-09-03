@@ -1,0 +1,59 @@
+import type { Migration } from './migrations.types';
+
+import { initialSchemaSetupMigration } from './list/0001-initial-schema-setup.migration';
+import { documentsFtsMigration } from './list/0002-documents-fts.migration';
+import { taggingRulesMigration } from './list/0003-tagging-rules.migration';
+import { apiKeysMigration } from './list/0004-api-keys.migration';
+import { organizationsWebhooksMigration } from './list/0005-organizations-webhooks.migration';
+import { organizationsInvitationsImprovementMigration } from './list/0006-organizations-invitations-improvement.migration';
+import { documentActivityLogMigration } from './list/0007-document-activity-log.migration';
+import { documentActivityLogOnDeleteSetNullMigration } from './list/0008-document-activity-log-on-delete-set-null.migration';
+import { dropLegacyMigrationsMigration } from './list/0009-drop-legacy-migrations.migration';
+import { documentFileEncryptionMigration } from './list/0010-document-file-encryption.migration';
+import { softDeleteOrganizationsMigration } from './list/0011-soft-delete-organizations.migration';
+import { taggingRuleConditionMatchModeMigration } from './list/0012-tagging-rule-condition-match-mode.migration';
+import { dropFts5TriggersMigration } from './list/0013-drop-fts-5-triggers.migration';
+import { twoFactorAuthenticationMigration } from './list/0014-two-factor-authentication.migration';
+import { indexDocumentsFtsIdsMigration } from './list/0015-index-documents-fts-ids.migration';
+import { caseInsensitiveTagNameUniqConstraintMigration } from './list/0016-case-insensitive-tag-name-uniq-constraint.migration';
+import { documentsDateMigration } from './list/0017-documents-date.migration';
+import { customPropertiesMigration } from './list/0018-custom-properties.migration';
+import { twoFactorVerifiedMigration } from './list/0019-two-factor-verified.migration';
+import { kvStoreMigration } from './list/0020-kv-store.migration';
+import { documentShareLinksMigration } from './list/0021-document-share-links.migration';
+import { documentsNotesMigration } from './list/0022-documents-notes.migration';
+import { documentViewsMigration } from './list/0023-document-views.migration';
+import { userPlanEntitlementsMigration } from './list/0024-user-plan-entitlements.migration';
+import { addOrganizationSettingsTableMigration } from './list/0025-add-organization-settings-table.migration';
+import { addIndexesMigration } from './list/0026-add-indexes.migration';
+import { aiCreditsMigration } from './list/0027-ai-credits.migration';
+
+export const migrations: Migration[] = [
+  initialSchemaSetupMigration,
+  documentsFtsMigration,
+  taggingRulesMigration,
+  apiKeysMigration,
+  organizationsWebhooksMigration,
+  organizationsInvitationsImprovementMigration,
+  documentActivityLogMigration,
+  documentActivityLogOnDeleteSetNullMigration,
+  dropLegacyMigrationsMigration,
+  documentFileEncryptionMigration,
+  softDeleteOrganizationsMigration,
+  taggingRuleConditionMatchModeMigration,
+  dropFts5TriggersMigration,
+  twoFactorAuthenticationMigration,
+  indexDocumentsFtsIdsMigration,
+  caseInsensitiveTagNameUniqConstraintMigration,
+  documentsDateMigration,
+  customPropertiesMigration,
+  twoFactorVerifiedMigration,
+  kvStoreMigration,
+  documentShareLinksMigration,
+  documentsNotesMigration,
+  documentViewsMigration,
+  userPlanEntitlementsMigration,
+  addOrganizationSettingsTableMigration,
+  addIndexesMigration,
+  aiCreditsMigration,
+];

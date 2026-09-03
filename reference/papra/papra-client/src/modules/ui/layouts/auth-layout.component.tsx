@@ -1,0 +1,69 @@
+import type { ParentComponent } from 'solid-js';
+import { A } from '@solidjs/router';
+import { useI18n } from '@/modules/i18n/i18n.provider';
+import { cn } from '@/modules/shared/style/cn';
+import { ThemeSwitcher } from '@/modules/theme/theme-switcher.component';
+import { useTheme } from '@/modules/theme/theme.provider';
+import { Button } from '../components/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from '../components/dropdown-menu';
+import { LanguageSwitcher } from './sidenav.layout';
+
+export const AuthLayout: ParentComponent = (props) => {
+  const { getTheme } = useTheme();
+  const { t } = useI18n();
+
+  return (
+    <div class="h-screen w-full flex flex-col">
+      <div class="p-6 flex justify-between items-center gap-2">
+        <A
+          href="/"
+          class="group text-base text-muted-foreground flex gap-2 font-semibold hover:text-foreground transition"
+        >
+          <div class="i-tabler-file-text size-6 text-primary transform rotate-12deg group-hover:rotate-25deg transition" />
+          Papra
+        </A>
+
+        <div class="flex gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              as={Button}
+              variant="outline"
+              aria-label={t('layout.theme-switcher.label')}
+            >
+              <div
+                class={cn('size-4.5', {
+                  'i-tabler-moon': getTheme() === 'dark',
+                  'i-tabler-sun': getTheme() === 'light',
+                })}
+              />
+              <div class="ml-2 i-tabler-chevron-down text-muted-foreground text-sm" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent class="w-42">
+              <ThemeSwitcher />
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              as={Button}
+              variant="outline"
+              aria-label={t('layout.language-switcher.label')}
+            >
+              <div class="i-tabler-language size-5" />
+              <div class="ml-2 i-tabler-chevron-down text-muted-foreground text-sm" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent class="w-42">
+              <LanguageSwitcher />
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
+
+      <div class="flex-1">{props.children}</div>
+    </div>
+  );
+};

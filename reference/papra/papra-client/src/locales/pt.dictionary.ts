@@ -1,0 +1,1443 @@
+import type { TranslationsDictionary } from '@/modules/i18n/locales.types';
+
+export const translations: Partial<TranslationsDictionary> = {
+  // Authentication
+
+  'auth.request-password-reset.title': 'Redefinir a sua palavra-passe',
+  'auth.request-password-reset.description':
+    'Introduza o seu e-mail para redefinir a palavra-passe.',
+  'auth.request-password-reset.requested':
+    'Se existir uma conta para este e-mail, enviámos-lhe um e-mail para redefinir a palavra-passe.',
+  'auth.request-password-reset.back-to-login': 'Voltar ao início de sessão',
+  'auth.request-password-reset.form.email.label': 'E-mail',
+  'auth.request-password-reset.form.email.placeholder': 'Exemplo: joao@papra.app',
+  'auth.request-password-reset.form.email.required':
+    'Por favor, introduza o seu endereço de e-mail',
+  'auth.request-password-reset.form.email.invalid': 'Este endereço de e-mail é inválido',
+  'auth.request-password-reset.form.submit': 'Solicitar redefinição de palavra-passe',
+
+  'auth.reset-password.title': 'Redefinir a sua palavra-passe',
+  'auth.reset-password.description':
+    'Introduza a sua nova palavra-passe para redefinir a palavra-passe.',
+  'auth.reset-password.reset': 'A sua palavra-passe foi redefinida.',
+  'auth.reset-password.back-to-login': 'Voltar ao início de sessão',
+  'auth.reset-password.form.new-password.label': 'Nova palavra-passe',
+  'auth.reset-password.form.new-password.placeholder': 'Exemplo: **********',
+  'auth.reset-password.form.new-password.required': 'Por favor, introduza a sua nova palavra-passe',
+  'auth.reset-password.form.new-password.min-length':
+    'A palavra-passe deve ter pelo menos {{ minLength }} caracteres',
+  'auth.reset-password.form.new-password.max-length':
+    'A palavra-passe deve ter menos de {{ maxLength }} caracteres',
+  'auth.reset-password.form.submit': 'Redefinir palavra-passe',
+
+  'auth.email-provider.open': 'Abrir {{ provider }}',
+
+  'auth.login.title': 'Iniciar sessão no Papra',
+  'auth.login.description':
+    'Introduza o seu e-mail ou use o início de sessão social para aceder à sua conta Papra.',
+  'auth.login.login-with-provider': 'Iniciar sessão com {{ provider }}',
+  'auth.login.no-account': 'Não tem uma conta?',
+  'auth.login.register': 'Registar',
+  'auth.login.form.email.label': 'E-mail',
+  'auth.login.form.email.placeholder': 'Exemplo: joao@papra.app',
+  'auth.login.form.email.required': 'Por favor, introduza o seu endereço de e-mail',
+  'auth.login.form.email.invalid': 'Este endereço de e-mail é inválido',
+  'auth.login.form.password.label': 'Palavra-passe',
+  'auth.login.form.password.placeholder': 'Definir uma palavra-passe',
+  'auth.login.form.password.required': 'Por favor, introduza a sua palavra-passe',
+  'auth.login.form.remember-me.label': 'Lembrar-me',
+  'auth.login.form.forgot-password.label': 'Esqueceu-se da palavra-passe?',
+  'auth.login.form.submit': 'Iniciar sessão',
+
+  'auth.login.two-factor.title': 'Verificação em dois passos',
+  'auth.login.two-factor.description.totp':
+    'Introduza o código de verificação de 6 dígitos da sua aplicação de autenticação.',
+  'auth.login.two-factor.description.backup-code':
+    'Introduza um dos seus códigos de segurança para aceder à sua conta.',
+  'auth.login.two-factor.code.label.totp': 'Código de autenticação',
+  'auth.login.two-factor.code.label.backup-code': 'Código de segurança',
+  'auth.login.two-factor.code.placeholder.backup-code': 'Introduza o código de segurança',
+  'auth.login.two-factor.code.required': 'Por favor, introduza o código de verificação',
+  'auth.login.two-factor.trust-device.label': 'Confiar neste dispositivo durante 30 dias',
+  'auth.login.two-factor.back': 'Voltar ao início de sessão',
+  'auth.login.two-factor.submit': 'Verificar',
+  'auth.login.two-factor.verification-failed':
+    'Falha na verificação. Verifique o seu código e tente novamente.',
+  'auth.login.two-factor.use-backup-code': 'Usar código de segurança',
+  'auth.login.two-factor.use-totp': 'Usar aplicação de autenticação',
+
+  'auth.register.title': 'Registar no Papra',
+  'auth.register.description': 'Crie uma conta para começar a usar o Papra.',
+  'auth.register.register-with-email': 'Registar com e-mail',
+  'auth.register.register-with-provider': 'Registar com {{ provider }}',
+  'auth.register.providers.google': 'Google',
+  'auth.register.providers.github': 'GitHub',
+  'auth.register.have-account': 'Já tem uma conta?',
+  'auth.register.login': 'Iniciar sessão',
+  'auth.register.registration-disabled.title': 'O registo está desativado',
+  'auth.register.registration-disabled.description':
+    'A criação de novas contas está atualmente desativada nesta instância do Papra. Apenas utilizadores com contas existentes podem iniciar sessão. Se acha que isto é um erro, contacte o administrador desta instância.',
+  'auth.register.form.email.label': 'E-mail',
+  'auth.register.form.email.placeholder': 'Exemplo: joao@papra.app',
+  'auth.register.form.email.required': 'Por favor, introduza o seu endereço de e-mail',
+  'auth.register.form.email.invalid': 'Este endereço de e-mail é inválido',
+  'auth.register.form.password.label': 'Palavra-passe',
+  'auth.register.form.password.placeholder': 'Definir uma palavra-passe',
+  'auth.register.form.password.required': 'Por favor, introduza a sua palavra-passe',
+  'auth.register.form.password.min-length':
+    'A palavra-passe deve ter pelo menos {{ minLength }} caracteres',
+  'auth.register.form.password.max-length':
+    'A palavra-passe deve ter menos de {{ maxLength }} caracteres',
+  'auth.register.form.name.label': 'Nome',
+  'auth.register.form.name.placeholder': 'Exemplo: Ada Lovelace',
+  'auth.register.form.name.required': 'Por favor, introduza o seu nome',
+  'auth.register.form.name.max-length': 'O nome deve ter menos de {{ maxLength }} caracteres',
+  'auth.register.form.submit': 'Registar',
+
+  'auth.email-validation-required.title': 'Verifique o seu e-mail',
+  'auth.email-validation-required.description':
+    'Foi enviado um e-mail de verificação para o seu endereço de e-mail. Por favor, verifique o seu endereço de e-mail clicando na ligação no e-mail.',
+
+  'auth.email-verification.success.title': 'E-mail verificado',
+  'auth.email-verification.success.description':
+    'O seu e-mail foi verificado com sucesso. Pode agora iniciar sessão na sua conta.',
+  'auth.email-verification.success.login': 'Ir para o login',
+  'auth.email-verification.error.title': 'Falha na verificação',
+  'auth.email-verification.error.description':
+    'A ligação de verificação é inválida ou expirou. Por favor, solicite um novo e-mail de verificação ao iniciar sessão.',
+  'auth.email-verification.error.back': 'Voltar ao login',
+
+  'auth.legal-links.description':
+    'Ao continuar, reconhece que compreende e concorda com os {{ terms }} e a {{ privacy }}.',
+  'auth.legal-links.terms': 'Termos de Serviço',
+  'auth.legal-links.privacy': 'Política de Privacidade',
+
+  'auth.no-auth-provider.title': 'Nenhum fornecedor de autenticação',
+  'auth.no-auth-provider.description':
+    'Não há fornecedores de autenticação ativados nesta instância do Papra. Por favor, contacte o administrador desta instância para ativar os mesmos.',
+
+  // User settings
+
+  'user.settings.title': 'Definições do utilizador',
+  'user.settings.description': 'Gira as definições da sua conta aqui.',
+
+  'user.settings.email.title': 'Endereço de e-mail',
+  'user.settings.email.description': 'O seu endereço de e-mail não pode ser alterado.',
+  'user.settings.email.label': 'Endereço de e-mail',
+
+  'user.settings.name.title': 'Nome completo',
+  'user.settings.name.description':
+    'O seu nome completo é exibido a outros membros da organização.',
+  'user.settings.name.label': 'Nome completo',
+  'user.settings.name.placeholder': 'Ex. João Silva',
+  'user.settings.name.update': 'Atualizar nome',
+  'user.settings.name.updated': 'O seu nome completo foi atualizado',
+
+  'user.settings.logout.title': 'Terminar sessão',
+  'user.settings.logout.description':
+    'Terminar sessão da sua conta. Pode iniciar sessão novamente mais tarde.',
+  'user.settings.logout.button': 'Terminar sessão',
+
+  'user.settings.two-factor.title': 'Autenticação de dois fatores',
+  'user.settings.two-factor.description': 'Adicione uma camada extra de segurança à sua conta.',
+  'user.settings.two-factor.status.enabled': 'Ativada',
+  'user.settings.two-factor.status.disabled': 'Desativada',
+  'user.settings.two-factor.enable-button': 'Ativar A2F',
+  'user.settings.two-factor.disable-button': 'Desativar A2F',
+  'user.settings.two-factor.regenerate-codes-button': 'Regenerar códigos de segurança',
+
+  'user.settings.two-factor.enable-dialog.title': 'Ativar autenticação de dois fatores',
+  'user.settings.two-factor.enable-dialog.description':
+    'Introduza a sua palavra-passe para ativar A2F.',
+  'user.settings.two-factor.enable-dialog.password.label': 'Palavra-passe',
+  'user.settings.two-factor.enable-dialog.password.placeholder': 'Introduza a sua palavra-passe',
+  'user.settings.two-factor.enable-dialog.password.required':
+    'Por favor, introduza a sua palavra-passe',
+  'user.settings.two-factor.enable-dialog.cancel': 'Cancelar',
+  'user.settings.two-factor.enable-dialog.submit': 'Continuar',
+
+  'user.settings.two-factor.setup-dialog.title': 'Configurar autenticação de dois fatores',
+  'user.settings.two-factor.setup-dialog.step1.title': 'Passo 1: Digitalizar o código QR',
+  'user.settings.two-factor.setup-dialog.step1.description':
+    'Digitalize o código QR abaixo ou introduza manualmente a chave de configuração na sua aplicação de autenticação.',
+  'user.settings.two-factor.setup-dialog.copy-setup-key': 'Copiar chave de configuração',
+  'user.settings.two-factor.setup-dialog.step2.title': 'Passo 2: Verificar o código',
+  'user.settings.two-factor.setup-dialog.step2.description':
+    'Introduza o código de 6 dígitos gerado pela sua aplicação de autenticação para verificar e ativar a autenticação de dois fatores.',
+  'user.settings.two-factor.setup-dialog.cancel': 'Cancelar',
+  'user.settings.two-factor.setup-dialog.verify': 'Verificar e ativar A2F',
+
+  'user.settings.two-factor.backup-codes-dialog.title': 'Códigos de segurança',
+  'user.settings.two-factor.backup-codes-dialog.description':
+    'Guarde estes códigos de segurança num local seguro. Pode usá-los para aceder à sua conta se perder o acesso à sua aplicação de autenticação.',
+  'user.settings.two-factor.backup-codes-dialog.copy': 'Copiar códigos de segurança',
+  'user.settings.two-factor.backup-codes-dialog.download': 'Transferir códigos de segurança',
+  'user.settings.two-factor.backup-codes-dialog.download-filename': 'papra-2fa-backup-codes.txt',
+  'user.settings.two-factor.backup-codes-dialog.close': 'Guardei os meus códigos',
+
+  'user.settings.two-factor.disable-dialog.title': 'Desativar autenticação de dois fatores',
+  'user.settings.two-factor.disable-dialog.description':
+    'Introduza a sua palavra-passe para desativar A2F. Isto tornará a sua conta menos segura.',
+  'user.settings.two-factor.disable-dialog.password.label': 'Palavra-passe',
+  'user.settings.two-factor.disable-dialog.password.placeholder': 'Introduza a sua palavra-passe',
+  'user.settings.two-factor.disable-dialog.password.required':
+    'Por favor, introduza a sua palavra-passe',
+  'user.settings.two-factor.disable-dialog.cancel': 'Cancelar',
+  'user.settings.two-factor.disable-dialog.submit': 'Desativar A2F',
+
+  'user.settings.two-factor.regenerate-dialog.title': 'Regenerar códigos de segurança',
+  'user.settings.two-factor.regenerate-dialog.description':
+    'Isto invalidará todos os códigos de segurança existentes e gerará novos. Introduza a sua palavra-passe para continuar.',
+  'user.settings.two-factor.regenerate-dialog.password.label': 'Palavra-passe',
+  'user.settings.two-factor.regenerate-dialog.password.placeholder':
+    'Introduza a sua palavra-passe',
+  'user.settings.two-factor.regenerate-dialog.password.required':
+    'Por favor, introduza a sua palavra-passe',
+  'user.settings.two-factor.regenerate-dialog.cancel': 'Cancelar',
+  'user.settings.two-factor.regenerate-dialog.submit': 'Regenerar códigos',
+
+  'user.settings.two-factor.enabled': 'A autenticação de dois fatores foi ativada',
+  'user.settings.two-factor.disabled': 'A autenticação de dois fatores foi desativada',
+  'user.settings.two-factor.codes-regenerated': 'Os códigos de segurança foram regenerados',
+
+  // Organizations
+
+  'organizations.list.title': 'As suas organizações',
+  'organizations.list.description':
+    'As organizações são uma forma de agrupar os seus documentos e gerir o acesso aos mesmos. Pode criar várias organizações e convidar os membros da sua equipa para colaborar.',
+  'organizations.list.create-new': 'Criar nova organização',
+  'organizations.list.back': 'Voltar às organizações',
+  'organizations.list.deleted.title': 'Organizações eliminadas',
+  'organizations.list.deleted.description':
+    'As organizações eliminadas são mantidas durante {{ days }} dias antes de serem removidas permanentemente. Pode restaurá-las durante este período.',
+  'organizations.list.deleted.empty': 'Nenhuma organização eliminada',
+  'organizations.list.deleted.empty-description':
+    'Quando eliminar uma organização, ela aparecerá aqui durante {{ days }} dias antes de ser eliminada permanentemente.',
+  'organizations.list.deleted.restore': 'Restaurar',
+  'organizations.list.deleted.restore-success': 'Organização restaurada com sucesso',
+  'organizations.list.deleted.restore-confirm.title': 'Restaurar organização',
+  'organizations.list.deleted.restore-confirm.message':
+    'Tem a certeza de que quer restaurar esta organização? Ela será movida de volta para a sua lista de organizações ativas.',
+  'organizations.list.deleted.restore-confirm.confirm-button': 'Restaurar organização',
+  'organizations.list.deleted.deleted-at': 'Eliminada em {{ date }}',
+  'organizations.list.deleted.purge-at': 'Será eliminada permanentemente em {{ date }}',
+  'organizations.list.deleted.days-remaining':
+    '({{ daysUntilPurge, =1:{daysUntilPurge} dia, {daysUntilPurge} dias }} restante{{ daysUntilPurge, >1:s}})',
+
+  'organizations.details.no-documents.title': 'Sem documentos',
+  'organizations.details.no-documents.description':
+    'Não há documentos nesta organização ainda. Comece por carregar alguns documentos.',
+  'organizations.details.upload-documents': 'Carregar documentos',
+  'organizations.details.documents-count': 'documentos no total',
+  'organizations.details.total-size': 'tamanho total',
+  'organizations.details.latest-documents': 'Últimos documentos importados',
+
+  'organizations.create.title': 'Criar uma nova organização',
+  'organizations.create.description':
+    'Os seus documentos serão agrupados por organização. Pode criar várias organizações para separar os seus documentos, por exemplo, para documentos pessoais e de trabalho.',
+  'organizations.create.back': 'Voltar',
+  'organizations.create.error.max-count-reached':
+    'Atingiu o número máximo de organizações que pode criar, se precisar de criar mais, contacte o suporte.',
+  'organizations.create.form.name.label': 'Nome da organização',
+  'organizations.create.form.name.placeholder': 'Ex. Acme Inc.',
+  'organizations.create.form.name.required': 'Por favor, introduza um nome para a organização',
+  'organizations.create.form.submit': 'Criar organização',
+  'organizations.create.success': 'Organização criada com sucesso',
+  'organizations.switcher.create': 'Criar nova organização',
+
+  'organizations.create-first.title': 'Criar a sua organização',
+  'organizations.create-first.description':
+    'Os seus documentos serão agrupados por organização. Pode criar várias organizações para separar os seus documentos, por exemplo, para documentos pessoais e de trabalho.',
+  'organizations.create-first.default-name': 'A minha organização',
+  'organizations.create-first.user-name': 'Organização de {{ name }}',
+
+  'organization.settings.title': 'Definições da Organização',
+  'organization.settings.page.title': 'Definições da organização',
+  'organization.settings.page.description': 'Gira as definições da sua organização aqui.',
+  'organization.settings.name.title': 'Nome da organização',
+  'organization.settings.name.update': 'Atualizar nome',
+  'organization.settings.name.placeholder': 'Ex. Acme Inc.',
+  'organization.settings.name.updated': 'Nome da organização atualizado',
+  'organization.settings.subscription.title': 'Subscrição',
+  'organization.settings.subscription.description':
+    'Gira a sua faturação, faturas e métodos de pagamento.',
+  'organization.settings.subscription.manage': 'Gerir subscrição',
+  'organization.settings.subscription.error': 'Falha ao obter URL do portal do cliente',
+  'organization.settings.delete.title': 'Eliminar organização',
+  'organization.settings.delete.description':
+    'Eliminar esta organização removerá permanentemente todos os dados associados à mesma.',
+  'organization.settings.delete.confirm.title': 'Eliminar organização',
+  'organization.settings.delete.confirm.message':
+    'Tem a certeza de que pretende eliminar esta organização? A organização será marcada para eliminação e permanentemente removida após {{ days }} dias. Durante este período, pode restaurá-la a partir da sua lista de organizações. Todos os documentos e dados serão permanentemente eliminados após este prazo.',
+  'organization.settings.delete.confirm.confirm-button': 'Eliminar organização',
+  'organization.settings.delete.confirm.cancel-button': 'Cancelar',
+  'organization.settings.delete.success': 'Organização eliminada',
+  'organization.settings.delete.only-owner':
+    'Apenas o proprietário da organização pode eliminar esta organização.',
+  'organization.settings.delete.has-active-subscription':
+    'Não é possível eliminar a organização com uma subscrição ativa, por favor cancele a sua subscrição acima primeiro.',
+
+  'organization.usage.page.title': 'Uso',
+  'organization.usage.page.description': 'Visualize o uso atual e os limites da sua organização.',
+  'organization.usage.storage.title': 'Armazenamento de documentos',
+  'organization.usage.storage.description': 'Armazenamento total usado pelos seus documentos',
+  'organization.usage.intake-emails.title': 'E-mails de entrada',
+  'organization.usage.intake-emails.description': 'Número de endereços de e-mail de entrada',
+  'organization.usage.members.title': 'Membros',
+  'organization.usage.members.description': 'Número de membros na organização',
+  'organization.usage.unlimited': 'Ilimitado',
+
+  'organizations.members.title': 'Membros',
+  'organizations.members.description': 'Gira os membros da sua organização',
+  'organizations.members.invite-member': 'Convidar membro',
+  'organizations.members.invite-member-disabled-tooltip':
+    'Apenas administradores ou proprietários podem convidar membros para a organização',
+  'organizations.members.remove-from-organization': 'Remover da organização',
+  'organizations.members.role': 'Função',
+  'organizations.members.roles.owner': 'Proprietário',
+  'organizations.members.roles.admin': 'Administrador',
+  'organizations.members.roles.member': 'Membro',
+  'organizations.members.delete.confirm.title': 'Remover membro',
+  'organizations.members.delete.confirm.message':
+    'Tem a certeza de que quer remover este membro da organização?',
+  'organizations.members.delete.confirm.confirm-button': 'Remover',
+  'organizations.members.delete.confirm.cancel-button': 'Cancelar',
+  'organizations.members.delete.success': 'Membro removido da organização',
+  'organizations.members.update-role.success': 'Função do membro atualizada',
+  'organizations.members.table.headers.name': 'Nome',
+  'organizations.members.table.headers.email': 'E-mail',
+  'organizations.members.table.headers.role': 'Função',
+  'organizations.members.table.headers.created': 'Criado',
+  'organizations.members.table.headers.actions': 'Ações',
+
+  'organizations.invite-member.title': 'Convidar membro',
+  'organizations.invite-member.description': 'Convide um membro para a sua organização',
+  'organizations.invite-member.form.email.label': 'E-mail',
+  'organizations.invite-member.form.email.placeholder': 'Exemplo: joao@papra.app',
+  'organizations.invite-member.form.email.required':
+    'Por favor, introduza um endereço de e-mail válido',
+  'organizations.invite-member.form.role.label': 'Função',
+  'organizations.invite-member.form.submit': 'Convidar para a organização',
+  'organizations.invite-member.success.message': 'Membro convidado',
+  'organizations.invite-member.success.description': 'O e-mail foi convidado para a organização.',
+  'organizations.invite-member.error.message': 'Falha ao convidar membro',
+
+  'organizations.invitations.title': 'Convites',
+  'organizations.invitations.description': 'Gira os convites da sua organização',
+  'organizations.invitations.list.cta': 'Convidar membro',
+  'organizations.invitations.list.empty.title': 'Sem convites pendentes',
+  'organizations.invitations.list.empty.description':
+    'Ainda não foi convidado para nenhuma organização.',
+  'organizations.invitations.status.pending': 'Pendente',
+  'organizations.invitations.status.accepted': 'Aceite',
+  'organizations.invitations.status.rejected': 'Rejeitado',
+  'organizations.invitations.status.expired': 'Expirado',
+  'organizations.invitations.status.cancelled': 'Cancelado',
+  'organizations.invitations.resend': 'Reenviar convite',
+  'organizations.invitations.cancel.title': 'Cancelar convite',
+  'organizations.invitations.cancel.description':
+    'Tem a certeza de que quer cancelar este convite?',
+  'organizations.invitations.cancel.confirm': 'Cancelar convite',
+  'organizations.invitations.cancel.cancel': 'Cancelar',
+  'organizations.invitations.resend.title': 'Reenviar convite',
+  'organizations.invitations.resend.description':
+    'Tem a certeza de que quer reenviar este convite? Isto enviará um novo e-mail ao destinatário.',
+  'organizations.invitations.resend.confirm': 'Reenviar convite',
+  'organizations.invitations.resend.cancel': 'Cancelar',
+
+  'invitations.list.title': 'Convites',
+  'invitations.list.description': 'Gira os convites da sua organização',
+  'invitations.list.empty.title': 'Sem convites pendentes',
+  'invitations.list.empty.description': 'Ainda não foi convidado para nenhuma organização.',
+  'invitations.list.headers.organization': 'Organização',
+  'invitations.list.headers.status': 'Estado',
+  'invitations.list.headers.created': 'Criado',
+  'invitations.list.headers.actions': 'Ações',
+  'invitations.list.actions.accept': 'Aceitar',
+  'invitations.list.actions.reject': 'Rejeitar',
+  'invitations.list.actions.accept.success.message': 'Convite aceite',
+  'invitations.list.actions.accept.success.description': 'O convite foi aceite.',
+  'invitations.list.actions.reject.success.message': 'Convite rejeitado',
+  'invitations.list.actions.reject.success.description': 'O convite foi rejeitado.',
+
+  // Documents
+
+  'documents.list.title': 'Documentos',
+  'documents.list.no-documents.title': 'Sem documentos',
+  'documents.list.no-documents.description':
+    'Não há documentos nesta organização ainda. Comece por carregar alguns documentos.',
+  'documents.list.no-results': 'Nenhum documento encontrado',
+  'documents.list.table.headers.file-name': 'Nome do ficheiro',
+  'documents.list.table.headers.created': 'Criado em',
+  'documents.list.table.headers.deleted': 'Eliminado em',
+  'documents.list.table.headers.actions': 'Ações',
+  'documents.list.table.headers.tags': 'Etiquetas',
+  'documents.list.search.placeholder': 'Procurar documentos...',
+  'documents.list.search.total-count-with-query':
+    '{{ count }} {{ count, =1:documento, documentos }} correspondente a esta pesquisa',
+  'documents.list.search.total-count-no-query':
+    '{{ count }} {{ count, =1:documento, documentos }} no total',
+  'documents.list.batch.selected-count':
+    '{{ count }} {{ count, =1:documento, documentos }} {{ count, =1:selecionado, selecionados }}',
+  'documents.list.batch.clear': 'Limpar seleção',
+  'documents.list.batch.tag-action': 'Etiquetar',
+  'documents.list.batch.trash-action': 'Lixo',
+  'documents.list.batch.error': 'A operação em lote falhou. Tente novamente.',
+  'documents.list.batch.select-all-matching':
+    'Selecionar todos os {{ count }} que correspondem a esta pesquisa',
+  'documents.list.batch.select-all':
+    'Selecionar os {{ count }} {{ count, =1:documento, documentos }}',
+  'documents.list.batch.all-matching-selected':
+    'Todos os {{ count }} {{ count, =1:documento, documentos }} que correspondem a esta pesquisa foram selecionados',
+  'documents.list.batch.all-selected':
+    'Todos os {{ count }} {{ count, =1:documento, documentos }} foram selecionados',
+  'documents.list.batch.trash.confirm.title': 'Mover para o lixo',
+  'documents.list.batch.trash.confirm.description':
+    'Mover {{ count }} {{ count, =1:documento, documentos }} para o lixo? Poderá restaurá-los mais tarde a partir do lixo.',
+  'documents.list.batch.trash.confirm.label': 'Mover para o lixo',
+  'documents.list.batch.trash.confirm.cancel': 'Cancelar',
+  'documents.list.batch.trash.success':
+    '{{ count }} {{ count, =1:documento, documentos }} {{ count, =1:movido, movidos }} para o lixo',
+  'documents.list.batch.tags.dialog.title': 'Atualizar etiquetas',
+  'documents.list.batch.tags.dialog.description':
+    'Adicione ou remova etiquetas em {{ count }} {{ count, =1:documento, documentos }} {{ count, =1:selecionado, selecionados }}.',
+  'documents.list.batch.tags.dialog.add-label': 'Etiquetas a adicionar',
+  'documents.list.batch.tags.dialog.remove-label': 'Etiquetas a remover',
+  'documents.list.batch.tags.dialog.overlap-error':
+    'Uma etiqueta não pode ser adicionada e removida na mesma operação.',
+  'documents.list.batch.tags.dialog.submit': 'Aplicar',
+  'documents.list.batch.tags.dialog.cancel': 'Cancelar',
+  'documents.list.batch.tags.success':
+    'Etiquetas atualizadas em {{ count }} {{ count, =1:documento, documentos }}',
+
+  'documents.tabs.info': 'Informação',
+  'documents.tabs.content': 'Conteúdo',
+  'documents.tabs.activity': 'Atividade',
+  'documents.deleted.message':
+    'Este documento foi eliminado e será permanentemente removido em {{ days }} dias.',
+  'documents.actions.download.title': 'Descarregar',
+  'documents.actions.download.error': 'Falha ao descarregar o documento',
+  'documents.actions.restore': 'Restaurar',
+  'documents.actions.delete': 'Eliminar',
+  'documents.actions.edit': 'Editar',
+  'documents.actions.cancel': 'Cancelar',
+  'documents.actions.save': 'Guardar',
+  'documents.actions.saving': 'A guardar...',
+  'documents.content.alert':
+    'O conteúdo do documento é automaticamente extraído do documento no carregamento. É usado apenas para fins de pesquisa e indexação.',
+  'documents.content.empty-placeholder':
+    'Este documento não tem conteúdo extraído, pode inserir manualmente aqui.',
+  'documents.info.id': 'ID',
+  'documents.info.name': 'Nome',
+  'documents.info.type': 'Tipo',
+  'documents.info.size': 'Tamanho',
+  'documents.info.created-at': 'Criado em',
+  'documents.info.updated-at': 'Atualizado em',
+  'documents.info.never': 'Nunca',
+  'documents.info.document-date': 'Data',
+  'documents.list.table.headers.document-date': 'Data',
+  'documents.info.no-date': 'Sem data',
+  'documents.info.today': 'Hoje',
+  'documents.notes.label': 'Notas',
+  'documents.notes.placeholder': 'Adicione notas sobre este documento',
+  'documents.notes.saving': 'A guardar',
+  'documents.notes.saved': 'Guardado',
+  'documents.notes.save-error': 'Falha ao guardar as notas',
+
+  'documents.management.details': 'Detalhes do documento',
+  'documents.management.rename': 'Renomear documento',
+  'documents.management.delete': 'Eliminar documento',
+
+  'documents.import.drop-area.title': 'Largue os ficheiros aqui',
+  'documents.import.drop-area.description': 'Arraste e largue os ficheiros aqui para os importar',
+
+  'documents.list.select.all': 'Selecionar todas as linhas desta página',
+  'documents.list.select.row': 'Selecionar linha',
+
+  'custom-properties.types.text': 'Texto',
+  'custom-properties.types.number': 'Número',
+  'custom-properties.types.date': 'Data',
+  'custom-properties.types.boolean': 'Booleano',
+  'custom-properties.types.select': 'Seleção',
+  'custom-properties.types.multi_select': 'Seleção múltipla',
+  'custom-properties.types.user_relation': 'Utilizador',
+  'custom-properties.types.document_relation': 'Documento',
+
+  'custom-properties.list.title': 'Propriedades personalizadas',
+  'custom-properties.list.description':
+    'Defina campos de metadados personalizados para os seus documentos. As propriedades podem ser texto, números, datas, booleanos ou listas de seleção.',
+  'custom-properties.list.create-button': 'Criar propriedade',
+  'custom-properties.list.empty.title': 'Propriedades personalizadas',
+  'custom-properties.list.empty.description':
+    'As propriedades personalizadas permitem adicionar metadados estruturados aos seus documentos, como datas de validade, nomes de empresas ou montantes.',
+  'custom-properties.list.table.name': 'Nome',
+  'custom-properties.list.table.type': 'Tipo',
+  'custom-properties.list.table.description': 'Descrição',
+  'custom-properties.list.table.created': 'Criado',
+  'custom-properties.list.table.actions': 'Ações',
+  'custom-properties.list.table.no-description': 'Sem descrição',
+  'custom-properties.list.delete.confirm-title': 'Eliminar propriedade personalizada',
+  'custom-properties.list.delete.confirm-message':
+    'Tem a certeza de que pretende eliminar a propriedade personalizada "{{ name }}"? Esta ação não pode ser desfeita.',
+  'custom-properties.list.delete.confirm-button': 'Eliminar',
+  'custom-properties.list.delete.success': 'Propriedade personalizada eliminada com sucesso',
+  'custom-properties.list.delete.error': 'Falha ao eliminar a propriedade personalizada',
+
+  'custom-properties.create.title': 'Criar propriedade personalizada',
+  'custom-properties.create.submit': 'Criar propriedade',
+  'custom-properties.create.success': 'Propriedade personalizada criada com sucesso',
+  'custom-properties.create.error': 'Falha ao criar a propriedade personalizada',
+
+  'custom-properties.update.title': 'Editar propriedade personalizada',
+  'custom-properties.update.submit': 'Guardar alterações',
+  'custom-properties.update.success': 'Propriedade personalizada atualizada com sucesso',
+  'custom-properties.update.error': 'Falha ao atualizar a propriedade personalizada',
+
+  'custom-properties.form.name.label': 'Nome',
+  'custom-properties.form.name.placeholder': 'ex.: Montante da fatura',
+  'custom-properties.form.name.required': 'O nome é obrigatório',
+  'custom-properties.form.name.max-length': 'O nome deve ter no máximo 255 caracteres',
+  'custom-properties.form.description.label': 'Descrição',
+  'custom-properties.form.description.optional': '(opcional)',
+  'custom-properties.form.description.placeholder': 'Descreva para que serve esta propriedade',
+  'custom-properties.form.description.max-length': 'A descrição deve ter no máximo 1000 caracteres',
+  'custom-properties.form.type.label': 'Tipo',
+  'custom-properties.form.type.immutable':
+    'O tipo de propriedade não pode ser alterado após a criação.',
+  'custom-properties.form.options.title': 'Opções',
+  'custom-properties.form.options.description':
+    'Defina as escolhas disponíveis para esta propriedade.',
+  'custom-properties.form.options.name.placeholder': 'Nome da opção',
+  'custom-properties.form.options.name.required': 'O nome da opção é obrigatório',
+  'custom-properties.form.options.name.max-length':
+    'O nome da opção deve ter no máximo 255 caracteres',
+  'custom-properties.form.options.validation.required': 'Adicione pelo menos uma opção',
+  'custom-properties.form.options.add': 'Adicionar opção',
+  'custom-properties.form.cancel': 'Cancelar',
+  'custom-properties.form.save-error':
+    'Ocorreu um erro ao guardar a definição da propriedade. Tente novamente.',
+
+  'documents.custom-properties.section-title': 'Propriedades',
+  'documents.custom-properties.no-value': 'Não definido',
+  'documents.custom-properties.text-placeholder': 'Introduzir um valor...',
+  'documents.custom-properties.save': 'Guardar',
+  'documents.custom-properties.clear': 'Limpar',
+  'documents.custom-properties.document-relation-search-placeholder': 'Pesquisar documentos...',
+  'documents.custom-properties.user-relation-manage': 'Gerir utilizadores',
+  'documents.custom-properties.document-relation-manage': 'Gerir documentos',
+  'documents.custom-properties.no-results': 'Sem resultados',
+
+  'documents.rename.title': 'Renomear documento',
+  'documents.rename.form.name.label': 'Nome',
+  'documents.rename.form.name.placeholder': 'Exemplo: Fatura 2024',
+  'documents.rename.form.name.required': 'Por favor, introduza um nome para o documento',
+  'documents.rename.form.name.max-length': 'O nome deve ter menos de 255 caracteres',
+  'documents.rename.form.submit': 'Renomear documento',
+  'documents.rename.success': 'Documento renomeado com sucesso',
+  'documents.rename.cancel': 'Cancelar',
+
+  'import-documents.title.error': '{{ count }} documentos falharam',
+  'import-documents.title.success': '{{ count }} documentos importados',
+  'import-documents.title.pending': '{{ count }} / {{ total }} documentos importados',
+  'import-documents.title.none': 'Importar documentos',
+  'import-documents.no-import-in-progress': 'Nenhuma importação de documento em progresso',
+
+  'documents.deleted.title': 'Documentos eliminados',
+  'documents.deleted.empty.title': 'Sem documentos eliminados',
+  'documents.deleted.empty.description':
+    'Não tem documentos eliminados. Os documentos que são eliminados serão movidos para a reciclagem por {{ days }} dias.',
+  'documents.deleted.retention-notice':
+    'Todos os documentos eliminados são armazenados na reciclagem por {{ days }} dias. Passando este prazo, os documentos serão permanentemente eliminados e não poderá restaurá-los.',
+  'documents.deleted.deleted-at': 'Eliminado',
+  'documents.deleted.restoring': 'A restaurar...',
+  'documents.deleted.deleting': 'A eliminar...',
+
+  'documents.preview.unknown-file-type':
+    'Não há pré-visualização disponível para este tipo de ficheiro',
+  'documents.preview.binary-file':
+    'Este parece ser um ficheiro binário e não pode ser exibido como texto',
+
+  'documents.open-with.label': 'Abrir com',
+  'documents.open-with.pdf-viewer': 'Visualizador de PDF',
+
+  'documents.pdf-viewer.loading': 'A carregar PDF',
+  'documents.pdf-viewer.not-a-pdf':
+    'Este documento não é um PDF e não pode ser aberto no visualizador de PDF.',
+
+  'documents.pdf-viewer.toolbar.hide-sidebar': 'Ocultar painel lateral',
+  'documents.pdf-viewer.toolbar.show-sidebar': 'Mostrar painel lateral',
+  'documents.pdf-viewer.toolbar.previous-page': 'Página anterior',
+  'documents.pdf-viewer.toolbar.next-page': 'Página seguinte',
+  'documents.pdf-viewer.toolbar.fit-width': 'Ajustar à largura',
+  'documents.pdf-viewer.toolbar.fit-page': 'Ajustar à página',
+  'documents.pdf-viewer.toolbar.rotate-clockwise': 'Rodar no sentido horário',
+  'documents.pdf-viewer.toolbar.download': 'Transferir',
+  'documents.pdf-viewer.toolbar.print': 'Imprimir',
+
+  'documents.pdf-viewer.zoom.zoom-out': 'Diminuir',
+  'documents.pdf-viewer.zoom.zoom-in': 'Aumentar',
+  'documents.pdf-viewer.zoom.auto': 'Automático',
+  'documents.pdf-viewer.zoom.actual-size': 'Tamanho real',
+  'documents.pdf-viewer.zoom.page-fit': 'Ajustar à página',
+  'documents.pdf-viewer.zoom.page-width': 'Largura da página',
+
+  'documents.pdf-viewer.more-actions.label': 'Mais ações',
+  'documents.pdf-viewer.more-actions.presentation-mode': 'Modo de apresentação',
+  'documents.pdf-viewer.more-actions.download': 'Transferir',
+  'documents.pdf-viewer.more-actions.print': 'Imprimir',
+  'documents.pdf-viewer.more-actions.go-to-first-page': 'Ir para a primeira página',
+  'documents.pdf-viewer.more-actions.go-to-last-page': 'Ir para a última página',
+  'documents.pdf-viewer.more-actions.rotate-clockwise': 'Rodar no sentido horário',
+  'documents.pdf-viewer.more-actions.rotate-counterclockwise': 'Rodar no sentido anti-horário',
+  'documents.pdf-viewer.more-actions.page-scrolling': 'Deslocamento por página',
+  'documents.pdf-viewer.more-actions.vertical-scrolling': 'Deslocamento vertical',
+  'documents.pdf-viewer.more-actions.horizontal-scrolling': 'Deslocamento horizontal',
+  'documents.pdf-viewer.more-actions.wrapped-scrolling': 'Deslocamento contínuo',
+  'documents.pdf-viewer.more-actions.no-spreads': 'Sem páginas duplas',
+  'documents.pdf-viewer.more-actions.odd-spreads': 'Páginas duplas ímpares',
+  'documents.pdf-viewer.more-actions.even-spreads': 'Páginas duplas pares',
+  'documents.pdf-viewer.more-actions.document-properties': 'Propriedades do documento',
+
+  'documents.pdf-viewer.properties.title': 'Propriedades do documento',
+  'documents.pdf-viewer.properties.na': 'N/D',
+  'documents.pdf-viewer.properties.file-name': 'Nome do ficheiro',
+  'documents.pdf-viewer.properties.file-size': 'Tamanho do ficheiro',
+  'documents.pdf-viewer.properties.doc-title': 'Título',
+  'documents.pdf-viewer.properties.author': 'Autor',
+  'documents.pdf-viewer.properties.subject': 'Assunto',
+  'documents.pdf-viewer.properties.keywords': 'Palavras-chave',
+  'documents.pdf-viewer.properties.creation-date': 'Data de criação',
+  'documents.pdf-viewer.properties.modification-date': 'Data de modificação',
+  'documents.pdf-viewer.properties.creator': 'Criado com',
+  'documents.pdf-viewer.properties.pdf-producer': 'Produtor PDF',
+  'documents.pdf-viewer.properties.pdf-version': 'Versão PDF',
+  'documents.pdf-viewer.properties.page-count': 'Número de páginas',
+  'documents.pdf-viewer.properties.page-size': 'Tamanho da página',
+  'documents.pdf-viewer.properties.fast-web-view': 'Visualização web rápida',
+  'documents.pdf-viewer.properties.yes': 'Sim',
+  'documents.pdf-viewer.properties.no': 'Não',
+
+  'documents.pdf-viewer.sidebar.page-thumbnails': 'Miniaturas das páginas',
+  'documents.pdf-viewer.sidebar.document-outline': 'Estrutura do documento',
+  'documents.pdf-viewer.sidebar.attachments': 'Anexos',
+
+  'documents.pdf-viewer.thumbnails.page-alt': 'Página {{ page }}',
+  'document-share-links.share-action': 'Partilhar',
+  'document-share-links.copy': 'Copiar ligação',
+  'document-share-links.copied': 'Ligação copiada para a área de transferência',
+  'document-share-links.copy-error': 'Falha ao copiar a ligação',
+  'document-share-links.enabled': 'Ligação de partilha ativada',
+  'document-share-links.disabled': 'Ligação de partilha desativada',
+  'document-share-links.deleted': 'Ligação de partilha eliminada',
+  'document-share-links.password-protected': 'Protegido por palavra-passe',
+  'document-share-links.no-password': 'Sem palavra-passe',
+  'document-share-links.never-expires': 'Nunca expira',
+  'document-share-links.expires-on': 'Expira em {{ date }}',
+  'document-share-links.list.title': 'Ligações de partilha',
+  'document-share-links.list.description':
+    'Faça a gestão das ligações de partilha de "{{ name }}".',
+  'document-share-links.list.create-new': 'Criar nova ligação',
+  'document-share-links.create.title': 'Criar uma ligação de partilha',
+  'document-share-links.create.description':
+    'Crie uma nova ligação de partilha para este documento.',
+  'document-share-links.create.password.toggle': 'Exigir uma palavra-passe',
+  'document-share-links.create.password.hint':
+    'Opcional, os destinatários terão de a introduzir antes de aceder.',
+  'document-share-links.create.password.placeholder': 'Introduza ou gere uma palavra-passe',
+  'document-share-links.create.password.generate': 'Gerar',
+  'document-share-links.create.expiration.toggle': 'Definir uma data de expiração',
+  'document-share-links.create.expiration.hint':
+    'Opcional, a ligação expirará automaticamente após esta data.',
+  'document-share-links.create.expiration.24h': '24 horas',
+  'document-share-links.create.expiration.7d': '7 dias',
+  'document-share-links.create.expiration.30d': '30 dias',
+  'document-share-links.create.expiration.custom': 'Personalizado',
+  'document-share-links.create.expiration.pick-date': 'Escolha uma data',
+  'document-share-links.create.cancel': 'Cancelar',
+  'document-share-links.create.submit': 'Criar ligação',
+  'document-share-links.create.error': 'Falha ao criar a ligação de partilha',
+  'document-share-links.created.title': 'Ligação de partilha criada',
+  'document-share-links.created.description':
+    'A sua ligação de partilha está pronta — copie-a e partilhe-a.',
+  'document-share-links.created.done': 'Concluído',
+  'document-share-links.actions.menu': 'Ações',
+  'document-share-links.actions.open-document': 'Abrir documento',
+  'document-share-links.actions.enable': 'Ativar ligação',
+  'document-share-links.actions.disable': 'Desativar ligação',
+  'document-share-links.actions.stop-sharing': 'Parar de partilhar',
+  'document-share-links.delete.confirm.title': 'Eliminar ligação de partilha',
+  'document-share-links.delete.confirm.message':
+    'Qualquer pessoa com esta ligação perderá o acesso de imediato. Isto não pode ser anulado.',
+  'document-share-links.delete.confirm.confirm-button': 'Eliminar ligação',
+  'document-share-links.delete.confirm.cancel-button': 'Cancelar',
+  'document-share-links.management.title': 'Ligações de partilha',
+  'document-share-links.management.description':
+    'Faça a gestão de todas as ligações de partilha criadas nesta organização.',
+  'document-share-links.management.empty.title': 'Sem ligações de partilha',
+  'document-share-links.management.empty.description':
+    'As ligações de partilha criadas para documentos desta organização aparecerão aqui.',
+  'document-share-links.management.table.document': 'Documento',
+  'document-share-links.management.table.link': 'Ligação',
+  'document-share-links.management.table.status': 'Estado',
+  'document-share-links.management.table.security': 'Segurança',
+  'document-share-links.management.table.expiry': 'Expiração',
+  'document-share-links.management.table.last-accessed': 'Último acesso',
+  'document-share-links.management.table.actions': 'Ações',
+  'document-share-links.management.status.expired': 'Expirado',
+  'document-share-links.management.status.enabled': 'Ativado',
+  'document-share-links.management.status.disabled': 'Desativado',
+  'document-share-links.management.status.trashed': 'Documento no lixo',
+  'document-share-links.management.status.trashed-hint':
+    'O documento partilhado está no lixo, pelo que esta ligação fica inativa até o documento ser restaurado.',
+  'document-share-links.management.security.password': 'Palavra-passe',
+  'document-share-links.management.security.public': 'Público',
+  'document-share-links.management.never': 'Nunca',
+  'document-share-links.public.download': 'Transferir',
+  'document-share-links.public.download-error': 'Falha ao transferir o ficheiro',
+  'document-share-links.public.password.title': 'Palavra-passe necessária',
+  'document-share-links.public.password.description':
+    'Este documento está protegido. Introduza a palavra-passe para aceder.',
+  'document-share-links.public.password.label': 'Palavra-passe',
+  'document-share-links.public.password.placeholder': 'Introduza a palavra-passe',
+  'document-share-links.public.password.submit': 'Desbloquear',
+  'document-share-links.public.password.invalid': 'Palavra-passe incorreta',
+  'document-share-links.public.password.too-many-attempts':
+    'Demasiadas tentativas. Tente novamente mais tarde.',
+  'document-share-links.public.gone.title': 'Ligação indisponível',
+  'document-share-links.public.gone.description':
+    'Esta ligação de partilha expirou ou foi desativada.',
+  'document-share-links.public.not-found.title': 'Ligação não encontrada',
+  'document-share-links.public.not-found.description': 'Esta ligação de partilha não existe.',
+
+  'trash.delete-all.button': 'Eliminar tudo',
+  'trash.delete-all.confirm.title': 'Eliminar permanentemente todos os documentos?',
+  'trash.delete-all.confirm.description':
+    'Tem a certeza de que quer eliminar permanentemente todos os documentos da reciclagem? Esta ação não pode ser desfeita.',
+  'trash.delete-all.confirm.label': 'Eliminar',
+  'trash.delete-all.confirm.cancel': 'Cancelar',
+  'trash.delete.button': 'Eliminar',
+  'trash.delete.confirm.title': 'Eliminar documento permanentemente?',
+  'trash.delete.confirm.description':
+    'Tem a certeza de que quer eliminar permanentemente este documento da reciclagem? Esta ação não pode ser desfeita.',
+  'trash.delete.confirm.label': 'Eliminar',
+  'trash.delete.confirm.cancel': 'Cancelar',
+  'trash.deleted.success.title': 'Documento eliminado',
+  'trash.deleted.success.description': 'O documento foi eliminado permanentemente.',
+
+  'activity.document.created': 'O documento foi criado',
+  'activity.document.updated.single': 'O {{ field }} foi atualizado',
+  'activity.document.updated.multiple': 'Os {{ fields }} foram atualizados',
+  'activity.document.updated': 'O documento foi atualizado',
+  'activity.document.deleted': 'O documento foi eliminado',
+  'activity.document.restored': 'O documento foi restaurado',
+  'activity.document.tagged': 'A etiqueta {{ tag }} foi adicionada',
+  'activity.document.untagged': 'A etiqueta {{ tag }} foi removida',
+
+  'activity.document.user.name': 'por {{ name }}',
+
+  'activity.load-more': 'Carregar mais',
+  'activity.no-more-activities': 'Não há mais atividades para este documento',
+
+  // Tags
+
+  'tags.no-tags.title': 'Ainda sem etiquetas',
+  'tags.no-tags.description':
+    'Esta organização ainda não tem etiquetas. As etiquetas são usadas para categorizar documentos. Pode adicionar etiquetas aos seus documentos para os tornar mais fáceis de encontrar e organizar.',
+  'tags.no-tags.create-tag': 'Criar etiqueta',
+
+  'tags.title': 'Etiquetas de Documentos',
+  'tags.description':
+    'As etiquetas são usadas para categorizar documentos. Pode adicionar etiquetas aos seus documentos para os tornar mais fáceis de encontrar e organizar.',
+  'tags.create': 'Criar etiqueta',
+  'tags.update': 'Atualizar etiqueta',
+  'tags.delete': 'Eliminar etiqueta',
+  'tags.delete.confirm.title': 'Eliminar etiqueta',
+  'tags.delete.confirm.message':
+    'Tem a certeza de que quer eliminar a etiqueta "{{ name }}"? Eliminar uma etiqueta irá removê-la de todos os documentos.',
+  'tags.delete.confirm.confirm-button': 'Eliminar',
+  'tags.delete.confirm.cancel-button': 'Cancelar',
+  'tags.delete.success': 'Etiqueta eliminada com sucesso',
+  'tags.create.success': 'Etiqueta "{{ name }}" criada com sucesso.',
+  'tags.update.success': 'Etiqueta "{{ name }}" atualizada com sucesso.',
+  'tags.form.name.label': 'Nome',
+  'tags.form.name.placeholder': 'Ex. Contratos',
+  'tags.form.name.required': 'Por favor, introduza um nome para a etiqueta',
+  'tags.form.name.max-length': 'O nome da etiqueta deve ter menos de 64 caracteres',
+  'tags.form.color.label': 'Cor',
+  'tags.form.color.required': 'Por favor, introduza uma cor',
+  'tags.form.color.invalid': 'A cor hexadecimal está mal formatada.',
+  'tags.form.description.label': 'Descrição',
+  'tags.form.description.optional': '(opcional)',
+  'tags.form.description.placeholder': 'Ex. Todos os contratos assinados pela empresa',
+  'tags.form.description.max-length': 'A descrição deve ter menos de 256 caracteres',
+  'tags.form.no-description': 'Sem descrição',
+  'tags.table.headers.tag': 'Etiqueta',
+  'tags.table.headers.description': 'Descrição',
+  'tags.table.headers.documents': 'Documentos',
+  'tags.table.headers.created': 'Criado',
+  'tags.table.headers.actions': 'Ações',
+  'tags.picker.search-placeholder': 'Pesquisar etiquetas...',
+  'tags.picker.filter-placeholder': 'Filtrar etiquetas...',
+  'tags.picker.create-new-with-name': 'Criar nova etiqueta "{{ name }}"',
+  'tags.picker.create-new': 'Criar nova etiqueta',
+  'document-views.create': 'Criar vista',
+  'document-views.save-as-view': 'Guardar consulta como vista',
+  'document-views.update': 'Atualizar vista',
+  'document-views.delete': 'Eliminar vista',
+  'document-views.delete.confirm.title': 'Eliminar vista',
+  'document-views.delete.confirm.message': 'Tem a certeza de que pretende eliminar esta vista?',
+  'document-views.delete.confirm.confirm-button': 'Eliminar',
+  'document-views.delete.confirm.cancel-button': 'Cancelar',
+  'document-views.delete.success': 'Vista eliminada com sucesso',
+  'document-views.create.success': 'Vista "{{ name }}" criada com sucesso.',
+  'document-views.update.success': 'Vista "{{ name }}" atualizada com sucesso.',
+  'document-views.form.name.label': 'Nome',
+  'document-views.form.name.placeholder': 'Ex. Caixa de entrada',
+  'document-views.form.name.required': 'Introduza um nome de vista',
+  'document-views.form.name.max-length': 'O nome da vista deve ter menos de 100 caracteres',
+  'document-views.form.query.label': 'Consulta',
+  'document-views.form.query.placeholder': 'Ex. tag:inbox AND -tag:archived',
+  'document-views.form.query.required': 'Introduza uma consulta',
+  'document-views.form.query.max-length': 'A consulta deve ter menos de 500 caracteres',
+  'document-views.form.query.hint':
+    'Use a mesma sintaxe da barra de pesquisa de documentos. Ex. tag:inbox, has:tags, before:2024-01-01',
+  'document-views.form.description.label': 'Descrição',
+  'document-views.form.description.optional': '(opcional)',
+  'document-views.form.description.placeholder': 'Ex. Documentos a aguardar processamento',
+  'document-views.form.description.max-length': 'A descrição deve ter menos de 256 caracteres',
+  'document-views.actions.menu': 'Ações da vista',
+  'document-views.view.no-documents': 'Nenhum documento corresponde à consulta desta vista.',
+  'document-views.view.not-found': 'Vista não encontrada.',
+  'api-errors.document_views.already_exists':
+    'Já existe uma vista com este nome para esta organização',
+  'api-errors.document_views.not_found': 'Vista não encontrada',
+
+  // Tagging rules
+
+  'tagging-rules.field.name': 'o nome do documento',
+  'tagging-rules.field.content': 'o conteúdo do documento',
+  'tagging-rules.operator.equals': 'igual a',
+  'tagging-rules.operator.not-equals': 'não igual a',
+  'tagging-rules.operator.contains': 'contém',
+  'tagging-rules.operator.not-contains': 'não contém',
+  'tagging-rules.operator.starts-with': 'começa com',
+  'tagging-rules.operator.ends-with': 'termina com',
+  'tagging-rules.list.title': 'Regras de etiquetagem',
+  'tagging-rules.list.description':
+    'Gira as regras de etiquetagem da sua organização, para etiquetar automaticamente documentos com base em condições que define.',
+  'tagging-rules.list.demo-warning':
+    'Nota: Como este é um ambiente de demonstração (sem servidor), as regras de etiquetagem não serão aplicadas a documentos recém-adicionados.',
+  'tagging-rules.list.no-tagging-rules.title': 'Sem regras de etiquetagem',
+  'tagging-rules.list.no-tagging-rules.description':
+    'Crie uma regra de etiquetagem para etiquetar automaticamente os seus documentos adicionados com base em condições que define.',
+  'tagging-rules.list.no-tagging-rules.create-tagging-rule': 'Criar regra de etiquetagem',
+  'tagging-rules.list.card.no-conditions': 'Sem condições',
+  'tagging-rules.list.card.one-condition': '1 condição',
+  'tagging-rules.list.card.conditions': '{{ count }} condições',
+  'tagging-rules.list.card.delete': 'Eliminar regra',
+  'tagging-rules.list.card.edit': 'Editar regra',
+  'tagging-rules.create.title': 'Criar regra de etiquetagem',
+  'tagging-rules.create.success': 'Regra de etiquetagem criada com sucesso',
+  'tagging-rules.create.error': 'Falha ao criar regra de etiquetagem',
+  'tagging-rules.create.submit': 'Criar regra',
+  'tagging-rules.form.name.label': 'Nome',
+  'tagging-rules.form.name.placeholder': 'Exemplo: Etiquetar faturas',
+  'tagging-rules.form.name.min-length': 'Por favor, introduza um nome para a regra',
+  'tagging-rules.form.name.max-length': 'O nome deve ter menos de 64 caracteres',
+  'tagging-rules.form.description.label': 'Descrição',
+  'tagging-rules.form.description.placeholder':
+    "Exemplo: Etiquetar documentos com 'fatura' no nome",
+  'tagging-rules.form.description.max-length': 'A descrição deve ter menos de 256 caracteres',
+  'tagging-rules.form.conditions.label': 'Condições',
+  'tagging-rules.form.conditions.description':
+    'Defina as condições que devem ser cumpridas para a regra se aplicar. Sem condições significa que a regra será aplicada a todos os documentos',
+  'tagging-rules.form.conditions.add-condition': 'Adicionar condição',
+  'tagging-rules.form.conditions.connector.when': 'Quando',
+  'tagging-rules.form.conditions.connector.and': 'e que',
+  'tagging-rules.form.conditions.connector.or': 'ou que',
+  'tagging-rules.condition-match-mode.all': 'Todas as condições devem corresponder',
+  'tagging-rules.condition-match-mode.any': 'Qualquer condição deve corresponder',
+  'tagging-rules.form.conditions.no-conditions.title': 'Sem condições',
+  'tagging-rules.form.conditions.no-conditions.description':
+    'Não adicionou nenhuma condição a esta regra. Esta regra aplicará as suas etiquetas a todos os documentos.',
+  'tagging-rules.form.conditions.no-conditions.confirm': 'Aplicar regra sem condições',
+  'tagging-rules.form.conditions.no-conditions.cancel': 'Cancelar',
+  'tagging-rules.form.conditions.value.placeholder': 'Exemplo: fatura',
+  'tagging-rules.form.conditions.value.min-length': 'Por favor, introduza um valor para a condição',
+  'tagging-rules.form.tags.label': 'Etiquetas',
+  'tagging-rules.form.tags.description':
+    'Selecione as etiquetas a aplicar aos documentos adicionados que correspondem às condições',
+  'tagging-rules.form.tags.min-length': 'É necessária pelo menos uma etiqueta para aplicar',
+  'tagging-rules.form.tags.add-tag': 'Criar etiqueta',
+  'tagging-rules.update.title': 'Atualizar regra de etiquetagem',
+  'tagging-rules.update.error': 'Falha ao atualizar regra de etiquetagem',
+  'tagging-rules.update.submit': 'Atualizar regra',
+  'tagging-rules.update.cancel': 'Cancelar',
+  'tagging-rules.apply.button': 'Aplicar a documentos existentes',
+  'tagging-rules.apply.confirm.title': 'Aplicar regra a documentos existentes?',
+  'tagging-rules.apply.confirm.description':
+    'Isto irá verificar todos os documentos existentes na sua organização e aplicar etiquetas onde as condições correspondam. O processamento será feito em segundo plano.',
+  'tagging-rules.apply.confirm.button': 'Aplicar regra',
+  'tagging-rules.apply.success': 'Aplicação da regra iniciada em segundo plano',
+  'tagging-rules.apply.error': 'Falha ao iniciar a aplicação da regra',
+  'tagging-rules.apply.processing': 'A iniciar...',
+
+  // Intake emails
+
+  'intake-emails.title': 'E-mails de Receção',
+  'intake-emails.description':
+    'Os endereços de e-mail de receção são usados para ingerir automaticamente e-mails no Papra. Basta reencaminhar e-mails para o endereço de e-mail de receção e os seus anexos serão adicionados aos documentos da sua organização.',
+  'intake-emails.disabled.title': 'Os E-mails de Receção estão desativados',
+  'intake-emails.disabled.description':
+    'Os e-mails de receção estão desativados nesta instância. Contacte o seu administrador para os ativar. Consulte a {{ documentation }} para mais informações.',
+  'intake-emails.disabled.documentation': 'documentação',
+  'intake-emails.info':
+    'Apenas e-mails de receção ativados de origens permitidas serão processados. Pode ativar ou desativar um e-mail de receção a qualquer momento.',
+  'intake-emails.empty.title': 'Sem e-mails de receção',
+  'intake-emails.empty.description':
+    'Gere um endereço de receção para ingerir facilmente anexos de e-mails.',
+  'intake-emails.empty.generate': 'Gerar e-mail de receção',
+  'intake-emails.count': '{{ count }} e-mail{{ plural }} de receção para esta organização',
+  'intake-emails.new': 'Novo e-mail de receção',
+  'intake-emails.disabled-label': '(Desativado)',
+  'intake-emails.no-origins': 'Sem origens de e-mail permitidas',
+  'intake-emails.allowed-origins': 'Permitido de {{ count }} endereço{{ plural }}',
+  'intake-emails.actions.enable': 'Ativar',
+  'intake-emails.actions.disable': 'Desativar',
+  'intake-emails.actions.manage-origins': 'Gerir endereços de origem',
+  'intake-emails.actions.delete': 'Eliminar',
+  'intake-emails.delete.confirm.title': 'Eliminar e-mail de receção?',
+  'intake-emails.delete.confirm.message':
+    'Tem a certeza de que quer eliminar este e-mail de receção? Esta ação não pode ser desfeita.',
+  'intake-emails.delete.confirm.confirm-button': 'Eliminar e-mail de receção',
+  'intake-emails.delete.confirm.cancel-button': 'Cancelar',
+  'intake-emails.delete.success': 'E-mail de receção eliminado',
+  'intake-emails.create.success': 'E-mail de receção criado',
+  'intake-emails.update.success.enabled': 'E-mail de receção ativado',
+  'intake-emails.update.success.disabled': 'E-mail de receção desativado',
+  'intake-emails.allowed-origins.title': 'Origens permitidas',
+  'intake-emails.allowed-origins.description':
+    'Apenas e-mails enviados para {{ email }} destas origens serão processados. Se nenhuma origem for especificada, todos os e-mails serão descartados.',
+  'intake-emails.allowed-origins.add.label': 'Adicionar e-mail de origem permitida',
+  'intake-emails.allowed-origins.add.placeholder': 'Ex. joao@papra.app',
+  'intake-emails.allowed-origins.add.button': 'Adicionar',
+  'intake-emails.allowed-origins.delete.label': 'Eliminar origem permitida',
+  'intake-emails.actions.more': 'Mais ações',
+  'intake-emails.allowed-origins.add.error.exists':
+    'Este e-mail já está nas origens permitidas para este e-mail de receção',
+
+  // API keys
+
+  'api-keys.permissions.select-all': 'Selecionar tudo',
+  'api-keys.permissions.deselect-all': 'Desselecionar tudo',
+  'api-keys.permissions.organizations.title': 'Organizações',
+  'api-keys.permissions.organizations.organizations:create': 'Criar organizações',
+  'api-keys.permissions.organizations.organizations:read': 'Ler organizações',
+  'api-keys.permissions.organizations.organizations:update': 'Atualizar organizações',
+  'api-keys.permissions.organizations.organizations:delete': 'Eliminar organizações',
+  'api-keys.permissions.documents.title': 'Documentos',
+  'api-keys.permissions.documents.documents:create': 'Criar documentos',
+  'api-keys.permissions.documents.documents:read': 'Ler documentos',
+  'api-keys.permissions.documents.documents:update': 'Atualizar documentos',
+  'api-keys.permissions.documents.documents:delete': 'Eliminar documentos',
+  'api-keys.permissions.tags.title': 'Etiquetas',
+  'api-keys.permissions.tags.tags:create': 'Criar etiquetas',
+  'api-keys.permissions.tags.tags:read': 'Ler etiquetas',
+  'api-keys.permissions.tags.tags:update': 'Atualizar etiquetas',
+  'api-keys.permissions.tags.tags:delete': 'Eliminar etiquetas',
+  'api-keys.permissions.custom-properties.title': 'Propriedades personalizadas',
+  'api-keys.permissions.custom-properties.custom-properties:create':
+    'Criar propriedades personalizadas',
+  'api-keys.permissions.custom-properties.custom-properties:read':
+    'Ler propriedades personalizadas',
+  'api-keys.permissions.custom-properties.custom-properties:update':
+    'Atualizar propriedades personalizadas',
+  'api-keys.permissions.custom-properties.custom-properties:delete':
+    'Eliminar propriedades personalizadas',
+  'api-keys.create.title': 'Criar chave API',
+  'api-keys.create.description': 'Crie uma nova chave API para aceder à API do Papra.',
+  'api-keys.create.success': 'A chave API foi criada com sucesso.',
+  'api-keys.create.back': 'Voltar às chaves API',
+  'api-keys.create.form.name.label': 'Nome',
+  'api-keys.create.form.name.placeholder': 'Exemplo: A minha chave API',
+  'api-keys.create.form.name.required': 'Por favor, introduza um nome para a chave API',
+  'api-keys.create.form.permissions.label': 'Permissões',
+  'api-keys.create.form.permissions.required': 'Por favor, selecione pelo menos uma permissão',
+  'api-keys.create.form.submit': 'Criar chave API',
+  'api-keys.create.created.title': 'Chave API criada',
+  'api-keys.create.created.description':
+    'A chave API foi criada com sucesso. Guarde-a num local seguro pois não será exibida novamente.',
+  'api-keys.list.title': 'Chaves API',
+  'api-keys.list.description': 'Gira as suas chaves API aqui.',
+  'api-keys.list.create': 'Criar chave API',
+  'api-keys.list.empty.title': 'Sem chaves API',
+  'api-keys.list.empty.description': 'Crie uma chave API para aceder à API do Papra.',
+  'api-keys.list.card.created': 'Criado',
+  'api-keys.delete.success': 'A chave API foi eliminada com sucesso',
+  'api-keys.delete.confirm.title': 'Eliminar chave API',
+  'api-keys.delete.confirm.message':
+    'Tem a certeza de que quer eliminar esta chave API? Esta ação não pode ser desfeita.',
+  'api-keys.delete.confirm.confirm-button': 'Eliminar',
+  'api-keys.delete.confirm.cancel-button': 'Cancelar',
+
+  // Webhooks
+
+  'webhooks.list.title': 'Webhooks',
+  'webhooks.list.description': 'Gira os webhooks da sua organização',
+  'webhooks.list.empty.title': 'Nenhum webhook',
+  'webhooks.list.empty.description': 'Crie o seu primeiro webhook para começar a receber eventos',
+  'webhooks.list.create': 'Criar webhook',
+  'webhooks.list.card.last-triggered': 'Última ativação',
+  'webhooks.list.card.never': 'Nunca',
+  'webhooks.list.card.created': 'Criado em',
+  'webhooks.create.title': 'Criar webhook',
+  'webhooks.create.description': 'Crie um novo webhook para receber eventos',
+  'webhooks.create.success': 'Webhook criado com sucesso',
+  'webhooks.create.back': 'Voltar',
+  'webhooks.create.form.submit': 'Criar webhook',
+  'webhooks.create.form.name.label': 'Nome do webhook',
+  'webhooks.create.form.name.placeholder': 'Insira o nome do webhook',
+  'webhooks.create.form.name.required': 'O nome é obrigatório',
+  'webhooks.create.form.name.max-length': 'O nome deve ter no máximo 128 caracteres',
+  'webhooks.create.form.url.label': 'URL do Webhook',
+  'webhooks.create.form.url.placeholder': 'Insira o URL do webhook',
+  'webhooks.create.form.url.required': 'O URL é obrigatória',
+  'webhooks.create.form.url.invalid': 'URL inválido',
+  'webhooks.create.form.secret.label': 'Segredo',
+  'webhooks.create.form.secret.placeholder': 'Insira o segredo do webhook',
+  'webhooks.create.form.events.label': 'Eventos',
+  'webhooks.create.form.events.required': 'Adicione pelo menos um evento',
+  'webhooks.update.title': 'Editar webhook',
+  'webhooks.update.description': 'Atualize os detalhes do seu webhook',
+  'webhooks.update.success': 'Webhook atualizado com sucesso',
+  'webhooks.update.submit': 'Atualizar webhook',
+  'webhooks.update.cancel': 'Cancelar',
+  'webhooks.update.form.secret.placeholder': 'Insira um novo segredo',
+  'webhooks.update.form.secret.placeholder-redacted': '[Segredo ocultado]',
+  'webhooks.update.form.rotate-secret.button': 'Rotacionar segredo',
+  'webhooks.delete.success': 'Webhook eliminado com sucesso',
+  'webhooks.delete.confirm.title': 'Eliminar webhook',
+  'webhooks.delete.confirm.message': 'Tem a certeza de que deseja eliminar este webhook?',
+  'webhooks.delete.confirm.confirm-button': 'Eliminar',
+  'webhooks.delete.confirm.cancel-button': 'Cancelar',
+
+  'webhooks.events.documents.title': 'Eventos de documentos',
+  'webhooks.events.documents.document:created.description': 'Documento criado',
+  'webhooks.events.documents.document:deleted.description': 'Documento eliminado',
+  'webhooks.events.documents.document:updated.description': 'Documento atualizado',
+  'webhooks.events.documents.document:tag:added.description':
+    'Uma etiqueta foi adicionada a um documento',
+  'webhooks.events.documents.document:tag:removed.description':
+    'Uma etiqueta foi removida de um documento',
+
+  // Navigation
+
+  'layout.menu.home': 'Início',
+  'layout.menu.documents': 'Documentos',
+  'layout.menu.tags': 'Tags',
+  'layout.menu.custom-properties': 'Propriedades personalizadas',
+  'layout.menu.tagging-rules': 'Regras de etiquetagem',
+  'layout.menu.share-links': 'Ligações de partilha',
+  'layout.menu.deleted-documents': 'Documentos eliminados',
+  'layout.menu.organization-settings': 'Definições',
+  'layout.menu.api-keys': 'Chaves API',
+  'layout.menu.settings': 'Definições',
+  'layout.menu.account': 'Conta',
+  'layout.menu.general-settings': 'Definições gerais',
+  'layout.menu.usage': 'Uso',
+  'layout.menu.intake-emails': 'E-mails de entrada',
+  'layout.menu.webhooks': 'Webhooks',
+  'layout.menu.members': 'Membros',
+  'layout.menu.document-views': 'Vistas',
+  'layout.menu.invitations': 'Convites',
+  'layout.menu.admin': 'Administração',
+
+  'layout.upgrade-cta.title': 'Precisa de mais espaço?',
+  'layout.upgrade-cta.description': 'Obtenha 10x mais armazenamento + colaboração em equipa',
+  'layout.upgrade-cta.button': 'Atualizar agora',
+
+  'layout.theme.light': 'Tema claro',
+  'layout.theme.dark': 'Tema escuro',
+  'layout.theme.system': 'Tema do sistema',
+
+  'layout.theme-switcher.label': 'Seletor de tema',
+  'layout.language-switcher.label': 'Seletor de idioma',
+
+  'layout.search.placeholder': 'Pesquisa rápida',
+  'layout.menu.import-document': 'Importar um documento',
+
+  'user-menu.trigger.label': 'Menu do utilizador',
+  'user-menu.account-settings': 'Definições da conta',
+  'user-menu.api-keys': 'Chaves API',
+  'user-menu.invitations': 'Convites',
+  'user-menu.language': 'Linguagem',
+  'user-menu.theme': 'Tema',
+  'user-menu.about': 'Acerca do Papra',
+  'user-menu.logout': 'Sair',
+
+  // Command palette
+
+  'command-palette.search.placeholder': 'Procurar comandos ou documentos',
+  'command-palette.no-results': 'Nenhum resultado encontrado',
+  'command-palette.sections.documents': 'Documentos',
+  'command-palette.sections.theme': 'Tema',
+  'command-palette.show-more-results': 'Mostrar mais {{ count }} resultados para "{{ query }}"',
+
+  // API errors
+
+  'api-errors.api.timeout': 'O pedido demorou muito tempo e expirou. Por favor, tente novamente.',
+  'api-errors.document.already_exists': 'O documento já existe',
+  'api-errors.document.size_too_large': 'O arquivo é muito grande',
+  'api-errors.intake-emails.already_exists': 'Um e-mail de entrada com este endereço já existe.',
+  'api-errors.intake_email.limit_reached':
+    'O número máximo de e-mails de entrada para esta organização foi atingido. Faça um upgrade no seu plano para criar mais e-mails de entrada.',
+  'api-errors.user.max_organization_count_reached':
+    'Atingiu o número máximo de organizações que pode criar. Se precisar de criar mais, entre em contato com o suporte.',
+  'api-errors.default': 'Ocorreu um erro ao processar a solicitação.',
+  'api-errors.organization.invitation_already_exists':
+    'Já existe um convite para este e-mail nesta organização.',
+  'api-errors.user.already_in_organization': 'Este utilizadpr já faz parte desta organização.',
+  'api-errors.user.organization_invitation_limit_reached':
+    'O número máximo de convites por hoje foi atingido. Por favor, tente novamente amanhã.',
+  'api-errors.demo.not_available': 'Este recurso não está disponível em ambiente de demonstração',
+  'api-errors.tags.already_exists': 'Já existe uma etiqueta com este nome nesta organização',
+  'api-errors.tags.organization_limit_reached':
+    'O número máximo de etiquetas para esta organização foi atingido.',
+  'api-errors.internal.error':
+    'Ocorreu um erro ao processar a solicitação. Por favor, tente novamente.',
+  'api-errors.auth.invalid_origin':
+    'Origem da aplicação inválida. Se você está hospedando o Papra, certifique-se de que a variável de ambiente APP_BASE_URL corresponde à sua URL atual. Para mais detalhes, consulte https://docs.papra.app/resources/troubleshooting/#invalid-application-origin',
+  'api-errors.organization.max_members_count_reached':
+    'O número máximo de membros e convites pendentes para esta organização foi atingido. Atualize o seu plano para adicionar mais membros.',
+  'api-errors.organization.has_active_subscription':
+    'Não é possível eliminar a organização com uma subscrição ativa. Por favor, cancele a sua subscrição primeiro usando o botão Gerir Subscrição acima.',
+  'api-errors.webhooks.ssrf_unsafe_url':
+    'O URL fornecido não é permitido. Os URLs de webhook não devem apontar para endereços IP privados ou reservados.',
+  'api-errors.users.still_owns_organizations':
+    'Este utilizador ainda é proprietário de uma ou mais organizações. Elimine essas organizações antes de eliminar o utilizador.',
+  'api-errors.plan_entitlements.already_exists': 'Este utilizador já tem um direito deste tipo.',
+  'api-errors.plan_entitlements.not_found': 'Direito do plano não encontrado.',
+  'api-errors.plan_entitlements.not_eligible': 'Este utilizador não é elegível para este direito.',
+  'api-errors.users.cannot_delete_self':
+    'Não pode eliminar a sua própria conta a partir do painel de administração.',
+  // Better auth api errors
+  'api-errors.USER_NOT_FOUND': 'Utilizador não encontrado',
+  'api-errors.FAILED_TO_CREATE_USER': 'Falha ao criar utilizador',
+  'api-errors.FAILED_TO_CREATE_SESSION': 'Falha ao criar sessão',
+  'api-errors.FAILED_TO_UPDATE_USER': 'Falha ao atualizar utilizador',
+  'api-errors.FAILED_TO_GET_SESSION': 'Falha ao obter sessão',
+  'api-errors.INVALID_PASSWORD': 'Palavra-passe inválida',
+  'api-errors.INVALID_EMAIL': 'Email inválido',
+  'api-errors.INVALID_EMAIL_OR_PASSWORD':
+    'O email ou a palavra-passe está incorreta, ou a conta não existe.',
+  'api-errors.SOCIAL_ACCOUNT_ALREADY_LINKED': 'Conta social já associada',
+  'api-errors.PROVIDER_NOT_FOUND': 'Fornecedor não encontrado',
+  'api-errors.INVALID_TOKEN': 'Token inválido',
+  'api-errors.ID_TOKEN_NOT_SUPPORTED': 'Token de ID não suportado',
+  'api-errors.FAILED_TO_GET_USER_INFO': 'Falha ao obter informações do utilizador',
+  'api-errors.USER_EMAIL_NOT_FOUND': 'Email do utilizador não encontrado',
+  'api-errors.EMAIL_NOT_VERIFIED': 'Email não verificado',
+  'api-errors.PASSWORD_TOO_SHORT': 'Palavra-passe demasiado curta',
+  'api-errors.PASSWORD_TOO_LONG': 'Palavra-passe demasiado longa',
+  'api-errors.USER_ALREADY_EXISTS': 'Já existe um utilizador com este email',
+  'api-errors.EMAIL_CAN_NOT_BE_UPDATED': 'O email não pode ser atualizado',
+  'api-errors.CREDENTIAL_ACCOUNT_NOT_FOUND': 'Conta de credenciais não encontrada',
+  'api-errors.SESSION_EXPIRED': 'Sessão expirada',
+  'api-errors.FAILED_TO_UNLINK_LAST_ACCOUNT': 'Falha ao desassociar a última conta',
+  'api-errors.ACCOUNT_NOT_FOUND': 'Conta não encontrada',
+  'api-errors.USER_ALREADY_HAS_PASSWORD': 'O utilizador já tem uma palavra-passe',
+  'api-errors.INVALID_CODE': 'O código fornecido é inválido ou expirou',
+  'api-errors.OTP_NOT_ENABLED': 'A autenticação de dois fatores não está ativada para esta conta',
+  'api-errors.OTP_HAS_EXPIRED': 'O código de autenticação de dois fatores expirou',
+  'api-errors.TOTP_NOT_ENABLED': 'TOTP não está ativado para esta conta',
+  'api-errors.TWO_FACTOR_NOT_ENABLED':
+    'A autenticação de dois fatores não está ativada para esta conta',
+  'api-errors.BACKUP_CODES_NOT_ENABLED':
+    'Os códigos de segurança não estão ativados para esta conta',
+  'api-errors.INVALID_BACKUP_CODE': 'O código de segurança fornecido é inválido ou já foi usado',
+  'api-errors.TOO_MANY_ATTEMPTS_REQUEST_NEW_CODE':
+    'Demasiadas tentativas. Por favor, solicite um novo código.',
+  'api-errors.INVALID_TWO_FACTOR_COOKIE': 'Cookie de autenticação de dois fatores inválido',
+
+  // Not found
+
+  'not-found.title': '404 - Página não encontrada',
+  'not-found.description':
+    'Desculpe, a página que procura não existe. Verifique o URL e tente novamente.',
+
+  // Demo
+
+  'demo.popup.description':
+    'Este é um ambiente de demonstração; todos os dados são guardadis no armazenamento local do navegador.',
+  'demo.popup.discord':
+    'Entre no {{ discordLink }} para obter suporte, sugerir funcionalidades ou apenas conversar.',
+  'demo.popup.discord-link-label': 'Comunidade do Discord',
+  'demo.popup.reset': 'Redefinir dados da demonstração',
+  'demo.popup.hide': 'Ocultar',
+
+  // Color picker
+
+  'color-picker.hue': 'Matiz',
+  'color-picker.saturation': 'Saturação',
+  'color-picker.lightness': 'Brilho',
+  'color-picker.select-color': 'Selecionar cor',
+  'color-picker.select-a-color': 'Selecione uma cor',
+  'color-picker.random-color': 'Cor aleatória',
+
+  // Subscriptions
+
+  'subscriptions.checkout-success.title': 'Pagamento bem-sucedido!',
+  'subscriptions.checkout-success.description': 'A sua subscrição foi ativada com sucesso.',
+  'subscriptions.checkout-success.thank-you':
+    'Obrigado por fazer upgrade para o Papra Plus. Agora tem acesso a todos os recursos premium.',
+  'subscriptions.checkout-success.go-to-organizations': 'Ir para Organizações',
+  'subscriptions.checkout-success.redirecting':
+    'A redirecionar em {{ count }} segundo{{ plural }}...',
+
+  'subscriptions.checkout-cancel.title': 'Pagamento cancelado',
+  'subscriptions.checkout-cancel.description': 'O seu upgrade de subscrição foi cancelado.',
+  'subscriptions.checkout-cancel.no-charges':
+    'Nenhuma cobrança foi feita na sua conta. Pode tentar novamente quando estiver pronto.',
+  'subscriptions.checkout-cancel.back-to-organizations': 'Voltar para Organizações',
+  'subscriptions.checkout-cancel.need-help': 'Precisa de ajuda?',
+  'subscriptions.checkout-cancel.contact-support': 'Contactar suporte',
+
+  'subscriptions.upgrade-dialog.title': 'Atualizar esta organização',
+  'subscriptions.upgrade-dialog.description':
+    'Desbloqueie recursos poderosos para a sua organização',
+  'subscriptions.upgrade-dialog.contact-us': 'Contacte-nos',
+  'subscriptions.upgrade-dialog.enterprise-plans':
+    'se precisar de planos empresariais personalizados.',
+  'subscriptions.upgrade-dialog.per-month': '/mês',
+  'subscriptions.upgrade-dialog.billed-annually': '${{ price }} faturado anualmente',
+  'subscriptions.upgrade-dialog.upgrade-now': 'Atualizar agora',
+  'subscriptions.upgrade-dialog.promo-banner.title': 'Oferta por tempo limitado',
+  'subscriptions.upgrade-dialog.promo-banner.description':
+    'Obtenha {{ percent }}% de desconto por organização em todos os planos para sempre como early adopter! A oferta expira em {{ days, >1:{days} dias, =1:1 dia, menos de um dia }}.',
+
+  'subscriptions.plan.free.name': 'Plano gratuito',
+  'subscriptions.plan.plus.name': 'Plus',
+  'subscriptions.plan.pro.name': 'Pro',
+
+  'subscriptions.features.storage-size': 'Tamanho de armazenamento de documentos',
+  'subscriptions.features.members': 'Membros da organização',
+  'subscriptions.features.members-count': '{{ count }} membros',
+  'subscriptions.features.email-intakes': 'E-mails de entrada',
+  'subscriptions.features.email-intakes-count-singular': '{{ count }} endereço',
+  'subscriptions.features.email-intakes-count-plural': '{{ count }} endereços',
+  'subscriptions.features.max-upload-size': 'Tamanho máximo de upload',
+  'subscriptions.features.support': 'Suporte',
+  'subscriptions.features.support-community': 'Suporte da comunidade',
+  'subscriptions.features.support-email': 'Suporte por e-mail',
+  'subscriptions.features.support-priority': 'Suporte prioritário',
+
+  'subscriptions.billing-interval.monthly': 'Mensal',
+  'subscriptions.billing-interval.annual': 'Anual',
+
+  'subscriptions.usage-warning.message':
+    'Usou {{ percent }}% do seu armazenamento de documentos. Considere atualizar o seu plano para obter mais espaço.',
+  'subscriptions.usage-warning.upgrade-button': 'Atualizar plano',
+
+  // Admin
+
+  'admin.layout.header': 'Administração Papra',
+  'admin.layout.back-to-app': 'Voltar à aplicação',
+  'admin.layout.menu.analytics': 'Estatísticas',
+  'admin.layout.menu.users': 'Utilizadores',
+  'admin.layout.menu.organizations': 'Organizações',
+
+  'admin.analytics.title': 'Painel de controlo',
+  'admin.analytics.description': 'Informações e estatísticas sobre a utilização do Papra.',
+  'admin.analytics.user-count': 'Número de utilizadores',
+  'admin.analytics.organization-count': 'Número de organizações',
+  'admin.analytics.document-count': 'Número de documentos',
+  'admin.analytics.documents-storage': 'Armazenamento de documentos',
+  'admin.analytics.deleted-documents': 'Documentos eliminados',
+  'admin.analytics.deleted-storage': 'Armazenamento eliminado',
+
+  'admin.organizations.title': 'Gestão de organizações',
+  'admin.organizations.description': 'Gerir e visualizar todas as organizações do sistema',
+  'admin.organizations.search-placeholder': 'Procurar por nome ou ID...',
+  'admin.organizations.loading': 'A carregar organizações...',
+  'admin.organizations.no-results': 'Nenhuma organização encontrada correspondente à sua procura.',
+  'admin.organizations.empty': 'Nenhuma organização encontrada.',
+  'admin.organizations.table.id': 'ID',
+  'admin.organizations.table.name': 'Nome',
+  'admin.organizations.table.members': 'Membros',
+  'admin.organizations.table.created': 'Criada',
+  'admin.organizations.table.updated': 'Atualizada',
+  'admin.organizations.pagination.info':
+    'A mostrar {{ start }} a {{ end }} de {{ total }} {{ total, =1:organização, organizações }}',
+  'admin.organizations.pagination.page-info': 'Página {{ current }} de {{ total }}',
+
+  'admin.organization-detail.title': 'Detalhes da organização',
+  'admin.organization-detail.back': 'Voltar às organizações',
+  'admin.organization-detail.loading.info': 'A carregar informações da organização...',
+  'admin.organization-detail.loading.stats': 'A carregar estatísticas...',
+  'admin.organization-detail.loading.intake-emails': 'A carregar e-mails de entrada...',
+  'admin.organization-detail.loading.webhooks': 'A carregar webhooks...',
+  'admin.organization-detail.loading.members': 'A carregar membros...',
+  'admin.organization-detail.basic-info.title': 'Informações da organização',
+  'admin.organization-detail.basic-info.description': 'Detalhes básicos da organização',
+  'admin.organization-detail.basic-info.id': 'ID',
+  'admin.organization-detail.basic-info.name': 'Nome',
+  'admin.organization-detail.basic-info.created': 'Criada',
+  'admin.organization-detail.basic-info.updated': 'Atualizada',
+  'admin.organization-detail.members.title': 'Membros ({{ count }})',
+  'admin.organization-detail.members.description': 'Utilizadores que pertencem a esta organização',
+  'admin.organization-detail.members.empty': 'Nenhum membro encontrado',
+  'admin.organization-detail.members.table.user': 'Utilizador',
+  'admin.organization-detail.members.table.id': 'ID',
+  'admin.organization-detail.members.table.role': 'Função',
+  'admin.organization-detail.members.table.joined': 'Aderiu',
+  'admin.organization-detail.intake-emails.title': 'E-mails de entrada ({{ count }})',
+  'admin.organization-detail.intake-emails.description':
+    'Endereços de e-mail para ingestão de documentos',
+  'admin.organization-detail.intake-emails.empty': 'Nenhum e-mail de entrada configurado',
+  'admin.organization-detail.intake-emails.status.enabled': 'Ativado',
+  'admin.organization-detail.intake-emails.status.disabled': 'Desativado',
+  'admin.organization-detail.intake-emails.badge.active': 'Ativo',
+  'admin.organization-detail.intake-emails.badge.inactive': 'Inativo',
+  'admin.organization-detail.webhooks.title': 'Webhooks ({{ count }})',
+  'admin.organization-detail.webhooks.description': 'Endpoints de webhook configurados',
+  'admin.organization-detail.webhooks.empty': 'Nenhum webhook configurado',
+  'admin.organization-detail.webhooks.badge.active': 'Ativo',
+  'admin.organization-detail.webhooks.badge.inactive': 'Inativo',
+  'admin.organization-detail.stats.title': 'Estatísticas de utilização',
+  'admin.organization-detail.stats.description': 'Estatísticas de documentos e armazenamento',
+  'admin.organization-detail.stats.active-documents': 'Documentos ativos',
+  'admin.organization-detail.stats.active-storage': 'Armazenamento ativo',
+  'admin.organization-detail.stats.deleted-documents': 'Documentos eliminados',
+  'admin.organization-detail.stats.deleted-storage': 'Armazenamento eliminado',
+  'admin.organization-detail.stats.total-documents': 'Total de documentos',
+  'admin.organization-detail.stats.total-storage': 'Armazenamento total',
+
+  'admin.users.title': 'Gestão de utilizadores',
+  'admin.users.description': 'Gerir e visualizar todos os utilizadores do sistema',
+  'admin.users.search-placeholder': 'Procurar por nome, e-mail ou ID...',
+  'admin.users.loading': 'A carregar utilizadores...',
+  'admin.users.no-results': 'Nenhum utilizador encontrado correspondente à sua procura.',
+  'admin.users.empty': 'Nenhum utilizador encontrado.',
+  'admin.users.table.user': 'Utilizador',
+  'admin.users.table.id': 'ID',
+  'admin.users.table.status': 'Estado',
+  'admin.users.table.status.verified': 'Verificado',
+  'admin.users.table.status.unverified': 'Não verificado',
+  'admin.users.table.orgs': 'Orgs',
+  'admin.users.table.created': 'Criado',
+  'admin.users.pagination.info':
+    'A mostrar {{ start }} a {{ end }} de {{ total }} {{ total, =1:utilizador, utilizadores }}',
+  'admin.users.pagination.page-info': 'Página {{ current }} de {{ total }}',
+
+  'admin.user-detail.back': 'Voltar aos utilizadores',
+  'admin.user-detail.loading': 'A carregar detalhes do utilizador...',
+  'admin.user-detail.unnamed': 'Utilizador sem nome',
+  'admin.user-detail.basic-info.title': 'Informações do utilizador',
+  'admin.user-detail.basic-info.description':
+    'Detalhes básicos do utilizador e informações da conta',
+  'admin.user-detail.basic-info.user-id': 'ID do utilizador',
+  'admin.user-detail.basic-info.email': 'E-mail',
+  'admin.user-detail.basic-info.name': 'Nome',
+  'admin.user-detail.basic-info.name-empty': '-',
+  'admin.user-detail.basic-info.email-verified': 'E-mail verificado',
+  'admin.user-detail.basic-info.email-verified.yes': 'Sim',
+  'admin.user-detail.basic-info.email-verified.no': 'Não',
+  'admin.user-detail.basic-info.max-organizations': 'Máx. de organizações',
+  'admin.user-detail.basic-info.max-organizations.unlimited': 'Ilimitado',
+  'admin.user-detail.basic-info.created': 'Criado',
+  'admin.user-detail.basic-info.updated': 'Última atualização',
+  'admin.user-detail.roles.title': 'Funções e permissões',
+  'admin.user-detail.roles.description': 'Funções e níveis de acesso do utilizador',
+  'admin.user-detail.roles.empty': 'Nenhuma função atribuída',
+  'admin.user-detail.organizations.title': 'Organizações ({{ count }})',
+  'admin.user-detail.organizations.description': 'Organizações a que este utilizador pertence',
+  'admin.user-detail.organizations.empty': 'Não é membro de nenhuma organização',
+  'admin.user-detail.organizations.table.id': 'ID',
+  'admin.user-detail.organizations.table.name': 'Nome',
+  'admin.user-detail.organizations.table.created': 'Criada',
+  'admin.user-detail.plan-entitlements.title': 'Direitos do plano',
+  'admin.user-detail.plan-entitlements.description':
+    'Direitos que melhoram o plano das organizações que este utilizador possui',
+  'admin.user-detail.plan-entitlements.empty': 'Sem direitos de plano',
+  'admin.user-detail.plan-entitlements.table.type': 'Tipo',
+  'admin.user-detail.plan-entitlements.table.source': 'Origem',
+  'admin.user-detail.plan-entitlements.table.granted': 'Concedido',
+  'admin.user-detail.plan-entitlements.table.expires': 'Expira',
+  'admin.user-detail.plan-entitlements.never-expires': 'Nunca',
+  'admin.user-detail.plan-entitlements.expired': 'Expirado',
+  'admin.user-detail.plan-entitlements.grant.button': 'Conceder direito',
+  'admin.user-detail.plan-entitlements.grant.title': 'Conceder direito do plano',
+  'admin.user-detail.plan-entitlements.grant.description':
+    'Conceda um direito de plano a este utilizador, opcionalmente com uma data de expiração.',
+  'admin.user-detail.plan-entitlements.grant.type-label': 'Tipo de direito',
+  'admin.user-detail.plan-entitlements.grant.expiration.toggle': 'Definir uma data de expiração',
+  'admin.user-detail.plan-entitlements.grant.expiration.pick-date': 'Escolha uma data',
+  'admin.user-detail.plan-entitlements.grant.submit': 'Conceder direito',
+  'admin.user-detail.plan-entitlements.grant.cancel': 'Cancelar',
+  'admin.user-detail.plan-entitlements.grant.success': 'Direito concedido com sucesso.',
+  'admin.user-detail.plan-entitlements.revoke.button': 'Revogar',
+  'admin.user-detail.plan-entitlements.revoke.confirm.title': 'Revogar direito?',
+  'admin.user-detail.plan-entitlements.revoke.confirm.message':
+    'O utilizador perderá os benefícios do plano concedidos por este direito.',
+  'admin.user-detail.plan-entitlements.revoke.confirm.confirm-button': 'Revogar direito',
+  'admin.user-detail.plan-entitlements.revoke.confirm.cancel-button': 'Cancelar',
+  'admin.user-detail.plan-entitlements.revoke.success': 'Direito revogado com sucesso.',
+  'admin.user-detail.delete.title': 'Eliminar utilizador',
+  'admin.user-detail.delete.description':
+    'Elimina permanentemente esta conta de utilizador. Isto será propagado às suas adesões a organizações, sessões, definições de dois fatores e outros dados de autenticação. As organizações que ainda possui devem ser eliminadas ou transferidas primeiro.',
+  'admin.user-detail.delete.button': 'Eliminar utilizador',
+  'admin.user-detail.delete.self-warning':
+    'Não pode eliminar a sua própria conta a partir do painel de administração.',
+  'admin.user-detail.delete.confirm.title': 'Eliminar utilizador?',
+  'admin.user-detail.delete.confirm.message':
+    'Esta ação não pode ser anulada. Escreva o email do utilizador abaixo para confirmar.',
+  'admin.user-detail.delete.confirm.confirm-button': 'Eliminar utilizador',
+  'admin.user-detail.delete.confirm.cancel-button': 'Cancelar',
+  'admin.user-detail.delete.success': 'Utilizador eliminado com sucesso.',
+
+  // Common / Shared
+
+  'common.confirm-modal.type-to-confirm': 'Digite "{{ text }}" para confirmar',
+  'common.tables.rows-per-page': 'Linhas por página',
+  'common.tables.pagination-info': 'Página {{ currentPage }} de {{ totalPages }}',
+  'common.tables.first-page': 'Ir para a primeira página',
+  'common.tables.previous-page': 'Ir para a página anterior',
+  'common.tables.next-page': 'Ir para a página seguinte',
+  'common.tables.last-page': 'Ir para a última página',
+  'common.back-to-home': 'Voltar para a página inicial',
+
+  // About page
+
+  'about.title': 'Acerca do Papra',
+  'about.version': 'Versão',
+  'about.git-commit': 'Commit do Git',
+  'about.commit-date': 'Data do Commit',
+  'about.description':
+    'Papra é um sistema de gestão documental de código aberto que o ajuda a arquivar, organizar, etiquetar e gerir os seus documentos com facilidade.',
+  'about.links.title': 'Ligações',
+  'about.links.documentation': 'Documentação',
+  'about.links.documentation-description': 'Guias de utilizador e referência da API',
+  'about.links.github': 'GitHub',
+  'about.links.github-description': 'Código-fonte e rastreador de problemas',
+  'about.links.discord': 'Comunidade Discord',
+  'about.links.discord-description': 'Junte-se à nossa comunidade',
+  'about.links.sponsor': 'Patrocinar',
+  'about.links.sponsor-description': 'Apoie o desenvolvimento do Papra',
+
+  'config.server-unreachable.title': 'Servidor inacessível',
+  'config.server-unreachable.description':
+    'O servidor parece estar inacessível. Se estiver a alojá-lo, certifique-se de que o servidor está em execução e configurado corretamente. Pode consultar a consola para mais informações.',
+  'config.server-unreachable.retry': 'Tentar novamente',
+  'config.server-unreachable.retry-error.title': 'Servidor ainda inacessível',
+  'config.server-unreachable.retry-error.description':
+    'O servidor continua inacessível, tente novamente mais tarde.',
+
+  'coming-soon.title': 'Brevemente',
+  'coming-soon.description': 'Esta funcionalidade estará disponível brevemente, volte mais tarde.',
+
+  'socials.bluesky': 'Bluesky',
+  'socials.mastodon': 'Mastodon',
+  'socials.x': 'X',
+  'socials.reddit': 'Reddit',
+  'socials.linkedin': 'LinkedIn',
+};

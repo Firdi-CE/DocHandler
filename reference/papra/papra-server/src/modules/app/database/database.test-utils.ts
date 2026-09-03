@@ -1,0 +1,134 @@
+import type { Database } from './database.types';
+import { createNoopLogger } from '@crowlog/logger';
+import { sql } from 'drizzle-orm';
+import { runMigrations } from '../../../migrations/migrations.usecases';
+import { apiKeyOrganizationsTable, apiKeysTable } from '../../api-keys/api-keys.tables';
+import {
+  customPropertyDefinitionsTable,
+  documentCustomPropertyValuesTable,
+} from '../../custom-properties/custom-properties.table';
+import { customPropertySelectOptionsTable } from '../../custom-properties/options/custom-properties-options.table';
+import { documentShareLinksTable } from '../../document-share-links/document-share-links.table';
+import { documentsTable } from '../../documents/documents.table';
+import { intakeEmailsTable } from '../../intake-emails/intake-emails.tables';
+import {
+  organizationInvitationsTable,
+  organizationMembersTable,
+  organizationsTable,
+} from '../../organizations/organizations.table';
+import { userRolesTable } from '../../roles/roles.table';
+import { organizationSubscriptionsTable } from '../../subscriptions/subscriptions.tables';
+import {
+  taggingRuleActionsTable,
+  taggingRuleConditionsTable,
+  taggingRulesTable,
+} from '../../tagging-rules/tagging-rules.tables';
+import { documentsTagsTable, tagsTable } from '../../tags/tags.table';
+import { usersTable } from '../../users/users.table';
+import {
+  webhookDeliveriesTable,
+  webhookEventsTable,
+  webhooksTable,
+} from '../../webhooks/webhooks.tables';
+import { accountsTable, sessionsTable, twoFactorTable } from '../auth/auth.tables';
+import { setupDatabase } from './database';
+import { planEntitlementsTable } from '../../plan-entitlements/plan-entitlements.tables';
+import { stringify } from '@papra/std';
+
+export { createInMemoryDatabase, seedDatabase };
+
+async function createInMemoryDatabase(
+  seedOptions: Omit<Parameters<typeof seedDatabase>[0], 'db'> | undefined = {},
+) {
+  const { db } = setupDatabase({ url: ':memory:' });
+
+  await runMigrations({
+    db,
+    // In memory logger to avoid polluting the console with migrations logs
+    logger: createNoopLogger(),
+  });
+
+  await seedDatabase({ db, ...seedOptions });
+
+  return {
+    db,
+  };
+}
+
+const seedTables = {
+  accounts: accountsTable,
+  apiKeyOrganizations: apiKeyOrganizationsTable,
+  apiKeys: apiKeysTable,
+  customPropertyDefinitions: customPropertyDefinitionsTable,
+  customPropertySelectOptions: customPropertySelectOptionsTable,
+  documentCustomPropertyValues: documentCustomPropertyValuesTable,
+  documents: documentsTable,
+  documentShareLinks: documentShareLinksTable,
+  documentsTags: documentsTagsTable,
+  intakeEmails: intakeEmailsTable,
+  organizationInvitations: organizationInvitationsTable,
+  organizationMembers: organizationMembersTable,
+  organizations: organizationsTable,
+  organizationSubscriptions: organizationSubscriptionsTable,
+  planEntitlements: planEntitlementsTable,
+  sessions: sessionsTable,
+  taggingRuleActions: taggingRuleActionsTable,
+  taggingRuleConditions: taggingRuleConditionsTable,
+  taggingRules: taggingRulesTable,
+  tags: tagsTable,
+  twoFactor: twoFactorTable,
+  userRoles: userRolesTable,
+  users: usersTable,
+  webhookDeliveries: webhookDeliveriesTable,
+  webhookEvents: webhookEventsTable,
+  webhooks: webhooksTable,
+} as const;
+
+type SeedTablesRows = {
+  [K in keyof typeof seedTables]?: (typeof seedTables)[K] extends { $inferInsert: infer T }
+    ? T[]
+    : never;
+};
+
+async function seedDatabase({ db, ...seedRows }: { db: Database } & SeedTablesRows) {
+  await Promise.all(
+    Object.entries(seedRows).map(async ([table, rows]) =>
+      db
+        .insert(seedTables[table as keyof typeof seedTables])
+        .values(rows)
+        .execute(),
+    ),
+  );
+}
+
+/*
+PRAGMA encoding;
+PRAGMA page_size;
+PRAGMA auto_vacuum;
+PRAGMA journal_mode;      -- WAL is persistent
+PRAGMA user_version;
+PRAGMA application_id;
+
+*/
+
+export async function serializeSchema({ db }: { db: Database }) {
+  const result = await db.batch([
+    // db.run(sql`PRAGMA encoding`),
+    // db.run(sql`PRAGMA page_size`),
+    // db.run(sql`PRAGMA auto_vacuum`),
+    // db.run(sql`PRAGMA journal_mode`),
+    // db.run(sql`PRAGMA user_version`),
+    // db.run(sql`PRAGMA application_id`),
+    db.run(
+      sql`SELECT sql FROM sqlite_schema WHERE sql IS NOT NULL AND type IN ('table','index','view','trigger') ORDER BY type, name`,
+    ),
+  ]);
+
+  return Array.from(result.values())
+    .flatMap(({ rows }) => rows.map(({ sql }) => minifyQuery(stringify(sql))))
+    .join('\n');
+}
+
+function minifyQuery(query: string) {
+  return `${query.replace(/\s+/g, ' ').trim().replace(/;$/, '')};`;
+}

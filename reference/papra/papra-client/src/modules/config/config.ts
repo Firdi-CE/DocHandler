@@ -1,0 +1,93 @@
+export const isDev = import.meta.env.MODE === 'development';
+
+const asBoolean = (value: string | undefined, defaultValue: boolean) =>
+  value === undefined ? defaultValue : value.trim().toLowerCase() === 'true';
+function asString<T extends string | undefined>(
+  value: string | undefined,
+  defaultValue?: T,
+): T extends undefined ? string | undefined : string {
+  return (value ?? defaultValue) as T extends undefined ? string | undefined : string;
+}
+function asNumber<T extends number | undefined>(
+  value: string | undefined,
+  defaultValue?: T,
+): T extends undefined ? number | undefined : number {
+  return (value === undefined ? defaultValue : Number(value)) as T extends undefined
+    ? number | undefined
+    : number;
+}
+
+// use the env variable directly to allow proper tree-shaking when building for non-demo mode
+export const isDemoMode = import.meta.env.VITE_IS_DEMO_MODE === 'true';
+
+export const buildTimeConfig = {
+  baseUrl: asString(import.meta.env.VITE_BASE_URL, window.location.origin),
+  baseApiUrl: asString(import.meta.env.VITE_BASE_API_URL, window.location.origin),
+  vitrineBaseUrl: asString(import.meta.env.VITE_VITRINE_BASE_URL, 'http://localhost:3000/'),
+  version: asString(import.meta.env.VITE_APP_VERSION, 'dev'),
+  gitCommitSha: asString(import.meta.env.VITE_GIT_COMMIT, 'unknown'),
+  gitCommitDate: asString(import.meta.env.VITE_BUILD_DATE, 'unknown'),
+  auth: {
+    isRegistrationEnabled: asBoolean(import.meta.env.VITE_AUTH_IS_REGISTRATION_ENABLED, true),
+    isPasswordResetEnabled: asBoolean(import.meta.env.VITE_AUTH_IS_PASSWORD_RESET_ENABLED, true),
+    isEmailVerificationRequired: asBoolean(
+      import.meta.env.VITE_AUTH_IS_EMAIL_VERIFICATION_REQUIRED,
+      true,
+    ),
+    showLegalLinksOnAuthPage: asBoolean(
+      import.meta.env.VITE_AUTH_SHOW_LEGAL_LINKS_ON_AUTH_PAGE,
+      false,
+    ),
+    providers: {
+      email: { isEnabled: asBoolean(import.meta.env.VITE_AUTH_PROVIDERS_EMAIL_IS_ENABLED, true) },
+      github: {
+        isEnabled: asBoolean(import.meta.env.VITE_AUTH_PROVIDERS_GITHUB_IS_ENABLED, false),
+      },
+      google: {
+        isEnabled: asBoolean(import.meta.env.VITE_AUTH_PROVIDERS_GOOGLE_IS_ENABLED, false),
+      },
+      customs: [] as {
+        providerId: string;
+        providerName: string;
+        providerIconUrl: string;
+      }[],
+    },
+  },
+  documents: {
+    deletedDocumentsRetentionDays: asNumber(
+      import.meta.env.VITE_DOCUMENTS_DELETED_DOCUMENTS_RETENTION_DAYS,
+      30,
+    ),
+  },
+  organizations: {
+    deletedOrganizationsPurgeDaysDelay: asNumber(
+      import.meta.env.VITE_ORGANIZATIONS_DELETED_PURGE_DAYS_DELAY,
+      30,
+    ),
+  },
+  posthog: {
+    apiKey: asString(import.meta.env.VITE_POSTHOG_API_KEY),
+    host: asString(import.meta.env.VITE_POSTHOG_HOST),
+    isEnabled: asBoolean(import.meta.env.VITE_POSTHOG_ENABLED, false),
+  },
+  intakeEmails: {
+    isEnabled: asBoolean(import.meta.env.VITE_INTAKE_EMAILS_IS_ENABLED, false),
+  },
+  isSubscriptionsEnabled: asBoolean(import.meta.env.VITE_IS_SUBSCRIPTIONS_ENABLED, false),
+  autoTagging: {
+    isEnabled: false,
+  },
+} as const;
+
+export type Config = typeof buildTimeConfig;
+export type RuntimePublicConfig = Pick<
+  Config,
+  | 'version'
+  | 'gitCommitSha'
+  | 'gitCommitDate'
+  | 'auth'
+  | 'documents'
+  | 'intakeEmails'
+  | 'organizations'
+  | 'autoTagging'
+>;

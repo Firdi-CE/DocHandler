@@ -1,0 +1,46 @@
+import type { RouteDefinitionContext } from './server.types';
+import { registerAdminRoutes } from '../admin/admin.routes';
+import { registerApiKeysRoutes } from '../api-keys/api-keys.routes';
+import { registerConfigRoutes } from '../config/config.routes';
+import { registerCustomPropertiesRoutes } from '../custom-properties/custom-properties.routes';
+import { registerDocumentShareLinksRoutes } from '../document-share-links/document-share-links.routes';
+import { registerDocumentViewsRoutes } from '../document-views/document-views.routes';
+import { registerDocumentActivityRoutes } from '../documents/document-activity/document-activity.routes';
+import { registerDocumentsBatchRoutes } from '../documents/documents-batch/documents-batch.routes';
+import { registerDocumentsRoutes } from '../documents/documents.routes';
+import { registerIntakeEmailsRoutes } from '../intake-emails/intake-emails.routes';
+import { registerInvitationsRoutes } from '../invitations/invitations.routes';
+import { registerOrganizationsRoutes } from '../organizations/organizations.routes';
+import { registerPlanEntitlementsRoutes } from '../plan-entitlements/plan-entitlements.routes';
+import { registerSubscriptionsRoutes } from '../subscriptions/subscriptions.routes';
+import { registerTaggingRulesRoutes } from '../tagging-rules/tagging-rules.routes';
+import { registerTagsRoutes } from '../tags/tags.routes';
+import { registerUsersRoutes } from '../users/users.routes';
+import { registerWebhooksRoutes } from '../webhooks/webhooks.routes';
+import { registerAuthRoutes } from './auth/auth.routes';
+import { registerHealthCheckRoutes } from './health-check/health-check.routes';
+import { registerOrganizationSettingsRoutes } from '../organizations/organization-settings/organization-settings.routes';
+
+export function registerRoutes(context: RouteDefinitionContext) {
+  registerAuthRoutes(context);
+  registerConfigRoutes(context);
+  registerHealthCheckRoutes(context);
+  registerIntakeEmailsRoutes(context);
+  registerSubscriptionsRoutes(context);
+  registerUsersRoutes(context);
+  registerOrganizationsRoutes(context);
+  registerOrganizationSettingsRoutes(context);
+  registerDocumentsRoutes(context);
+  registerDocumentsBatchRoutes(context);
+  registerTagsRoutes(context);
+  registerDocumentViewsRoutes(context);
+  registerTaggingRulesRoutes(context);
+  registerApiKeysRoutes(context);
+  registerWebhooksRoutes(context);
+  registerInvitationsRoutes(context);
+  registerDocumentActivityRoutes(context);
+  registerCustomPropertiesRoutes(context);
+  registerDocumentShareLinksRoutes(context);
+  registerPlanEntitlementsRoutes(context);
+  registerAdminRoutes(context);
+}

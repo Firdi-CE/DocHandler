@@ -1,0 +1,409 @@
+import type {
+  AndExpression,
+  Expression,
+  FilterExpression,
+  NotExpression,
+  OrExpression,
+  TextExpression,
+} from '@papra/search-parser';
+import type { Document } from '../../documents/documents.types';
+import { parseSearchQuery } from '@papra/search-parser';
+import { stringify } from '@papra/std';
+
+export function generatePropertyKey({ name }: { name: string }): string {
+  return name.replace(/[^\p{L}\p{N}]/gu, '').toLowerCase();
+}
+
+type DocumentCondition = (params: { document: Document }) => boolean;
+
+const falseCondition: DocumentCondition = () => false;
+const trueCondition: DocumentCondition = () => true;
+
+export function someCorpusTokenStartsWith({
+  corpus,
+  prefix,
+}: {
+  corpus: string | string[];
+  prefix: string;
+}): boolean {
+  const lowerPrefix = prefix.toLowerCase();
+  const corpusString = Array.isArray(corpus) ? corpus.join(' ') : corpus;
+  const prefixLength = lowerPrefix.length;
+
+  return corpusString.split(/[\W_]+/).some(
+    (token) =>
+      token.length >= prefixLength && // early exit for faster checks
+      token.toLowerCase().startsWith(lowerPrefix),
+  );
+}
+
+function buildTextCondition({ expression }: { expression: TextExpression }): DocumentCondition {
+  const searchText = expression.value.trim().toLowerCase();
+
+  return ({ document }) =>
+    someCorpusTokenStartsWith({ corpus: [document.name, document.content], prefix: searchText });
+}
+
+function buildAndCondition({ expression }: { expression: AndExpression }): DocumentCondition {
+  const conditions = expression.operands.map((operand) =>
+    buildExpressionCondition({ expression: operand }),
+  );
+
+  return ({ document }) => conditions.every((condition) => condition({ document }));
+}
+
+function buildOrCondition({ expression }: { expression: OrExpression }): DocumentCondition {
+  const conditions = expression.operands.map((operand) =>
+    buildExpressionCondition({ expression: operand }),
+  );
+
+  return ({ document }) => conditions.some((condition) => condition({ document }));
+}
+
+function buildNotCondition({ expression }: { expression: NotExpression }): DocumentCondition {
+  const condition = buildExpressionCondition({ expression: expression.operand });
+
+  return ({ document }) => !condition({ document });
+}
+
+function buildTagFilterCondition({
+  expression,
+}: {
+  expression: FilterExpression;
+}): DocumentCondition {
+  const { value, operator } = expression;
+
+  if (operator !== '=') {
+    return falseCondition;
+  }
+
+  return ({ document }) =>
+    document.tags.find(
+      (tag) => tag.name.toLowerCase() === value.toLowerCase() || tag.id === value,
+    ) !== undefined;
+}
+
+function buildNameFilterCondition({
+  expression,
+}: {
+  expression: FilterExpression;
+}): DocumentCondition {
+  const { value, operator } = expression;
+
+  if (operator !== '=') {
+    return falseCondition;
+  }
+
+  return ({ document }) => someCorpusTokenStartsWith({ corpus: document.name, prefix: value });
+}
+
+function buildContentFilterCondition({
+  expression,
+}: {
+  expression: FilterExpression;
+}): DocumentCondition {
+  const { value, operator } = expression;
+
+  if (operator !== '=') {
+    return falseCondition;
+  }
+
+  return ({ document }) => someCorpusTokenStartsWith({ corpus: document.content, prefix: value });
+}
+
+function buildCreatedFilterCondition({
+  expression,
+}: {
+  expression: FilterExpression;
+}): DocumentCondition {
+  const { value, operator } = expression;
+  const dateValue = getDateValue({ value });
+
+  if (Number.isNaN(dateValue.getTime())) {
+    return () => false;
+  }
+
+  return ({ document }) => {
+    const documentDate = new Date(document.createdAt);
+
+    switch (operator) {
+      case '=':
+        return documentDate.toDateString() === dateValue.toDateString();
+      case '<':
+        return documentDate < dateValue;
+      case '<=':
+        return documentDate <= dateValue;
+      case '>':
+        return documentDate > dateValue;
+      case '>=':
+        return documentDate >= dateValue;
+      default:
+        return false;
+    }
+  };
+}
+
+function buildHasTagsFilter({ expression }: { expression: FilterExpression }): DocumentCondition {
+  const { operator } = expression;
+
+  if (operator !== '=') {
+    return falseCondition;
+  }
+
+  return ({ document }) => document.tags.length > 0;
+}
+
+function getDateValue({ value, now = new Date() }: { value: string; now?: Date }): Date {
+  if (value === 'now') {
+    return now;
+  }
+
+  return new Date(value);
+}
+
+function buildDateFilterCondition({
+  expression,
+}: {
+  expression: FilterExpression;
+}): DocumentCondition {
+  const { value, operator } = expression;
+  const dateValue = getDateValue({ value });
+
+  if (Number.isNaN(dateValue.getTime())) {
+    return () => false;
+  }
+
+  return ({ document }) => {
+    if (!document.documentDate) {
+      return false;
+    }
+
+    const docDate = new Date(document.documentDate);
+
+    switch (operator) {
+      case '=':
+        return docDate.toDateString() === dateValue.toDateString();
+      case '<':
+        return docDate < dateValue;
+      case '<=':
+        return docDate <= dateValue;
+      case '>':
+        return docDate > dateValue;
+      case '>=':
+        return docDate >= dateValue;
+      default:
+        return false;
+    }
+  };
+}
+
+function buildHasDateFilter({ expression }: { expression: FilterExpression }): DocumentCondition {
+  const { operator } = expression;
+
+  if (operator !== '=') {
+    return falseCondition;
+  }
+
+  return ({ document }) => document.documentDate != null;
+}
+
+function buildHasCustomPropertyFilter({ propertyKey }: { propertyKey: string }): DocumentCondition {
+  const normalizedKey = generatePropertyKey({ name: propertyKey });
+
+  return ({ document }) => {
+    const prop = document.customProperties?.find((p) => p.key === normalizedKey);
+
+    return prop !== undefined && prop.value != null;
+  };
+}
+
+function selectOptionMatches({ option, value }: { option: unknown; value: string }): boolean {
+  // Hydrated select values are shaped like `{ optionId, name }` (mirroring the real API),
+  // but raw seed/string values are also tolerated. Match against any available identifier.
+  const candidates =
+    typeof option === 'object' && option !== null
+      ? [(option as { optionId?: unknown }).optionId, (option as { name?: unknown }).name]
+      : [option];
+
+  const lowerValue = value.toLowerCase();
+
+  return candidates.some(
+    (candidate) => typeof candidate === 'string' && candidate.toLowerCase() === lowerValue,
+  );
+}
+
+function buildCustomPropertyFilterCondition({
+  field,
+  expression,
+}: {
+  field: string;
+  expression: FilterExpression;
+}): DocumentCondition {
+  const { value, operator } = expression;
+  const normalizedField = generatePropertyKey({ name: field });
+
+  return ({ document }) => {
+    const prop = document.customProperties?.find((p) => p.key === normalizedField);
+
+    if (!prop || prop.value == null) {
+      return false;
+    }
+
+    switch (prop.type) {
+      case 'boolean': {
+        if (operator !== '=') {
+          return false;
+        }
+
+        const boolValue = ['true', 'yes', '1', 'on', 'enabled'].includes(value.toLowerCase());
+
+        return prop.value === boolValue;
+      }
+      case 'number': {
+        const numValue = Number(value);
+
+        if (Number.isNaN(numValue)) {
+          return false;
+        }
+
+        const propNum = Number(prop.value);
+
+        switch (operator) {
+          case '=':
+            return propNum === numValue;
+          case '<':
+            return propNum < numValue;
+          case '<=':
+            return propNum <= numValue;
+          case '>':
+            return propNum > numValue;
+          case '>=':
+            return propNum >= numValue;
+          default:
+            return false;
+        }
+      }
+      case 'date': {
+        const dateValue = getDateValue({ value });
+
+        if (Number.isNaN(dateValue.getTime())) {
+          return false;
+        }
+
+        const propDate = new Date(prop.value as string);
+
+        switch (operator) {
+          case '=':
+            return propDate.toDateString() === dateValue.toDateString();
+          case '<':
+            return propDate < dateValue;
+          case '<=':
+            return propDate <= dateValue;
+          case '>':
+            return propDate > dateValue;
+          case '>=':
+            return propDate >= dateValue;
+          default:
+            return false;
+        }
+      }
+      case 'text': {
+        if (operator !== '=') {
+          return false;
+        }
+
+        return someCorpusTokenStartsWith({ corpus: stringify(prop.value), prefix: value });
+      }
+      case 'select': {
+        if (operator !== '=') {
+          return false;
+        }
+
+        return selectOptionMatches({ option: prop.value, value });
+      }
+      case 'multi_select': {
+        if (operator !== '=') {
+          return false;
+        }
+
+        const propValues = prop.value as unknown[];
+
+        return propValues.some((option) => selectOptionMatches({ option, value }));
+      }
+      default: {
+        if (operator !== '=') {
+          return false;
+        }
+
+        return stringify(prop.value).toLowerCase() === value.toLowerCase();
+      }
+    }
+  };
+}
+
+const KNOWN_FILTER_FIELDS = new Set(['tag', 'name', 'content', 'created', 'date', 'has']);
+
+function buildExpressionCondition({ expression }: { expression: Expression }): DocumentCondition {
+  switch (expression.type) {
+    case 'text':
+      return buildTextCondition({ expression });
+    case 'and':
+      return buildAndCondition({ expression });
+    case 'or':
+      return buildOrCondition({ expression });
+    case 'not':
+      return buildNotCondition({ expression });
+    case 'filter':
+      switch (expression.field) {
+        case 'tag':
+          return buildTagFilterCondition({ expression });
+        case 'name':
+          return buildNameFilterCondition({ expression });
+        case 'content':
+          return buildContentFilterCondition({ expression });
+        case 'created':
+          return buildCreatedFilterCondition({ expression });
+        case 'date':
+          return buildDateFilterCondition({ expression });
+        case 'has':
+          switch (expression.value) {
+            case 'tags':
+              return buildHasTagsFilter({ expression });
+            case 'date':
+              return buildHasDateFilter({ expression });
+            default:
+              // has:<customPropertyKey> — check if document has a non-null value for this property
+              return buildHasCustomPropertyFilter({ propertyKey: expression.value });
+          }
+        default:
+          // Unknown field — treat as a custom property key filter
+          if (!KNOWN_FILTER_FIELDS.has(expression.field)) {
+            return buildCustomPropertyFilterCondition({ field: expression.field, expression });
+          }
+
+          return falseCondition;
+      }
+    case 'empty':
+      return trueCondition;
+    default:
+      return falseCondition;
+  }
+}
+
+export function searchDemoDocuments({
+  query,
+  documents,
+}: {
+  query: string;
+  documents: Document[];
+}) {
+  if (query.trim() === '') {
+    return documents;
+  }
+
+  const { expression } = parseSearchQuery({ query });
+
+  const condition = buildExpressionCondition({ expression });
+
+  return documents.filter((document) => condition({ document }));
+}

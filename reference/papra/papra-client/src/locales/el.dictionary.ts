@@ -1,0 +1,1434 @@
+import type { TranslationsDictionary } from '@/modules/i18n/locales.types';
+
+export const translations: Partial<TranslationsDictionary> = {
+  // Authentication
+
+  'auth.request-password-reset.title': 'Επαναφορά κωδικού πρόσβασης',
+  'auth.request-password-reset.description':
+    'Εισαγάγετε το email σας για να επαναφέρετε τον κωδικό πρόσβασής σας.',
+  'auth.request-password-reset.requested':
+    'Εάν υπάρχει λογαριασμός με αυτό το email, σας έχουμε στείλει μήνυμα για επαναφορά κωδικού.',
+  'auth.request-password-reset.back-to-login': 'Επιστροφή στη σύνδεση',
+  'auth.request-password-reset.form.email.label': 'Email',
+  'auth.request-password-reset.form.email.placeholder': 'Παράδειγμα: ada@papra.app',
+  'auth.request-password-reset.form.email.required': 'Παρακαλώ εισαγάγετε τη διεύθυνση email σας',
+  'auth.request-password-reset.form.email.invalid': 'Η διεύθυνση email δεν είναι έγκυρη',
+  'auth.request-password-reset.form.submit': 'Αίτημα επαναφοράς κωδικού',
+
+  'auth.reset-password.title': 'Επαναφορά κωδικού πρόσβασης',
+  'auth.reset-password.description': 'Εισαγάγετε τον νέο σας κωδικό για να τον επαναφέρετε.',
+  'auth.reset-password.reset': 'Ο κωδικός πρόσβασής σας έχει επαναφερθεί.',
+  'auth.reset-password.back-to-login': 'Επιστροφή στη σύνδεση',
+  'auth.reset-password.form.new-password.label': 'Νέος κωδικός πρόσβασης',
+  'auth.reset-password.form.new-password.placeholder': 'Παράδειγμα: **********',
+  'auth.reset-password.form.new-password.required': 'Παρακαλώ εισαγάγετε τον νέο σας κωδικό',
+  'auth.reset-password.form.new-password.min-length':
+    'Ο κωδικός πρέπει να έχει τουλάχιστον {{ minLength }} χαρακτήρες',
+  'auth.reset-password.form.new-password.max-length':
+    'Ο κωδικός πρέπει να έχει λιγότερους από {{ maxLength }} χαρακτήρες',
+  'auth.reset-password.form.submit': 'Επαναφορά κωδικού',
+
+  'auth.email-provider.open': 'Άνοιγμα {{ provider }}',
+
+  'auth.login.title': 'Σύνδεση στο Papra',
+  'auth.login.description':
+    'Εισαγάγετε το email σας ή χρησιμοποιήστε κοινωνική σύνδεση για πρόσβαση στον λογαριασμό σας.',
+  'auth.login.login-with-provider': 'Σύνδεση με {{ provider }}',
+  'auth.login.no-account': 'Δεν έχετε λογαριασμό;',
+  'auth.login.register': 'Εγγραφή',
+  'auth.login.form.email.label': 'Email',
+  'auth.login.form.email.placeholder': 'Παράδειγμα: ada@papra.app',
+  'auth.login.form.email.required': 'Παρακαλώ εισαγάγετε το email σας',
+  'auth.login.form.email.invalid': 'Η διεύθυνση email δεν είναι έγκυρη',
+  'auth.login.form.password.label': 'Κωδικός πρόσβασης',
+  'auth.login.form.password.placeholder': 'Ορίστε έναν κωδικό',
+  'auth.login.form.password.required': 'Παρακαλώ εισαγάγετε τον κωδικό σας',
+  'auth.login.form.remember-me.label': 'Απομνημόνευση',
+  'auth.login.form.forgot-password.label': 'Ξεχάσατε τον κωδικό;',
+  'auth.login.form.submit': 'Σύνδεση',
+
+  'auth.login.two-factor.title': 'Έλεγχος Δύο Παραγόντων',
+  'auth.login.two-factor.description.totp':
+    'Εισαγάγετε τον 6-ψήφιο κωδικό από την εφαρμογή αυθεντικοποίησης.',
+  'auth.login.two-factor.description.backup-code':
+    'Εισαγάγετε έναν από τους κωδικούς ανάκτησής σας.',
+  'auth.login.two-factor.code.label.totp': 'Κωδικός εφαρμογής',
+  'auth.login.two-factor.code.label.backup-code': 'Κωδικός ανάκτησης',
+  'auth.login.two-factor.code.placeholder.backup-code': 'Εισαγάγετε κωδικό ανάκτησης',
+  'auth.login.two-factor.code.required': 'Παρακαλώ εισαγάγετε τον κωδικό επιβεβαίωσης',
+  'auth.login.two-factor.trust-device.label': 'Εμπιστοσύνη σε αυτή τη συσκευή για 30 ημέρες',
+  'auth.login.two-factor.back': 'Επιστροφή στη σύνδεση',
+  'auth.login.two-factor.submit': 'Επιβεβαίωση',
+  'auth.login.two-factor.verification-failed':
+    'Η επιβεβαίωση απέτυχε. Ελέγξτε τον κωδικό και δοκιμάστε ξανά.',
+  'auth.login.two-factor.use-backup-code': 'Χρήση κωδικού ανάκτησης',
+  'auth.login.two-factor.use-totp': 'Χρήση εφαρμογής αυθεντικοποίησης',
+
+  'auth.register.title': 'Εγγραφή στο Papra',
+  'auth.register.description': 'Δημιουργήστε λογαριασμό για να ξεκινήσετε.',
+  'auth.register.register-with-email': 'Εγγραφή με email',
+  'auth.register.register-with-provider': 'Εγγραφή με {{ provider }}',
+  'auth.register.providers.google': 'Google',
+  'auth.register.providers.github': 'GitHub',
+  'auth.register.have-account': 'Έχετε ήδη λογαριασμό;',
+  'auth.register.login': 'Σύνδεση',
+  'auth.register.registration-disabled.title': 'Η εγγραφή είναι απενεργοποιημένη',
+  'auth.register.registration-disabled.description':
+    'Η δημιουργία νέων λογαριασμών είναι απενεργοποιημένη σε αυτήν την εγκατάσταση του Papra.',
+  'auth.register.form.email.label': 'Email',
+  'auth.register.form.email.placeholder': 'Παράδειγμα: ada@papra.app',
+  'auth.register.form.email.required': 'Παρακαλώ εισαγάγετε το email σας',
+  'auth.register.form.email.invalid': 'Η διεύθυνση email δεν είναι έγκυρη',
+  'auth.register.form.password.label': 'Κωδικός πρόσβασης',
+  'auth.register.form.password.placeholder': 'Ορίστε έναν κωδικό',
+  'auth.register.form.password.required': 'Παρακαλώ εισαγάγετε τον κωδικό σας',
+  'auth.register.form.password.min-length':
+    'Ο κωδικός πρέπει να έχει τουλάχιστον {{ minLength }} χαρακτήρες',
+  'auth.register.form.password.max-length':
+    'Ο κωδικός πρέπει να έχει λιγότερους από {{ maxLength }} χαρακτήρες',
+  'auth.register.form.name.label': 'Όνομα',
+  'auth.register.form.name.placeholder': 'Παράδειγμα: Ada Lovelace',
+  'auth.register.form.name.required': 'Παρακαλώ εισαγάγετε το όνομά σας',
+  'auth.register.form.name.max-length':
+    'Το όνομα πρέπει να έχει λιγότερους από {{ maxLength }} χαρακτήρες',
+  'auth.register.form.submit': 'Εγγραφή',
+
+  'auth.email-validation-required.title': 'Επαλήθευση email',
+  'auth.email-validation-required.description':
+    'Σας έχει σταλεί email επαλήθευσης. Κάντε κλικ στον σύνδεσμο για επαλήθευση.',
+
+  'auth.email-verification.success.title': 'Το email επαληθεύτηκε',
+  'auth.email-verification.success.description':
+    'Το email σας επαληθεύτηκε με επιτυχία. Μπορείτε τώρα να συνδεθείτε.',
+  'auth.email-verification.success.login': 'Μετάβαση στη σύνδεση',
+  'auth.email-verification.error.title': 'Η επαλήθευση απέτυχε',
+  'auth.email-verification.error.description':
+    'Ο σύνδεσμος έχει λήξει ή δεν είναι έγκυρος. Συνδεθείτε για να ζητήσετε νέο email.',
+  'auth.email-verification.error.back': 'Επιστροφή στη σύνδεση',
+
+  'auth.legal-links.description':
+    'Συνεχίζοντας, αποδέχεστε ότι κατανοείτε και συμφωνείτε με τους {{ terms }} και την {{ privacy }}.',
+  'auth.legal-links.terms': 'Όροι Χρήσης',
+  'auth.legal-links.privacy': 'Πολιτική Απορρήτου',
+
+  'auth.no-auth-provider.title': 'Δεν υπάρχει διαθέσιμος πάροχος αυθεντικοποίησης',
+  'auth.no-auth-provider.description':
+    'Δεν έχουν ενεργοποιηθεί πάροχοι αυθεντικοποίησης σε αυτήν την εγκατάσταση του Papra.',
+
+  // User settings
+
+  'user.settings.title': 'Ρυθμίσεις χρήστη',
+  'user.settings.description': 'Διαχειριστείτε τις ρυθμίσεις του λογαριασμού σας εδώ.',
+
+  'user.settings.email.title': 'Διεύθυνση email',
+  'user.settings.email.description': 'Η διεύθυνση email δεν μπορεί να αλλάξει.',
+  'user.settings.email.label': 'Διεύθυνση email',
+
+  'user.settings.name.title': 'Πλήρες όνομα',
+  'user.settings.name.description': 'Το πλήρες όνομά σας εμφανίζεται στα άλλα μέλη της οργάνωσης.',
+  'user.settings.name.label': 'Πλήρες όνομα',
+  'user.settings.name.placeholder': 'Π.χ. Γιάννης Παπαδόπουλος',
+  'user.settings.name.update': 'Ενημέρωση ονόματος',
+  'user.settings.name.updated': 'Το πλήρες όνομά σας ενημερώθηκε',
+
+  'user.settings.logout.title': 'Αποσύνδεση',
+  'user.settings.logout.description':
+    'Αποσυνδεθείτε από τον λογαριασμό σας. Μπορείτε να συνδεθείτε ξανά αργότερα.',
+  'user.settings.logout.button': 'Αποσύνδεση',
+
+  'user.settings.two-factor.title': 'Έλεγχος Δύο Παραγόντων',
+  'user.settings.two-factor.description':
+    'Προσθέστε ένα επιπλέον επίπεδο ασφαλείας στον λογαριασμό σας.',
+  'user.settings.two-factor.status.enabled': 'Ενεργό',
+  'user.settings.two-factor.status.disabled': 'Ανενεργό',
+  'user.settings.two-factor.enable-button': 'Ενεργοποίηση 2FA',
+  'user.settings.two-factor.disable-button': 'Απενεργοποίηση 2FA',
+  'user.settings.two-factor.regenerate-codes-button': 'Αναδημιουργία κωδικών ανάκτησης',
+
+  'user.settings.two-factor.enable-dialog.title': 'Ενεργοποίηση ελέγχου δύο παραγόντων',
+  'user.settings.two-factor.enable-dialog.description':
+    'Εισαγάγετε τον κωδικό σας για να ενεργοποιήσετε το 2FA.',
+  'user.settings.two-factor.enable-dialog.password.label': 'Κωδικός πρόσβασης',
+  'user.settings.two-factor.enable-dialog.password.placeholder': 'Εισαγάγετε τον κωδικό σας',
+  'user.settings.two-factor.enable-dialog.password.required': 'Παρακαλώ εισαγάγετε τον κωδικό σας',
+  'user.settings.two-factor.enable-dialog.cancel': 'Ακύρωση',
+  'user.settings.two-factor.enable-dialog.submit': 'Συνέχεια',
+
+  'user.settings.two-factor.setup-dialog.title': 'Ρύθμιση ελέγχου δύο παραγόντων',
+  'user.settings.two-factor.setup-dialog.step1.title': 'Βήμα 1: Σάρωση QR',
+  'user.settings.two-factor.setup-dialog.step1.description':
+    'Σαρώστε τον QR κώδικα ή εισαγάγετε το κλειδί χειροκίνητα.',
+  'user.settings.two-factor.setup-dialog.copy-setup-key': 'Αντιγραφή κλειδιού',
+  'user.settings.two-factor.setup-dialog.step2.title': 'Βήμα 2: Επιβεβαίωση',
+  'user.settings.two-factor.setup-dialog.step2.description':
+    'Εισαγάγετε τον 6-ψήφιο κωδικό από την εφαρμογή.',
+  'user.settings.two-factor.setup-dialog.cancel': 'Ακύρωση',
+  'user.settings.two-factor.setup-dialog.verify': 'Επιβεβαίωση & ενεργοποίηση 2FA',
+
+  'user.settings.two-factor.backup-codes-dialog.title': 'Κωδικοί ανάκτησης',
+  'user.settings.two-factor.backup-codes-dialog.description':
+    'Αποθηκεύστε αυτούς τους κωδικούς σε ασφαλές μέρος.',
+  'user.settings.two-factor.backup-codes-dialog.copy': 'Αντιγραφή κωδικών',
+  'user.settings.two-factor.backup-codes-dialog.download': 'Λήψη κωδικών',
+  'user.settings.two-factor.backup-codes-dialog.download-filename': 'papra-2fa-backup-codes.txt',
+  'user.settings.two-factor.backup-codes-dialog.close': 'Έχω αποθηκεύσει τους κωδικούς μου',
+
+  'user.settings.two-factor.disable-dialog.title': 'Απενεργοποίηση ελέγχου δύο παραγόντων',
+  'user.settings.two-factor.disable-dialog.description':
+    'Εισαγάγετε τον κωδικό σας για να συνεχίσετε.',
+  'user.settings.two-factor.disable-dialog.password.label': 'Κωδικός πρόσβασης',
+  'user.settings.two-factor.disable-dialog.password.placeholder': 'Εισαγάγετε τον κωδικό σας',
+  'user.settings.two-factor.disable-dialog.password.required': 'Παρακαλώ εισαγάγετε τον κωδικό σας',
+  'user.settings.two-factor.disable-dialog.cancel': 'Ακύρωση',
+  'user.settings.two-factor.disable-dialog.submit': 'Απενεργοποίηση 2FA',
+
+  'user.settings.two-factor.regenerate-dialog.title': 'Αναδημιουργία κωδικών ανάκτησης',
+  'user.settings.two-factor.regenerate-dialog.description':
+    'Όλοι οι υπάρχοντες κωδικοί θα ακυρωθούν.',
+  'user.settings.two-factor.regenerate-dialog.password.label': 'Κωδικός πρόσβασης',
+  'user.settings.two-factor.regenerate-dialog.password.placeholder': 'Εισαγάγετε τον κωδικό σας',
+  'user.settings.two-factor.regenerate-dialog.password.required':
+    'Παρακαλώ εισαγάγετε τον κωδικό σας',
+  'user.settings.two-factor.regenerate-dialog.cancel': 'Ακύρωση',
+  'user.settings.two-factor.regenerate-dialog.submit': 'Αναδημιουργία κωδικών',
+
+  'user.settings.two-factor.enabled': 'Ο έλεγχος δύο παραγόντων ενεργοποιήθηκε',
+  'user.settings.two-factor.disabled': 'Ο έλεγχος δύο παραγόντων απενεργοποιήθηκε',
+  'user.settings.two-factor.codes-regenerated': 'Οι κωδικοί ανάκτησης αναδημιουργήθηκαν',
+
+  // Organizations
+
+  'organizations.list.title': 'Οι οργανισμοί σας',
+  'organizations.list.description':
+    'Οι οργανισμοί σας βοηθούν να οργανώνετε και να διαχειρίζεστε έγγραφα και πρόσβαση.',
+  'organizations.list.create-new': 'Δημιουργία νέου οργανισμού',
+  'organizations.list.back': 'Πίσω στους οργανισμούς',
+  'organizations.list.deleted.title': 'Διαγεγραμμένοι οργανισμοί',
+  'organizations.list.deleted.description':
+    'Οι διαγεγραμμένοι οργανισμοί διατηρούνται για {{ days }} ημέρες πριν διαγραφούν οριστικά.',
+  'organizations.list.deleted.empty': 'Κανένας διαγεγραμμένος οργανισμός',
+  'organizations.list.deleted.empty-description':
+    'Όταν διαγράψετε έναν οργανισμό, θα εμφανιστεί εδώ για {{ days }} ημέρες.',
+  'organizations.list.deleted.restore': 'Επαναφορά',
+  'organizations.list.deleted.restore-success': 'Ο οργανισμός επαναφέρθηκε',
+  'organizations.list.deleted.restore-confirm.title': 'Επαναφορά οργανισμού',
+  'organizations.list.deleted.restore-confirm.message':
+    'Είστε βέβαιοι ότι θέλετε να επαναφέρετε τον οργανισμό;',
+  'organizations.list.deleted.restore-confirm.confirm-button': 'Επαναφορά οργανισμού',
+  'organizations.list.deleted.deleted-at': 'Διαγράφηκε {{ date }}',
+  'organizations.list.deleted.purge-at': 'Θα διαγραφεί οριστικά στις {{ date }}',
+  'organizations.list.deleted.days-remaining':
+    '({{ daysUntilPurge, =1:{daysUntilPurge} ημέρα, {daysUntilPurge} ημέρες }} απομένουν)',
+
+  'organizations.details.no-documents.title': 'Δεν υπάρχουν έγγραφα',
+  'organizations.details.no-documents.description':
+    'Δεν υπάρχουν ακόμη έγγραφα σε αυτόν τον οργανισμό. Ξεκινήστε ανεβάζοντας μερικά έγγραφα.',
+  'organizations.details.upload-documents': 'Μεταφόρτωση εγγράφων',
+  'organizations.details.documents-count': 'έγγραφα συνολικά',
+  'organizations.details.total-size': 'συνολικό μέγεθος',
+  'organizations.details.latest-documents': 'Πιο πρόσφατα εισαχθέντα έγγραφα',
+
+  'organizations.create.title': 'Δημιουργία νέου οργανισμού',
+  'organizations.create.description':
+    'Τα έγγραφά σας ομαδοποιούνται ανά οργανισμό. Μπορείτε να δημιουργήσετε πολλούς για προσωπικά/εργασιακά κ.λπ.',
+  'organizations.create.back': 'Πίσω',
+  'organizations.create.error.max-count-reached':
+    'Φτάσατε το μέγιστο πλήθος οργανισμών. Επικοινωνήστε με την υποστήριξη για περισσότερους.',
+  'organizations.create.form.name.label': 'Όνομα οργανισμού',
+  'organizations.create.form.name.placeholder': 'Π.χ. Acme Inc.',
+  'organizations.create.form.name.required': 'Παρακαλώ εισαγάγετε όνομα οργανισμού',
+  'organizations.create.form.submit': 'Δημιουργία οργανισμού',
+  'organizations.create.success': 'Ο οργανισμός δημιουργήθηκε με επιτυχία',
+  'organizations.switcher.create': 'Δημιουργία νέου οργανισμού',
+
+  'organizations.create-first.title': 'Δημιουργήστε τον οργανισμό σας',
+  'organizations.create-first.description':
+    'Τα έγγραφά σας ομαδοποιούνται ανά οργανισμό. Δημιουργήστε όσους χρειάζεστε.',
+  'organizations.create-first.default-name': 'Ο οργανισμός μου',
+  'organizations.create-first.user-name': 'Ο οργανισμός του/της {{ name }}',
+
+  'organization.settings.title': 'Ρυθμίσεις οργανισμού',
+  'organization.settings.page.title': 'Ρυθμίσεις οργανισμού',
+  'organization.settings.page.description': 'Διαχειριστείτε τις ρυθμίσεις του οργανισμού σας εδώ.',
+  'organization.settings.name.title': 'Όνομα οργανισμού',
+  'organization.settings.name.update': 'Ενημέρωση ονόματος',
+  'organization.settings.name.placeholder': 'Π.χ. Acme Inc.',
+  'organization.settings.name.updated': 'Το όνομα οργανισμού ενημερώθηκε',
+  'organization.settings.subscription.title': 'Συνδρομή',
+  'organization.settings.subscription.description':
+    'Διαχείριση τιμολόγησης, τιμολογίων και μεθόδων πληρωμής.',
+  'organization.settings.subscription.manage': 'Διαχείριση συνδρομής',
+  'organization.settings.subscription.error': 'Αποτυχία λήψης URL πελάτη',
+  'organization.settings.delete.title': 'Διαγραφή οργανισμού',
+  'organization.settings.delete.description': 'Η διαγραφή θα αφαιρέσει οριστικά όλα τα δεδομένα.',
+  'organization.settings.delete.confirm.title': 'Διαγραφή οργανισμού',
+  'organization.settings.delete.confirm.message':
+    'Σίγουρα; Ο οργανισμός θα σημειωθεί προς διαγραφή και θα αφαιρεθεί μετά από {{ days }} ημέρες.',
+  'organization.settings.delete.confirm.confirm-button': 'Διαγραφή οργανισμού',
+  'organization.settings.delete.confirm.cancel-button': 'Ακύρωση',
+  'organization.settings.delete.success': 'Ο οργανισμός διαγράφηκε',
+  'organization.settings.delete.only-owner': 'Μόνο ο ιδιοκτήτης μπορεί να διαγράψει τον οργανισμό.',
+  'organization.settings.delete.has-active-subscription':
+    'Δεν είναι δυνατή η διαγραφή με ενεργή συνδρομή. Ακυρώστε πρώτα.',
+
+  'organization.usage.page.title': 'Χρήση',
+  'organization.usage.page.description': 'Δείτε τη χρήση και τα όρια του οργανισμού σας.',
+  'organization.usage.storage.title': 'Αποθήκευση εγγράφων',
+  'organization.usage.storage.description': 'Συνολικός χώρος που χρησιμοποιείται',
+  'organization.usage.intake-emails.title': 'Email εισαγωγής',
+  'organization.usage.intake-emails.description': 'Αριθμός διευθύνσεων email εισαγωγής',
+  'organization.usage.members.title': 'Μέλη',
+  'organization.usage.members.description': 'Αριθμός μελών στον οργανισμό',
+  'organization.usage.unlimited': 'Απεριόριστο',
+
+  'organizations.members.title': 'Μέλη',
+  'organizations.members.description': 'Διαχειριστείτε τα μέλη του οργανισμού σας',
+  'organizations.members.invite-member': 'Πρόσκληση μέλους',
+  'organizations.members.invite-member-disabled-tooltip':
+    'Μόνο διαχειριστές/ιδιοκτήτες μπορούν να προσκαλούν μέλη',
+  'organizations.members.remove-from-organization': 'Αφαίρεση από τον οργανισμό',
+  'organizations.members.role': 'Ρόλος',
+  'organizations.members.roles.owner': 'Ιδιοκτήτης',
+  'organizations.members.roles.admin': 'Διαχειριστής',
+  'organizations.members.roles.member': 'Μέλος',
+  'organizations.members.delete.confirm.title': 'Αφαίρεση μέλους',
+  'organizations.members.delete.confirm.message':
+    'Σίγουρα θέλετε να αφαιρέσετε το μέλος από τον οργανισμό;',
+  'organizations.members.delete.confirm.confirm-button': 'Αφαίρεση',
+  'organizations.members.delete.confirm.cancel-button': 'Ακύρωση',
+  'organizations.members.delete.success': 'Το μέλος αφαιρέθηκε',
+  'organizations.members.update-role.success': 'Ο ρόλος του μέλους ενημερώθηκε',
+  'organizations.members.table.headers.name': 'Όνομα',
+  'organizations.members.table.headers.email': 'Email',
+  'organizations.members.table.headers.role': 'Ρόλος',
+  'organizations.members.table.headers.created': 'Δημιουργήθηκε',
+  'organizations.members.table.headers.actions': 'Ενέργειες',
+
+  'organizations.invite-member.title': 'Πρόσκληση μέλους',
+  'organizations.invite-member.description': 'Προσκαλέστε ένα μέλος στον οργανισμό σας',
+  'organizations.invite-member.form.email.label': 'Email',
+  'organizations.invite-member.form.email.placeholder': 'Παράδειγμα: ada@papra.app',
+  'organizations.invite-member.form.email.required': 'Παρακαλώ εισαγάγετε έγκυρο email',
+  'organizations.invite-member.form.role.label': 'Ρόλος',
+  'organizations.invite-member.form.submit': 'Πρόσκληση στον οργανισμό',
+  'organizations.invite-member.success.message': 'Το μέλος προσκλήθηκε',
+  'organizations.invite-member.success.description': 'Το email προσκλήθηκε στον οργανισμό.',
+  'organizations.invite-member.error.message': 'Αποτυχία πρόσκλησης μέλους',
+
+  'organizations.invitations.title': 'Προσκλήσεις',
+  'organizations.invitations.description': 'Διαχειριστείτε τις προσκλήσεις του οργανισμού σας',
+  'organizations.invitations.list.cta': 'Πρόσκληση μέλους',
+  'organizations.invitations.list.empty.title': 'Δεν υπάρχουν εκκρεμείς προσκλήσεις',
+  'organizations.invitations.list.empty.description': 'Δεν έχετε προσκληθεί ακόμη σε οργανισμούς.',
+  'organizations.invitations.status.pending': 'Εκκρεμεί',
+  'organizations.invitations.status.accepted': 'Έγινε αποδοχή',
+  'organizations.invitations.status.rejected': 'Απορρίφθηκε',
+  'organizations.invitations.status.expired': 'Έληξε',
+  'organizations.invitations.status.cancelled': 'Ακυρώθηκε',
+  'organizations.invitations.resend': 'Επανάληψη πρόσκλησης',
+  'organizations.invitations.cancel.title': 'Ακύρωση πρόσκλησης',
+  'organizations.invitations.cancel.description':
+    'Είστε βέβαιοι ότι θέλετε να ακυρώσετε την πρόσκληση;',
+  'organizations.invitations.cancel.confirm': 'Ακύρωση πρόσκλησης',
+  'organizations.invitations.cancel.cancel': 'Ακύρωση',
+  'organizations.invitations.resend.title': 'Επανάληψη πρόσκλησης',
+  'organizations.invitations.resend.description': 'Να σταλεί ξανά email πρόσκλησης;',
+  'organizations.invitations.resend.confirm': 'Αποστολή εκ νέου',
+  'organizations.invitations.resend.cancel': 'Ακύρωση',
+
+  'invitations.list.title': 'Προσκλήσεις',
+  'invitations.list.description': 'Διαχείριση προσκλήσεων οργανισμού',
+  'invitations.list.empty.title': 'Δεν υπάρχουν εκκρεμείς προσκλήσεις',
+  'invitations.list.empty.description': 'Δεν έχετε προσκληθεί ακόμη σε οργανισμούς.',
+  'invitations.list.headers.organization': 'Οργανισμός',
+  'invitations.list.headers.status': 'Κατάσταση',
+  'invitations.list.headers.created': 'Δημιουργήθηκε',
+  'invitations.list.headers.actions': 'Ενέργειες',
+  'invitations.list.actions.accept': 'Αποδοχή',
+  'invitations.list.actions.reject': 'Απόρριψη',
+  'invitations.list.actions.accept.success.message': 'Η πρόσκληση έγινε αποδεκτή',
+  'invitations.list.actions.accept.success.description': 'Η πρόσκληση έγινε αποδεκτή.',
+  'invitations.list.actions.reject.success.message': 'Η πρόσκληση απορρίφθηκε',
+  'invitations.list.actions.reject.success.description': 'Η πρόσκληση απορρίφθηκε.',
+
+  // Documents
+
+  'documents.list.title': 'Έγγραφα',
+  'documents.list.no-documents.title': 'Δεν υπάρχουν έγγραφα',
+  'documents.list.no-documents.description':
+    'Δεν υπάρχουν ακόμη έγγραφα σε αυτόν τον οργανισμό. Ξεκινήστε ανεβάζοντας μερικά.',
+  'documents.list.no-results': 'Δεν βρέθηκαν έγγραφα',
+  'documents.list.table.headers.file-name': 'Όνομα αρχείου',
+  'documents.list.table.headers.created': 'Ημερομηνία δημιουργίας',
+  'documents.list.table.headers.deleted': 'Ημερομηνία διαγραφής',
+  'documents.list.table.headers.actions': 'Ενέργειες',
+  'documents.list.table.headers.tags': 'Ετικέτες',
+  'documents.list.search.placeholder': 'Αναζήτηση εγγράφων...',
+  'documents.list.search.total-count-with-query':
+    '{{ count }} {{ count, =1:έγγραφο, έγγραφα }} που ταιριάζουν σε αυτό το ερώτημα',
+  'documents.list.search.total-count-no-query':
+    '{{ count }} {{ count, =1:έγγραφο, έγγραφα }} συνολικά',
+  'documents.list.batch.selected-count':
+    '{{ count }} {{ count, =1:έγγραφο, έγγραφα }} {{ count, =1:επιλεγμένο, επιλεγμένα }}',
+  'documents.list.batch.clear': 'Εκκαθάριση επιλογής',
+  'documents.list.batch.tag-action': 'Ετικέτα',
+  'documents.list.batch.trash-action': 'Κάδος',
+  'documents.list.batch.error': 'Η ομαδική ενέργεια απέτυχε. Δοκιμάστε ξανά.',
+  'documents.list.batch.select-all-matching':
+    'Επιλογή και των {{ count }} που ταιριάζουν σε αυτήν την αναζήτηση',
+  'documents.list.batch.select-all':
+    'Επιλογή και των {{ count }} {{ count, =1:εγγράφου, εγγράφων }}',
+  'documents.list.batch.all-matching-selected':
+    'Επιλέχθηκαν και τα {{ count }} {{ count, =1:έγγραφο, έγγραφα }} που ταιριάζουν σε αυτήν την αναζήτηση',
+  'documents.list.batch.all-selected':
+    'Επιλέχθηκαν και τα {{ count }} {{ count, =1:έγγραφο, έγγραφα }}',
+  'documents.list.batch.trash.confirm.title': 'Μετακίνηση στον κάδο',
+  'documents.list.batch.trash.confirm.description':
+    'Μετακίνηση {{ count }} {{ count, =1:εγγράφου, εγγράφων }} στον κάδο; Μπορείτε να τα επαναφέρετε αργότερα από τον κάδο.',
+  'documents.list.batch.trash.confirm.label': 'Μετακίνηση στον κάδο',
+  'documents.list.batch.trash.confirm.cancel': 'Άκυρο',
+  'documents.list.batch.trash.success':
+    '{{ count }} {{ count, =1:έγγραφο, έγγραφα }} {{ count, =1:μετακινήθηκε, μετακινήθηκαν }} στον κάδο',
+  'documents.list.batch.tags.dialog.title': 'Ενημέρωση ετικετών',
+  'documents.list.batch.tags.dialog.description':
+    'Προσθέστε ή αφαιρέστε ετικέτες σε {{ count }} επιλεγμένα {{ count, =1:έγγραφο, έγγραφα }}.',
+  'documents.list.batch.tags.dialog.add-label': 'Ετικέτες προς προσθήκη',
+  'documents.list.batch.tags.dialog.remove-label': 'Ετικέτες προς αφαίρεση',
+  'documents.list.batch.tags.dialog.overlap-error':
+    'Μια ετικέτα δεν μπορεί να προστεθεί και να αφαιρεθεί στην ίδια ενέργεια.',
+  'documents.list.batch.tags.dialog.submit': 'Εφαρμογή',
+  'documents.list.batch.tags.dialog.cancel': 'Άκυρο',
+  'documents.list.batch.tags.success':
+    'Ενημερώθηκαν οι ετικέτες σε {{ count }} {{ count, =1:έγγραφο, έγγραφα }}',
+
+  'documents.tabs.info': 'Πληροφορίες',
+  'documents.tabs.content': 'Περιεχόμενο',
+  'documents.tabs.activity': 'Δραστηριότητα',
+  'documents.deleted.message':
+    'Αυτό το έγγραφο έχει διαγραφεί και θα αφαιρεθεί οριστικά σε {{ days }} ημέρες.',
+  'documents.actions.download.title': 'Λήψη',
+  'documents.actions.download.error': 'Αποτυχία λήψης εγγράφου',
+  'documents.actions.restore': 'Επαναφορά',
+  'documents.actions.delete': 'Διαγραφή',
+  'documents.actions.edit': 'Επεξεργασία',
+  'documents.actions.cancel': 'Ακύρωση',
+  'documents.actions.save': 'Αποθήκευση',
+  'documents.actions.saving': 'Αποθήκευση...',
+  'documents.content.alert':
+    'Το περιεχόμενο του εγγράφου εξάγεται αυτόματα κατά το ανέβασμα και χρησιμοποιείται μόνο για αναζήτηση.',
+  'documents.content.empty-placeholder':
+    'Το έγγραφο δεν έχει εξαγμένο περιεχόμενο. Μπορείτε να το προσθέσετε χειροκίνητα εδώ.',
+  'documents.info.id': 'ID',
+  'documents.info.name': 'Όνομα',
+  'documents.info.type': 'Τύπος',
+  'documents.info.size': 'Μέγεθος',
+  'documents.info.created-at': 'Ημερομηνία δημιουργίας',
+  'documents.info.updated-at': 'Ημερομηνία ενημέρωσης',
+  'documents.info.never': 'Ποτέ',
+  'documents.info.document-date': 'Ημερομηνία',
+  'documents.list.table.headers.document-date': 'Ημερομηνία',
+  'documents.info.no-date': 'Χωρίς ημερομηνία',
+  'documents.info.today': 'Σήμερα',
+  'documents.notes.label': 'Σημειώσεις',
+  'documents.notes.placeholder': 'Προσθέστε σημειώσεις για αυτό το έγγραφο',
+  'documents.notes.saving': 'Αποθήκευση',
+  'documents.notes.saved': 'Αποθηκεύτηκε',
+  'documents.notes.save-error': 'Αποτυχία αποθήκευσης σημειώσεων',
+
+  'documents.management.details': 'Λεπτομέρειες εγγράφου',
+  'documents.management.rename': 'Μετονομασία εγγράφου',
+  'documents.management.delete': 'Διαγραφή εγγράφου',
+
+  'documents.import.drop-area.title': 'Αποθέστε τα αρχεία εδώ',
+  'documents.import.drop-area.description': 'Σύρετε και αποθέστε αρχεία εδώ για να τα εισαγάγετε',
+
+  'documents.list.select.all': 'Επιλογή όλων των γραμμών σε αυτή τη σελίδα',
+  'documents.list.select.row': 'Επιλογή γραμμής',
+
+  'custom-properties.types.text': 'Κείμενο',
+  'custom-properties.types.number': 'Αριθμός',
+  'custom-properties.types.date': 'Ημερομηνία',
+  'custom-properties.types.boolean': 'Λογική τιμή',
+  'custom-properties.types.select': 'Επιλογή',
+  'custom-properties.types.multi_select': 'Πολλαπλή επιλογή',
+  'custom-properties.types.user_relation': 'Χρήστης',
+  'custom-properties.types.document_relation': 'Έγγραφο',
+
+  'custom-properties.list.title': 'Προσαρμοσμένες ιδιότητες',
+  'custom-properties.list.description':
+    'Ορίστε προσαρμοσμένα πεδία μεταδεδομένων για τα έγγραφά σας. Οι ιδιότητες μπορεί να είναι κείμενο, αριθμοί, ημερομηνίες, λογικές τιμές ή λίστες επιλογών.',
+  'custom-properties.list.create-button': 'Δημιουργία ιδιότητας',
+  'custom-properties.list.empty.title': 'Προσαρμοσμένες ιδιότητες',
+  'custom-properties.list.empty.description':
+    'Οι προσαρμοσμένες ιδιότητες σάς επιτρέπουν να προσθέτετε δομημένα μεταδεδομένα στα έγγραφά σας, όπως ημερομηνίες λήξης, ονόματα εταιρειών ή ποσά.',
+  'custom-properties.list.table.name': 'Όνομα',
+  'custom-properties.list.table.type': 'Τύπος',
+  'custom-properties.list.table.description': 'Περιγραφή',
+  'custom-properties.list.table.created': 'Δημιουργήθηκε',
+  'custom-properties.list.table.actions': 'Ενέργειες',
+  'custom-properties.list.table.no-description': 'Χωρίς περιγραφή',
+  'custom-properties.list.delete.confirm-title': 'Διαγραφή προσαρμοσμένης ιδιότητας',
+  'custom-properties.list.delete.confirm-message':
+    'Είστε βέβαιοι ότι θέλετε να διαγράψετε την προσαρμοσμένη ιδιότητα «{{ name }}»; Αυτή η ενέργεια δεν μπορεί να αναιρεθεί.',
+  'custom-properties.list.delete.confirm-button': 'Διαγραφή',
+  'custom-properties.list.delete.success': 'Η προσαρμοσμένη ιδιότητα διαγράφηκε με επιτυχία',
+  'custom-properties.list.delete.error': 'Αποτυχία διαγραφής προσαρμοσμένης ιδιότητας',
+
+  'custom-properties.create.title': 'Δημιουργία προσαρμοσμένης ιδιότητας',
+  'custom-properties.create.submit': 'Δημιουργία ιδιότητας',
+  'custom-properties.create.success': 'Η προσαρμοσμένη ιδιότητα δημιουργήθηκε με επιτυχία',
+  'custom-properties.create.error': 'Αποτυχία δημιουργίας προσαρμοσμένης ιδιότητας',
+
+  'custom-properties.update.title': 'Επεξεργασία προσαρμοσμένης ιδιότητας',
+  'custom-properties.update.submit': 'Αποθήκευση αλλαγών',
+  'custom-properties.update.success': 'Η προσαρμοσμένη ιδιότητα ενημερώθηκε με επιτυχία',
+  'custom-properties.update.error': 'Αποτυχία ενημέρωσης προσαρμοσμένης ιδιότητας',
+
+  'custom-properties.form.name.label': 'Όνομα',
+  'custom-properties.form.name.placeholder': 'π.χ. Ποσό τιμολογίου',
+  'custom-properties.form.name.required': 'Το όνομα είναι υποχρεωτικό',
+  'custom-properties.form.name.max-length': 'Το όνομα πρέπει να έχει το πολύ 255 χαρακτήρες',
+  'custom-properties.form.description.label': 'Περιγραφή',
+  'custom-properties.form.description.optional': '(προαιρετικό)',
+  'custom-properties.form.description.placeholder':
+    'Περιγράψτε για τι χρησιμοποιείται αυτή η ιδιότητα',
+  'custom-properties.form.description.max-length':
+    'Η περιγραφή πρέπει να έχει το πολύ 1000 χαρακτήρες',
+  'custom-properties.form.type.label': 'Τύπος',
+  'custom-properties.form.type.immutable':
+    'Ο τύπος ιδιότητας δεν μπορεί να αλλάξει μετά τη δημιουργία.',
+  'custom-properties.form.options.title': 'Επιλογές',
+  'custom-properties.form.options.description':
+    'Ορίστε τις διαθέσιμες επιλογές για αυτή την ιδιότητα.',
+  'custom-properties.form.options.name.placeholder': 'Όνομα επιλογής',
+  'custom-properties.form.options.name.required': 'Το όνομα επιλογής είναι υποχρεωτικό',
+  'custom-properties.form.options.name.max-length':
+    'Το όνομα επιλογής πρέπει να έχει το πολύ 255 χαρακτήρες',
+  'custom-properties.form.options.validation.required': 'Προσθέστε τουλάχιστον μία επιλογή',
+  'custom-properties.form.options.add': 'Προσθήκη επιλογής',
+  'custom-properties.form.cancel': 'Ακύρωση',
+  'custom-properties.form.save-error':
+    'Παρουσιάστηκε σφάλμα κατά την αποθήκευση του ορισμού ιδιότητας. Δοκιμάστε ξανά.',
+
+  'documents.custom-properties.section-title': 'Ιδιότητες',
+  'documents.custom-properties.no-value': 'Μη ορισμένο',
+  'documents.custom-properties.text-placeholder': 'Εισάγετε μια τιμή...',
+  'documents.custom-properties.save': 'Αποθήκευση',
+  'documents.custom-properties.clear': 'Εκκαθάριση',
+  'documents.custom-properties.document-relation-search-placeholder': 'Αναζήτηση εγγράφων...',
+  'documents.custom-properties.user-relation-manage': 'Διαχείριση χρηστών',
+  'documents.custom-properties.document-relation-manage': 'Διαχείριση εγγράφων',
+  'documents.custom-properties.no-results': 'Δεν βρέθηκαν αποτελέσματα',
+
+  'documents.rename.title': 'Μετονομασία εγγράφου',
+  'documents.rename.form.name.label': 'Όνομα',
+  'documents.rename.form.name.placeholder': 'Π.χ. Τιμολόγιο 2024',
+  'documents.rename.form.name.required': 'Παρακαλώ εισαγάγετε ένα όνομα για το έγγραφο',
+  'documents.rename.form.name.max-length': 'Το όνομα πρέπει να έχει λιγότερους από 255 χαρακτήρες',
+  'documents.rename.form.submit': 'Μετονομασία εγγράφου',
+  'documents.rename.success': 'Το έγγραφο μετονομάστηκε με επιτυχία',
+  'documents.rename.cancel': 'Ακύρωση',
+
+  'import-documents.title.error': '{{ count }} έγγραφα απέτυχαν',
+  'import-documents.title.success': '{{ count }} έγγραφα εισήχθησαν',
+  'import-documents.title.pending': '{{ count }} / {{ total }} έγγραφα εισήχθησαν',
+  'import-documents.title.none': 'Εισαγωγή εγγράφων',
+  'import-documents.no-import-in-progress': 'Δεν υπάρχει εισαγωγή σε εξέλιξη',
+
+  'documents.deleted.title': 'Διαγεγραμμένα έγγραφα',
+  'documents.deleted.empty.title': 'Δεν υπάρχουν διαγεγραμμένα έγγραφα',
+  'documents.deleted.empty.description':
+    'Δεν έχετε διαγεγραμμένα έγγραφα. Όταν διαγραφούν, παραμένουν στον κάδο για {{ days }} ημέρες.',
+  'documents.deleted.retention-notice':
+    'Τα διαγεγραμμένα έγγραφα παραμένουν στον κάδο για {{ days }} ημέρες πριν διαγραφούν οριστικά.',
+  'documents.deleted.deleted-at': 'Διαγράφηκε',
+  'documents.deleted.restoring': 'Γίνεται επαναφορά...',
+  'documents.deleted.deleting': 'Γίνεται διαγραφή...',
+
+  'documents.preview.unknown-file-type':
+    'Δεν υπάρχει διαθέσιμη προεπισκόπηση για αυτόν τον τύπο αρχείου',
+  'documents.preview.binary-file':
+    'Αυτό φαίνεται να είναι δυαδικό αρχείο και δεν μπορεί να εμφανιστεί ως κείμενο',
+
+  'documents.open-with.label': 'Άνοιγμα με',
+  'documents.open-with.pdf-viewer': 'Πρόγραμμα προβολής PDF',
+
+  'documents.pdf-viewer.loading': 'Φόρτωση PDF',
+  'documents.pdf-viewer.not-a-pdf':
+    'Αυτό το έγγραφο δεν είναι PDF και δεν μπορεί να ανοιχτεί στο πρόγραμμα προβολής PDF.',
+
+  'documents.pdf-viewer.toolbar.hide-sidebar': 'Απόκρυψη πλαϊνής στήλης',
+  'documents.pdf-viewer.toolbar.show-sidebar': 'Εμφάνιση πλαϊνής στήλης',
+  'documents.pdf-viewer.toolbar.previous-page': 'Προηγούμενη σελίδα',
+  'documents.pdf-viewer.toolbar.next-page': 'Επόμενη σελίδα',
+  'documents.pdf-viewer.toolbar.fit-width': 'Προσαρμογή πλάτους',
+  'documents.pdf-viewer.toolbar.fit-page': 'Προσαρμογή σελίδας',
+  'documents.pdf-viewer.toolbar.rotate-clockwise': 'Δεξιόστροφη περιστροφή',
+  'documents.pdf-viewer.toolbar.download': 'Λήψη',
+  'documents.pdf-viewer.toolbar.print': 'Εκτύπωση',
+
+  'documents.pdf-viewer.zoom.zoom-out': 'Σμίκρυνση',
+  'documents.pdf-viewer.zoom.zoom-in': 'Μεγέθυνση',
+  'documents.pdf-viewer.zoom.auto': 'Αυτόματο',
+  'documents.pdf-viewer.zoom.actual-size': 'Πραγματικό μέγεθος',
+  'documents.pdf-viewer.zoom.page-fit': 'Προσαρμογή σελίδας',
+  'documents.pdf-viewer.zoom.page-width': 'Πλάτος σελίδας',
+
+  'documents.pdf-viewer.more-actions.label': 'Περισσότερες ενέργειες',
+  'documents.pdf-viewer.more-actions.presentation-mode': 'Λειτουργία παρουσίασης',
+  'documents.pdf-viewer.more-actions.download': 'Λήψη',
+  'documents.pdf-viewer.more-actions.print': 'Εκτύπωση',
+  'documents.pdf-viewer.more-actions.go-to-first-page': 'Μετάβαση στην πρώτη σελίδα',
+  'documents.pdf-viewer.more-actions.go-to-last-page': 'Μετάβαση στην τελευταία σελίδα',
+  'documents.pdf-viewer.more-actions.rotate-clockwise': 'Δεξιόστροφη περιστροφή',
+  'documents.pdf-viewer.more-actions.rotate-counterclockwise': 'Αριστερόστροφη περιστροφή',
+  'documents.pdf-viewer.more-actions.page-scrolling': 'Κύλιση ανά σελίδα',
+  'documents.pdf-viewer.more-actions.vertical-scrolling': 'Κατακόρυφη κύλιση',
+  'documents.pdf-viewer.more-actions.horizontal-scrolling': 'Οριζόντια κύλιση',
+  'documents.pdf-viewer.more-actions.wrapped-scrolling': 'Αναδιπλούμενη κύλιση',
+  'documents.pdf-viewer.more-actions.no-spreads': 'Χωρίς ανάπτυγμα',
+  'documents.pdf-viewer.more-actions.odd-spreads': 'Μονά αναπτύγματα',
+  'documents.pdf-viewer.more-actions.even-spreads': 'Ζυγά αναπτύγματα',
+  'documents.pdf-viewer.more-actions.document-properties': 'Ιδιότητες εγγράφου',
+
+  'documents.pdf-viewer.properties.title': 'Ιδιότητες εγγράφου',
+  'documents.pdf-viewer.properties.na': 'Δ/Υ',
+  'documents.pdf-viewer.properties.file-name': 'Όνομα αρχείου',
+  'documents.pdf-viewer.properties.file-size': 'Μέγεθος αρχείου',
+  'documents.pdf-viewer.properties.doc-title': 'Τίτλος',
+  'documents.pdf-viewer.properties.author': 'Συγγραφέας',
+  'documents.pdf-viewer.properties.subject': 'Θέμα',
+  'documents.pdf-viewer.properties.keywords': 'Λέξεις-κλειδιά',
+  'documents.pdf-viewer.properties.creation-date': 'Ημερομηνία δημιουργίας',
+  'documents.pdf-viewer.properties.modification-date': 'Ημερομηνία τροποποίησης',
+  'documents.pdf-viewer.properties.creator': 'Δημιουργός',
+  'documents.pdf-viewer.properties.pdf-producer': 'Παραγωγός PDF',
+  'documents.pdf-viewer.properties.pdf-version': 'Έκδοση PDF',
+  'documents.pdf-viewer.properties.page-count': 'Αριθμός σελίδων',
+  'documents.pdf-viewer.properties.page-size': 'Μέγεθος σελίδας',
+  'documents.pdf-viewer.properties.fast-web-view': 'Γρήγορη προβολή ιστού',
+  'documents.pdf-viewer.properties.yes': 'Ναι',
+  'documents.pdf-viewer.properties.no': 'Όχι',
+
+  'documents.pdf-viewer.sidebar.page-thumbnails': 'Μικρογραφίες σελίδων',
+  'documents.pdf-viewer.sidebar.document-outline': 'Δομή εγγράφου',
+  'documents.pdf-viewer.sidebar.attachments': 'Συνημμένα',
+
+  'documents.pdf-viewer.thumbnails.page-alt': 'Σελίδα {{ page }}',
+  'document-share-links.share-action': 'Κοινή χρήση',
+  'document-share-links.copy': 'Αντιγραφή συνδέσμου',
+  'document-share-links.copied': 'Ο σύνδεσμος αντιγράφηκε στο πρόχειρο',
+  'document-share-links.copy-error': 'Αποτυχία αντιγραφής του συνδέσμου',
+  'document-share-links.enabled': 'Ο σύνδεσμος κοινής χρήσης ενεργοποιήθηκε',
+  'document-share-links.disabled': 'Ο σύνδεσμος κοινής χρήσης απενεργοποιήθηκε',
+  'document-share-links.deleted': 'Ο σύνδεσμος κοινής χρήσης διαγράφηκε',
+  'document-share-links.password-protected': 'Προστασία με κωδικό',
+  'document-share-links.no-password': 'Χωρίς κωδικό',
+  'document-share-links.never-expires': 'Δεν λήγει ποτέ',
+  'document-share-links.expires-on': 'Λήγει στις {{ date }}',
+  'document-share-links.list.title': 'Σύνδεσμοι κοινής χρήσης',
+  'document-share-links.list.description':
+    'Διαχειριστείτε τους συνδέσμους κοινής χρήσης για το "{{ name }}".',
+  'document-share-links.list.create-new': 'Δημιουργία νέου συνδέσμου',
+  'document-share-links.create.title': 'Δημιουργία συνδέσμου κοινής χρήσης',
+  'document-share-links.create.description':
+    'Δημιουργήστε έναν νέο σύνδεσμο κοινής χρήσης για αυτό το έγγραφο.',
+  'document-share-links.create.password.toggle': 'Απαίτηση κωδικού πρόσβασης',
+  'document-share-links.create.password.hint':
+    'Προαιρετικό, οι παραλήπτες θα πρέπει να τον εισαγάγουν πριν την πρόσβαση.',
+  'document-share-links.create.password.placeholder': 'Εισαγάγετε ή δημιουργήστε έναν κωδικό',
+  'document-share-links.create.password.generate': 'Δημιουργία',
+  'document-share-links.create.expiration.toggle': 'Ορισμός ημερομηνίας λήξης',
+  'document-share-links.create.expiration.hint':
+    'Προαιρετικό, ο σύνδεσμος θα λήξει αυτόματα μετά από αυτήν την ημερομηνία.',
+  'document-share-links.create.expiration.24h': '24 ώρες',
+  'document-share-links.create.expiration.7d': '7 ημέρες',
+  'document-share-links.create.expiration.30d': '30 ημέρες',
+  'document-share-links.create.expiration.custom': 'Προσαρμοσμένο',
+  'document-share-links.create.expiration.pick-date': 'Επιλέξτε ημερομηνία',
+  'document-share-links.create.cancel': 'Άκυρο',
+  'document-share-links.create.submit': 'Δημιουργία συνδέσμου',
+  'document-share-links.create.error': 'Αποτυχία δημιουργίας του συνδέσμου κοινής χρήσης',
+  'document-share-links.created.title': 'Ο σύνδεσμος κοινής χρήσης δημιουργήθηκε',
+  'document-share-links.created.description':
+    'Ο σύνδεσμος κοινής χρήσης είναι έτοιμος — αντιγράψτε τον και μοιραστείτε τον.',
+  'document-share-links.created.done': 'Έγινε',
+  'document-share-links.actions.menu': 'Ενέργειες',
+  'document-share-links.actions.open-document': 'Άνοιγμα εγγράφου',
+  'document-share-links.actions.enable': 'Ενεργοποίηση συνδέσμου',
+  'document-share-links.actions.disable': 'Απενεργοποίηση συνδέσμου',
+  'document-share-links.actions.stop-sharing': 'Διακοπή κοινής χρήσης',
+  'document-share-links.delete.confirm.title': 'Διαγραφή συνδέσμου κοινής χρήσης',
+  'document-share-links.delete.confirm.message':
+    'Όποιος έχει αυτόν τον σύνδεσμο θα χάσει αμέσως την πρόσβαση. Αυτό δεν μπορεί να αναιρεθεί.',
+  'document-share-links.delete.confirm.confirm-button': 'Διαγραφή συνδέσμου',
+  'document-share-links.delete.confirm.cancel-button': 'Άκυρο',
+  'document-share-links.management.title': 'Σύνδεσμοι κοινής χρήσης',
+  'document-share-links.management.description':
+    'Διαχειριστείτε κάθε σύνδεσμο κοινής χρήσης που δημιουργήθηκε σε αυτόν τον οργανισμό.',
+  'document-share-links.management.empty.title': 'Δεν υπάρχουν σύνδεσμοι κοινής χρήσης',
+  'document-share-links.management.empty.description':
+    'Οι σύνδεσμοι κοινής χρήσης που δημιουργούνται για έγγραφα αυτού του οργανισμού θα εμφανίζονται εδώ.',
+  'document-share-links.management.table.document': 'Έγγραφο',
+  'document-share-links.management.table.link': 'Σύνδεσμος',
+  'document-share-links.management.table.status': 'Κατάσταση',
+  'document-share-links.management.table.security': 'Ασφάλεια',
+  'document-share-links.management.table.expiry': 'Λήξη',
+  'document-share-links.management.table.last-accessed': 'Τελευταία πρόσβαση',
+  'document-share-links.management.table.actions': 'Ενέργειες',
+  'document-share-links.management.status.expired': 'Έληξε',
+  'document-share-links.management.status.enabled': 'Ενεργό',
+  'document-share-links.management.status.disabled': 'Ανενεργό',
+  'document-share-links.management.status.trashed': 'Έγγραφο στον κάδο',
+  'document-share-links.management.status.trashed-hint':
+    'Το κοινόχρηστο έγγραφο βρίσκεται στον κάδο, οπότε αυτός ο σύνδεσμος είναι ανενεργός μέχρι να επαναφερθεί το έγγραφο.',
+  'document-share-links.management.security.password': 'Κωδικός',
+  'document-share-links.management.security.public': 'Δημόσιο',
+  'document-share-links.management.never': 'Ποτέ',
+  'document-share-links.public.download': 'Λήψη',
+  'document-share-links.public.download-error': 'Αποτυχία λήψης του αρχείου',
+  'document-share-links.public.password.title': 'Απαιτείται κωδικός',
+  'document-share-links.public.password.description':
+    'Αυτό το έγγραφο προστατεύεται. Εισαγάγετε τον κωδικό για να αποκτήσετε πρόσβαση.',
+  'document-share-links.public.password.label': 'Κωδικός',
+  'document-share-links.public.password.placeholder': 'Εισαγάγετε τον κωδικό',
+  'document-share-links.public.password.submit': 'Ξεκλείδωμα',
+  'document-share-links.public.password.invalid': 'Λανθασμένος κωδικός',
+  'document-share-links.public.password.too-many-attempts':
+    'Πάρα πολλές προσπάθειες. Δοκιμάστε ξανά αργότερα.',
+  'document-share-links.public.gone.title': 'Ο σύνδεσμος δεν είναι διαθέσιμος',
+  'document-share-links.public.gone.description':
+    'Αυτός ο σύνδεσμος κοινής χρήσης έχει λήξει ή έχει απενεργοποιηθεί.',
+  'document-share-links.public.not-found.title': 'Ο σύνδεσμος δεν βρέθηκε',
+  'document-share-links.public.not-found.description':
+    'Αυτός ο σύνδεσμος κοινής χρήσης δεν υπάρχει.',
+
+  'trash.delete-all.button': 'Διαγραφή όλων',
+  'trash.delete-all.confirm.title': 'Οριστική διαγραφή όλων των εγγράφων;',
+  'trash.delete-all.confirm.description':
+    'Είστε βέβαιοι ότι θέλετε να τα διαγράψετε οριστικά; Η ενέργεια δεν μπορεί να αναιρεθεί.',
+  'trash.delete-all.confirm.label': 'Διαγραφή',
+  'trash.delete-all.confirm.cancel': 'Ακύρωση',
+  'trash.delete.button': 'Διαγραφή',
+  'trash.delete.confirm.title': 'Οριστική διαγραφή εγγράφου;',
+  'trash.delete.confirm.description':
+    'Είστε βέβαιοι ότι θέλετε να διαγράψετε οριστικά αυτό το έγγραφο;',
+  'trash.delete.confirm.label': 'Διαγραφή',
+  'trash.delete.confirm.cancel': 'Ακύρωση',
+  'trash.deleted.success.title': 'Το έγγραφο διαγράφηκε',
+  'trash.deleted.success.description': 'Το έγγραφο έχει διαγραφεί οριστικά.',
+
+  'activity.document.created': 'Το έγγραφο δημιουργήθηκε',
+  'activity.document.updated.single': 'Το πεδίο {{ field }} ενημερώθηκε',
+  'activity.document.updated.multiple': 'Τα πεδία {{ fields }} ενημερώθηκαν',
+  'activity.document.updated': 'Το έγγραφο ενημερώθηκε',
+  'activity.document.deleted': 'Το έγγραφο διαγράφηκε',
+  'activity.document.restored': 'Το έγγραφο επαναφέρθηκε',
+  'activity.document.tagged': 'Προστέθηκε η ετικέτα {{ tag }}',
+  'activity.document.untagged': 'Αφαιρέθηκε η ετικέτα {{ tag }}',
+
+  'activity.document.user.name': 'από {{ name }}',
+
+  'activity.load-more': 'Φόρτωση περισσότερων',
+  'activity.no-more-activities': 'Δεν υπάρχουν άλλες δραστηριότητες για αυτό το έγγραφο',
+
+  // Tags
+
+  'tags.no-tags.title': 'Δεν υπάρχουν ετικέτες ακόμη',
+  'tags.no-tags.description':
+    'Αυτός ο οργανισμός δεν έχει ακόμη ετικέτες. Οι ετικέτες βοηθούν στην ταξινόμηση των εγγράφων.',
+  'tags.no-tags.create-tag': 'Δημιουργία ετικέτας',
+
+  'tags.title': 'Ετικέτες εγγράφων',
+  'tags.description': 'Οι ετικέτες χρησιμοποιούνται για ταξινόμηση και οργάνωση εγγράφων.',
+  'tags.create': 'Δημιουργία ετικέτας',
+  'tags.update': 'Ενημέρωση ετικέτας',
+  'tags.delete': 'Διαγραφή ετικέτας',
+  'tags.delete.confirm.title': 'Διαγραφή ετικέτας',
+  'tags.delete.confirm.message':
+    'Είστε βέβαιοι ότι θέλετε να διαγράψετε την ετικέτα "{{ name }}"; Θα αφαιρεθεί από όλα τα έγγραφα.',
+  'tags.delete.confirm.confirm-button': 'Διαγραφή',
+  'tags.delete.confirm.cancel-button': 'Ακύρωση',
+  'tags.delete.success': 'Η ετικέτα διαγράφηκε',
+  'tags.create.success': 'Η ετικέτα "{{ name }}" δημιουργήθηκε με επιτυχία.',
+  'tags.update.success': 'Η ετικέτα "{{ name }}" ενημερώθηκε με επιτυχία.',
+  'tags.form.name.label': 'Όνομα',
+  'tags.form.name.placeholder': 'Π.χ. Συμβόλαια',
+  'tags.form.name.required': 'Παρακαλώ εισαγάγετε όνομα ετικέτας',
+  'tags.form.name.max-length': 'Το όνομα πρέπει να έχει λιγότερους από 64 χαρακτήρες',
+  'tags.form.color.label': 'Χρώμα',
+  'tags.form.color.required': 'Παρακαλώ εισαγάγετε χρώμα',
+  'tags.form.color.invalid': 'Ο κωδικός χρώματος δεν είναι σωστός',
+  'tags.form.description.label': 'Περιγραφή',
+  'tags.form.description.optional': '(προαιρετικό)',
+  'tags.form.description.placeholder': 'Π.χ. Όλα τα συμβόλαια της εταιρείας',
+  'tags.form.description.max-length': 'Η περιγραφή πρέπει να έχει λιγότερους από 256 χαρακτήρες',
+  'tags.form.no-description': 'Χωρίς περιγραφή',
+  'tags.table.headers.tag': 'Ετικέτα',
+  'tags.table.headers.description': 'Περιγραφή',
+  'tags.table.headers.documents': 'Έγγραφα',
+  'tags.table.headers.created': 'Δημιουργήθηκε',
+  'tags.table.headers.actions': 'Ενέργειες',
+  'tags.picker.search-placeholder': 'Αναζήτηση ετικετών...',
+  'tags.picker.filter-placeholder': 'Φιλτράρισμα ετικετών...',
+  'tags.picker.create-new-with-name': 'Δημιουργία νέας ετικέτας "{{ name }}"',
+  'tags.picker.create-new': 'Δημιουργία νέας ετικέτας',
+  'document-views.create': 'Δημιουργία προβολής',
+  'document-views.save-as-view': 'Αποθήκευση ερωτήματος ως προβολή',
+  'document-views.update': 'Ενημέρωση προβολής',
+  'document-views.delete': 'Διαγραφή προβολής',
+  'document-views.delete.confirm.title': 'Διαγραφή προβολής',
+  'document-views.delete.confirm.message':
+    'Είστε βέβαιοι ότι θέλετε να διαγράψετε αυτήν την προβολή;',
+  'document-views.delete.confirm.confirm-button': 'Διαγραφή',
+  'document-views.delete.confirm.cancel-button': 'Άκυρο',
+  'document-views.delete.success': 'Η προβολή διαγράφηκε με επιτυχία',
+  'document-views.create.success': 'Η προβολή "{{ name }}" δημιουργήθηκε με επιτυχία.',
+  'document-views.update.success': 'Η προβολή "{{ name }}" ενημερώθηκε με επιτυχία.',
+  'document-views.form.name.label': 'Όνομα',
+  'document-views.form.name.placeholder': 'Π.χ. Εισερχόμενα',
+  'document-views.form.name.required': 'Εισαγάγετε ένα όνομα προβολής',
+  'document-views.form.name.max-length':
+    'Το όνομα προβολής πρέπει να είναι μικρότερο από 100 χαρακτήρες',
+  'document-views.form.query.label': 'Ερώτημα',
+  'document-views.form.query.placeholder': 'Π.χ. tag:inbox AND -tag:archived',
+  'document-views.form.query.required': 'Εισαγάγετε ένα ερώτημα',
+  'document-views.form.query.max-length': 'Το ερώτημα πρέπει να είναι μικρότερο από 500 χαρακτήρες',
+  'document-views.form.query.hint':
+    'Χρησιμοποιήστε την ίδια σύνταξη με τη γραμμή αναζήτησης εγγράφων. Π.χ. tag:inbox, has:tags, before:2024-01-01',
+  'document-views.form.description.label': 'Περιγραφή',
+  'document-views.form.description.optional': '(προαιρετικό)',
+  'document-views.form.description.placeholder': 'Π.χ. Έγγραφα που περιμένουν επεξεργασία',
+  'document-views.form.description.max-length':
+    'Η περιγραφή πρέπει να είναι μικρότερη από 256 χαρακτήρες',
+  'document-views.actions.menu': 'Ενέργειες προβολής',
+  'document-views.view.no-documents':
+    'Κανένα έγγραφο δεν ταιριάζει με το ερώτημα αυτής της προβολής.',
+  'document-views.view.not-found': 'Η προβολή δεν βρέθηκε.',
+  'api-errors.document_views.already_exists':
+    'Υπάρχει ήδη μια προβολή με αυτό το όνομα για αυτόν τον οργανισμό',
+  'api-errors.document_views.not_found': 'Η προβολή δεν βρέθηκε',
+
+  // Tagging rules
+
+  'tagging-rules.field.name': 'όνομα εγγράφου',
+  'tagging-rules.field.content': 'περιεχόμενο εγγράφου',
+  'tagging-rules.operator.equals': 'είναι ίσο με',
+  'tagging-rules.operator.not-equals': 'δεν είναι ίσο με',
+  'tagging-rules.operator.contains': 'περιέχει',
+  'tagging-rules.operator.not-contains': 'δεν περιέχει',
+  'tagging-rules.operator.starts-with': 'ξεκινά με',
+  'tagging-rules.operator.ends-with': 'τελειώνει με',
+  'tagging-rules.list.title': 'Κανόνες ετικετοποίησης',
+  'tagging-rules.list.description':
+    'Διαχειριστείτε τους κανόνες ετικετοποίησης που εφαρμόζουν αυτόματα ετικέτες σε έγγραφα βάσει συνθηκών.',
+  'tagging-rules.list.demo-warning':
+    'Σημείωση: Αυτό είναι demo περιβάλλον (χωρίς server). Οι κανόνες δεν θα εφαρμοστούν αυτόματα.',
+  'tagging-rules.list.no-tagging-rules.title': 'Δεν υπάρχουν κανόνες',
+  'tagging-rules.list.no-tagging-rules.description':
+    'Δημιουργήστε έναν κανόνα για αυτόματη ετικετοποίηση εγγράφων.',
+  'tagging-rules.list.no-tagging-rules.create-tagging-rule': 'Δημιουργία κανόνα',
+  'tagging-rules.list.card.no-conditions': 'Χωρίς συνθήκες',
+  'tagging-rules.list.card.one-condition': '1 συνθήκη',
+  'tagging-rules.list.card.conditions': '{{ count }} συνθήκες',
+  'tagging-rules.list.card.delete': 'Διαγραφή κανόνα',
+  'tagging-rules.list.card.edit': 'Επεξεργασία κανόνα',
+  'tagging-rules.create.title': 'Δημιουργία κανόνα',
+  'tagging-rules.create.success': 'Ο κανόνας δημιουργήθηκε με επιτυχία',
+  'tagging-rules.create.error': 'Η δημιουργία του κανόνα απέτυχε',
+  'tagging-rules.create.submit': 'Δημιουργία κανόνα',
+  'tagging-rules.form.name.label': 'Όνομα',
+  'tagging-rules.form.name.placeholder': 'Π.χ. Ετικετοποίηση τιμολογίων',
+  'tagging-rules.form.name.min-length': 'Παρακαλώ εισαγάγετε όνομα κανόνα',
+  'tagging-rules.form.name.max-length': 'Το όνομα πρέπει να έχει λιγότερους από 64 χαρακτήρες',
+  'tagging-rules.form.description.label': 'Περιγραφή',
+  'tagging-rules.form.description.placeholder':
+    'Π.χ. Ετικετοποίηση εγγράφων που περιέχουν "invoice" στο όνομα',
+  'tagging-rules.form.description.max-length':
+    'Η περιγραφή πρέπει να έχει λιγότερους από 256 χαρακτήρες',
+  'tagging-rules.form.conditions.label': 'Συνθήκες',
+  'tagging-rules.form.conditions.description':
+    'Καθορίστε τις συνθήκες που πρέπει να πληρούνται ώστε να εφαρμοστούν οι ετικέτες.',
+  'tagging-rules.form.conditions.add-condition': 'Προσθήκη συνθήκης',
+  'tagging-rules.form.conditions.connector.when': 'Όταν',
+  'tagging-rules.form.conditions.connector.and': 'και',
+  'tagging-rules.form.conditions.connector.or': 'ή',
+  'tagging-rules.condition-match-mode.all': 'Πρέπει να ισχύουν όλες οι συνθήκες',
+  'tagging-rules.condition-match-mode.any': 'Πρέπει να ισχύει οποιαδήποτε συνθήκη',
+  'tagging-rules.form.conditions.no-conditions.title': 'Χωρίς συνθήκες',
+  'tagging-rules.form.conditions.no-conditions.description':
+    'Δεν προσθέσατε συνθήκες. Ο κανόνας θα εφαρμοστεί σε όλα τα έγγραφα.',
+  'tagging-rules.form.conditions.no-conditions.confirm': 'Εφαρμογή κανόνα χωρίς συνθήκες',
+  'tagging-rules.form.conditions.no-conditions.cancel': 'Ακύρωση',
+  'tagging-rules.form.conditions.value.placeholder': 'Π.χ. invoice',
+  'tagging-rules.form.conditions.value.min-length': 'Παρακαλώ εισαγάγετε μια τιμή συνθήκης',
+  'tagging-rules.form.tags.label': 'Ετικέτες',
+  'tagging-rules.form.tags.description':
+    'Επιλέξτε τις ετικέτες που θα εφαρμοστούν στα έγγραφα που ταιριάζουν',
+  'tagging-rules.form.tags.min-length': 'Απαιτείται τουλάχιστον μία ετικέτα',
+  'tagging-rules.form.tags.add-tag': 'Δημιουργία ετικέτας',
+  'tagging-rules.update.title': 'Ενημέρωση κανόνα',
+  'tagging-rules.update.error': 'Η ενημέρωση του κανόνα απέτυχε',
+  'tagging-rules.update.submit': 'Ενημέρωση κανόνα',
+  'tagging-rules.update.cancel': 'Ακύρωση',
+  'tagging-rules.apply.button': 'Εφαρμογή σε υπάρχοντα έγγραφα',
+  'tagging-rules.apply.confirm.title': 'Να εφαρμοστεί ο κανόνας στα υπάρχοντα έγγραφα;',
+  'tagging-rules.apply.confirm.description':
+    'Θα γίνει έλεγχος σε όλα τα υπάρχοντα έγγραφα και θα εφαρμοστούν οι κατάλληλες ετικέτες στο παρασκήνιο.',
+  'tagging-rules.apply.confirm.button': 'Εφαρμογή κανόνα',
+  'tagging-rules.apply.success': 'Η εφαρμογή του κανόνα ξεκίνησε στο παρασκήνιο',
+  'tagging-rules.apply.error': 'Αποτυχία έναρξης εφαρμογής κανόνα',
+  'tagging-rules.apply.processing': 'Γίνεται έναρξη...',
+
+  // Intake emails
+
+  'intake-emails.title': 'Email εισαγωγής',
+  'intake-emails.description':
+    'Τα email εισαγωγής χρησιμοποιούνται για αυτόματη προσθήκη συνημμένων στο Papra.',
+  'intake-emails.disabled.title': 'Τα email εισαγωγής είναι απενεργοποιημένα',
+  'intake-emails.disabled.description':
+    'Παρακαλώ επικοινωνήστε με τον διαχειριστή. Δείτε τα {{ documentation }} για περισσότερες πληροφορίες.',
+  'intake-emails.disabled.documentation': 'τεκμηρίωση',
+  'intake-emails.info':
+    'Μόνο ενεργοποιημένα email από επιτρεπόμενες διευθύνσεις θα υποβληθούν σε επεξεργασία.',
+  'intake-emails.empty.title': 'Δεν υπάρχουν email εισαγωγής',
+  'intake-emails.empty.description': 'Δημιουργήστε μια νέα διεύθυνση εισαγωγής.',
+  'intake-emails.empty.generate': 'Δημιουργία email εισαγωγής',
+  'intake-emails.count': '{{ count }} email εισαγωγής{{ plural }} για αυτόν τον οργανισμό',
+  'intake-emails.new': 'Νέο email εισαγωγής',
+  'intake-emails.disabled-label': '(Ανενεργό)',
+  'intake-emails.no-origins': 'Δεν υπάρχουν επιτρεπόμενες διευθύνσεις αποστολής',
+  'intake-emails.allowed-origins': 'Επιτρέπεται από {{ count }} διεύθυνση{{ plural }}',
+  'intake-emails.actions.enable': 'Ενεργοποίηση',
+  'intake-emails.actions.disable': 'Απενεργοποίηση',
+  'intake-emails.actions.manage-origins': 'Διαχείριση επιτρεπόμενων διευθύνσεων',
+  'intake-emails.actions.delete': 'Διαγραφή',
+  'intake-emails.delete.confirm.title': 'Διαγραφή email εισαγωγής;',
+  'intake-emails.delete.confirm.message':
+    'Είστε βέβαιοι ότι θέλετε να το διαγράψετε; Η ενέργεια δεν αναιρείται.',
+  'intake-emails.delete.confirm.confirm-button': 'Διαγραφή email εισαγωγής',
+  'intake-emails.delete.confirm.cancel-button': 'Ακύρωση',
+  'intake-emails.delete.success': 'Το email εισαγωγής διαγράφηκε',
+  'intake-emails.create.success': 'Το email εισαγωγής δημιουργήθηκε',
+  'intake-emails.update.success.enabled': 'Το email εισαγωγής ενεργοποιήθηκε',
+  'intake-emails.update.success.disabled': 'Το email εισαγωγής απενεργοποιήθηκε',
+  'intake-emails.allowed-origins.title': 'Επιτρεπόμενες διευθύνσεις',
+  'intake-emails.allowed-origins.description':
+    'Μόνο email που αποστέλλονται στο {{ email }} από αυτές τις διευθύνσεις θα υποβληθούν σε επεξεργασία.',
+  'intake-emails.allowed-origins.add.label': 'Προσθήκη επιτρεπόμενης διεύθυνσης',
+  'intake-emails.allowed-origins.add.placeholder': 'Π.χ. ada@papra.app',
+  'intake-emails.allowed-origins.add.button': 'Προσθήκη',
+  'intake-emails.allowed-origins.delete.label': 'Διαγραφή επιτρεπόμενης διεύθυνσης',
+  'intake-emails.actions.more': 'Περισσότερες ενέργειες',
+  'intake-emails.allowed-origins.add.error.exists': 'Αυτή η διεύθυνση υπάρχει ήδη',
+
+  // API keys
+
+  'api-keys.permissions.select-all': 'Επιλογή όλων',
+  'api-keys.permissions.deselect-all': 'Αποεπιλογή όλων',
+  'api-keys.permissions.organizations.title': 'Οργανισμοί',
+  'api-keys.permissions.organizations.organizations:create': 'Δημιουργία οργανισμών',
+  'api-keys.permissions.organizations.organizations:read': 'Προβολή οργανισμών',
+  'api-keys.permissions.organizations.organizations:update': 'Ενημέρωση οργανισμών',
+  'api-keys.permissions.organizations.organizations:delete': 'Διαγραφή οργανισμών',
+  'api-keys.permissions.documents.title': 'Έγγραφα',
+  'api-keys.permissions.documents.documents:create': 'Δημιουργία εγγράφων',
+  'api-keys.permissions.documents.documents:read': 'Προβολή εγγράφων',
+  'api-keys.permissions.documents.documents:update': 'Ενημέρωση εγγράφων',
+  'api-keys.permissions.documents.documents:delete': 'Διαγραφή εγγράφων',
+  'api-keys.permissions.tags.title': 'Ετικέτες',
+  'api-keys.permissions.tags.tags:create': 'Δημιουργία ετικετών',
+  'api-keys.permissions.tags.tags:read': 'Προβολή ετικετών',
+  'api-keys.permissions.tags.tags:update': 'Ενημέρωση ετικετών',
+  'api-keys.permissions.tags.tags:delete': 'Διαγραφή ετικετών',
+  'api-keys.permissions.custom-properties.title': 'Προσαρμοσμένες ιδιότητες',
+  'api-keys.permissions.custom-properties.custom-properties:create':
+    'Δημιουργία προσαρμοσμένων ιδιοτήτων',
+  'api-keys.permissions.custom-properties.custom-properties:read':
+    'Ανάγνωση προσαρμοσμένων ιδιοτήτων',
+  'api-keys.permissions.custom-properties.custom-properties:update':
+    'Ενημέρωση προσαρμοσμένων ιδιοτήτων',
+  'api-keys.permissions.custom-properties.custom-properties:delete':
+    'Διαγραφή προσαρμοσμένων ιδιοτήτων',
+  'api-keys.create.title': 'Δημιουργία API key',
+  'api-keys.create.description': 'Δημιουργήστε νέο API key για πρόσβαση στο Papra API.',
+  'api-keys.create.success': 'Το API key δημιουργήθηκε με επιτυχία.',
+  'api-keys.create.back': 'Πίσω στα API keys',
+  'api-keys.create.form.name.label': 'Όνομα',
+  'api-keys.create.form.name.placeholder': 'Π.χ. Το API κλειδί μου',
+  'api-keys.create.form.name.required': 'Παρακαλώ εισαγάγετε όνομα',
+  'api-keys.create.form.permissions.label': 'Δικαιώματα',
+  'api-keys.create.form.permissions.required': 'Παρακαλώ επιλέξτε τουλάχιστον ένα δικαίωμα',
+  'api-keys.create.form.submit': 'Δημιουργία API key',
+  'api-keys.create.created.title': 'API key δημιουργήθηκε',
+  'api-keys.create.created.description':
+    'Αποθηκεύστε το σε ασφαλές σημείο — δεν θα εμφανιστεί ξανά.',
+  'api-keys.list.title': 'API keys',
+  'api-keys.list.description': 'Διαχειριστείτε τα API keys σας.',
+  'api-keys.list.create': 'Δημιουργία API key',
+  'api-keys.list.empty.title': 'Δεν υπάρχουν API keys',
+  'api-keys.list.empty.description': 'Δημιουργήστε ένα API key για πρόσβαση στο API.',
+  'api-keys.list.card.created': 'Δημιουργήθηκε',
+  'api-keys.delete.success': 'Το API key διαγράφηκε επιτυχώς',
+  'api-keys.delete.confirm.title': 'Διαγραφή API key',
+  'api-keys.delete.confirm.message':
+    'Είστε βέβαιοι ότι θέλετε να το διαγράψετε; Η ενέργεια δεν αναιρείται.',
+  'api-keys.delete.confirm.confirm-button': 'Διαγραφή',
+  'api-keys.delete.confirm.cancel-button': 'Ακύρωση',
+
+  // Webhooks
+
+  'webhooks.list.title': 'Webhooks',
+  'webhooks.list.description': 'Διαχειριστείτε τα webhooks του οργανισμού σας',
+  'webhooks.list.empty.title': 'Δεν υπάρχουν webhooks',
+  'webhooks.list.empty.description': 'Δημιουργήστε ένα webhook για να λαμβάνετε συμβάντα',
+  'webhooks.list.create': 'Δημιουργία webhook',
+  'webhooks.list.card.last-triggered': 'Τελευταία ενεργοποίηση',
+  'webhooks.list.card.never': 'Ποτέ',
+  'webhooks.list.card.created': 'Δημιουργήθηκε',
+  'webhooks.create.title': 'Δημιουργία webhook',
+  'webhooks.create.description': 'Δημιουργήστε νέο webhook για λήψη συμβάντων',
+  'webhooks.create.success': 'Το webhook δημιουργήθηκε επιτυχώς',
+  'webhooks.create.back': 'Πίσω',
+  'webhooks.create.form.submit': 'Δημιουργία webhook',
+  'webhooks.create.form.name.label': 'Όνομα webhook',
+  'webhooks.create.form.name.placeholder': 'Εισαγάγετε όνομα',
+  'webhooks.create.form.name.required': 'Το όνομα είναι υποχρεωτικό',
+  'webhooks.create.form.name.max-length': 'Το όνομα πρέπει να έχει το πολύ 128 χαρακτήρες',
+  'webhooks.create.form.url.label': 'URL Webhook',
+  'webhooks.create.form.url.placeholder': 'Εισαγάγετε URL',
+  'webhooks.create.form.url.required': 'Το URL είναι υποχρεωτικό',
+  'webhooks.create.form.url.invalid': 'Το URL δεν είναι έγκυρο',
+  'webhooks.create.form.secret.label': 'Μυστικό',
+  'webhooks.create.form.secret.placeholder': 'Εισαγάγετε μυστικό',
+  'webhooks.create.form.events.label': 'Συμβάντα',
+  'webhooks.create.form.events.required': 'Απαιτείται τουλάχιστον ένα συμβάν',
+  'webhooks.update.title': 'Επεξεργασία webhook',
+  'webhooks.update.description': 'Ενημερώστε τις λεπτομέρειες του webhook',
+  'webhooks.update.success': 'Το webhook ενημερώθηκε επιτυχώς',
+  'webhooks.update.submit': 'Ενημέρωση webhook',
+  'webhooks.update.cancel': 'Ακύρωση',
+  'webhooks.update.form.secret.placeholder': 'Εισαγάγετε νέο μυστικό',
+  'webhooks.update.form.secret.placeholder-redacted': '[Κρυμμένο μυστικό]',
+  'webhooks.update.form.rotate-secret.button': 'Ανανέωση μυστικού',
+  'webhooks.delete.success': 'Το webhook διαγράφηκε',
+  'webhooks.delete.confirm.title': 'Διαγραφή webhook',
+  'webhooks.delete.confirm.message': 'Είστε βέβαιοι ότι θέλετε να το διαγράψετε;',
+  'webhooks.delete.confirm.confirm-button': 'Διαγραφή',
+  'webhooks.delete.confirm.cancel-button': 'Ακύρωση',
+
+  'webhooks.events.documents.title': 'Συμβάντα εγγράφων',
+  'webhooks.events.documents.document:created.description': 'Το έγγραφο δημιουργήθηκε',
+  'webhooks.events.documents.document:deleted.description': 'Το έγγραφο διαγράφηκε',
+  'webhooks.events.documents.document:updated.description': 'Το έγγραφο ενημερώθηκε',
+  'webhooks.events.documents.document:tag:added.description': 'Προστέθηκε ετικέτα',
+  'webhooks.events.documents.document:tag:removed.description': 'Αφαιρέθηκε ετικέτα',
+
+  // Navigation
+
+  'layout.menu.home': 'Αρχική',
+  'layout.menu.documents': 'Έγγραφα',
+  'layout.menu.tags': 'Ετικέτες',
+  'layout.menu.custom-properties': 'Προσαρμοσμένες ιδιότητες',
+  'layout.menu.tagging-rules': 'Κανόνες ετικετοποίησης',
+  'layout.menu.share-links': 'Σύνδεσμοι κοινής χρήσης',
+  'layout.menu.deleted-documents': 'Διαγεγραμμένα έγγραφα',
+  'layout.menu.organization-settings': 'Ρυθμίσεις',
+  'layout.menu.api-keys': 'API keys',
+  'layout.menu.settings': 'Ρυθμίσεις',
+  'layout.menu.account': 'Λογαριασμός',
+  'layout.menu.general-settings': 'Γενικές ρυθμίσεις',
+  'layout.menu.usage': 'Χρήση',
+  'layout.menu.intake-emails': 'Email εισαγωγής',
+  'layout.menu.webhooks': 'Webhooks',
+  'layout.menu.members': 'Μέλη',
+  'layout.menu.document-views': 'Προβολές',
+  'layout.menu.invitations': 'Προσκλήσεις',
+  'layout.menu.admin': 'Διαχείριση',
+
+  'layout.upgrade-cta.title': 'Χρειάζεστε περισσότερο χώρο;',
+  'layout.upgrade-cta.description': 'Αποκτήστε 10x περισσότερο χώρο + συνεργασία ομάδας',
+  'layout.upgrade-cta.button': 'Αναβάθμιση τώρα',
+
+  'layout.theme.light': 'Φωτεινό θέμα',
+  'layout.theme.dark': 'Σκούρο θέμα',
+  'layout.theme.system': 'Θέμα συστήματος',
+
+  'layout.theme-switcher.label': 'Επιλογέας θέματος',
+  'layout.language-switcher.label': 'Επιλογέας γλώσσας',
+
+  'layout.search.placeholder': 'Γρήγορη αναζήτηση',
+  'layout.menu.import-document': 'Εισαγωγή εγγράφου',
+
+  'user-menu.trigger.label': 'Μενού χρήστη',
+  'user-menu.account-settings': 'Ρυθμίσεις λογαριασμού',
+  'user-menu.api-keys': 'API keys',
+  'user-menu.invitations': 'Προσκλήσεις',
+  'user-menu.language': 'Γλώσσα',
+  'user-menu.theme': 'Θέμα',
+  'user-menu.about': 'Σχετικά με το Papra',
+  'user-menu.logout': 'Αποσύνδεση',
+
+  // Command palette
+
+  'command-palette.search.placeholder': 'Αναζήτηση εντολών ή εγγράφων',
+  'command-palette.no-results': 'Δεν βρέθηκαν αποτελέσματα',
+  'command-palette.sections.documents': 'Έγγραφα',
+  'command-palette.sections.theme': 'Θέμα',
+  'command-palette.show-more-results': 'Εμφάνιση ακόμη {{ count }} αποτελεσμάτων για "{{ query }}"',
+
+  // API errors
+
+  'api-errors.api.timeout': 'Το αίτημα άργησε και έληξε. Δοκιμάστε ξανά.',
+  'api-errors.document.already_exists': 'Το έγγραφο υπάρχει ήδη',
+  'api-errors.document.size_too_large': 'Το μέγεθος αρχείου είναι πολύ μεγάλο',
+  'api-errors.intake-emails.already_exists': 'Υπάρχει ήδη email εισαγωγής με αυτή τη διεύθυνση.',
+  'api-errors.intake_email.limit_reached':
+    'Φτάσατε το μέγιστο αριθμό email εισαγωγής. Αναβαθμίστε το πλάνο σας.',
+  'api-errors.user.max_organization_count_reached':
+    'Φτάσατε το μέγιστο πλήθος οργανισμών. Επικοινωνήστε με την υποστήριξη.',
+  'api-errors.default': 'Προέκυψε σφάλμα κατά την επεξεργασία του αιτήματός σας.',
+  'api-errors.organization.invitation_already_exists':
+    'Υπάρχει ήδη πρόσκληση για αυτό το email στον οργανισμό.',
+  'api-errors.user.already_in_organization': 'Ο χρήστης ανήκει ήδη στον οργανισμό.',
+  'api-errors.user.organization_invitation_limit_reached':
+    'Φτάσατε το ημερήσιο όριο προσκλήσεων. Δοκιμάστε αύριο.',
+  'api-errors.demo.not_available': 'Η δυνατότητα δεν είναι διαθέσιμη στο demo',
+  'api-errors.tags.already_exists': 'Υπάρχει ήδη ετικέτα με αυτό το όνομα',
+  'api-errors.tags.organization_limit_reached':
+    'Συμπληρώθηκε ο μέγιστος αριθμός ετικετών για αυτόν τον οργανισμό.',
+  'api-errors.internal.error': 'Προέκυψε σφάλμα. Δοκιμάστε αργότερα.',
+  'api-errors.auth.invalid_origin':
+    'Μη έγκυρη προέλευση εφαρμογής. Βεβαιωθείτε ότι το APP_BASE_URL ταιριάζει με το τρέχον URL. Δείτε https://docs.papra.app/resources/troubleshooting/#invalid-application-origin',
+  'api-errors.organization.max_members_count_reached':
+    'Φτάσατε το μέγιστο αριθμό μελών/προσκλήσεων. Αναβαθμίστε το πλάνο σας.',
+  'api-errors.organization.has_active_subscription':
+    'Δεν είναι δυνατή η διαγραφή με ενεργή συνδρομή. Ακυρώστε πρώτα μέσω "Διαχείριση συνδρομής".',
+  'api-errors.webhooks.ssrf_unsafe_url':
+    'Η παρεχόμενη URL δεν επιτρέπεται. Οι URL webhook δεν πρέπει να δείχνουν σε ιδιωτικές ή δεσμευμένες διευθύνσεις IP.',
+  'api-errors.users.still_owns_organizations':
+    'Αυτός ο χρήστης εξακολουθεί να κατέχει έναν ή περισσότερους οργανισμούς. Διαγράψτε αυτούς τους οργανισμούς πριν διαγράψετε τον χρήστη.',
+  'api-errors.plan_entitlements.already_exists':
+    'Αυτός ο χρήστης έχει ήδη ένα δικαίωμα αυτού του τύπου.',
+  'api-errors.plan_entitlements.not_found': 'Το δικαίωμα προγράμματος δεν βρέθηκε.',
+  'api-errors.plan_entitlements.not_eligible':
+    'Αυτός ο χρήστης δεν είναι επιλέξιμος για αυτό το δικαίωμα.',
+  'api-errors.users.cannot_delete_self':
+    'Δεν μπορείτε να διαγράψετε τον δικό σας λογαριασμό από τον πίνακα διαχείρισης.',
+  // Better auth api errors
+  'api-errors.USER_NOT_FOUND': 'Ο χρήστης δεν βρέθηκε',
+  'api-errors.FAILED_TO_CREATE_USER': 'Αποτυχία δημιουργίας χρήστη',
+  'api-errors.FAILED_TO_CREATE_SESSION': 'Αποτυχία δημιουργίας συνεδρίας',
+  'api-errors.FAILED_TO_UPDATE_USER': 'Αποτυχία ενημέρωσης χρήστη',
+  'api-errors.FAILED_TO_GET_SESSION': 'Αποτυχία λήψης συνεδρίας',
+  'api-errors.INVALID_PASSWORD': 'Μη έγκυρος κωδικός πρόσβασης',
+  'api-errors.INVALID_EMAIL': 'Μη έγκυρο email',
+  'api-errors.INVALID_EMAIL_OR_PASSWORD':
+    'Το email ή ο κωδικός είναι λανθασμένα ή ο λογαριασμός δεν υπάρχει.',
+  'api-errors.SOCIAL_ACCOUNT_ALREADY_LINKED': 'Ο κοινωνικός λογαριασμός είναι ήδη συνδεδεμένος',
+  'api-errors.PROVIDER_NOT_FOUND': 'Ο πάροχος δεν βρέθηκε',
+  'api-errors.INVALID_TOKEN': 'Μη έγκυρο token',
+  'api-errors.ID_TOKEN_NOT_SUPPORTED': 'Το ID token δεν υποστηρίζεται',
+  'api-errors.FAILED_TO_GET_USER_INFO': 'Αποτυχία λήψης πληροφοριών χρήστη',
+  'api-errors.USER_EMAIL_NOT_FOUND': 'Δεν βρέθηκε email χρήστη',
+  'api-errors.EMAIL_NOT_VERIFIED': 'Το email δεν έχει επαληθευτεί',
+  'api-errors.PASSWORD_TOO_SHORT': 'Πολύ σύντομος κωδικός',
+  'api-errors.PASSWORD_TOO_LONG': 'Πολύ μεγάλος κωδικός',
+  'api-errors.USER_ALREADY_EXISTS': 'Υπάρχει ήδη χρήστης με αυτό το email',
+  'api-errors.EMAIL_CAN_NOT_BE_UPDATED': 'Το email δεν μπορεί να ενημερωθεί',
+  'api-errors.CREDENTIAL_ACCOUNT_NOT_FOUND': 'Ο λογαριασμός διαπιστευτηρίων δεν βρέθηκε',
+  'api-errors.SESSION_EXPIRED': 'Η συνεδρία έληξε',
+  'api-errors.FAILED_TO_UNLINK_LAST_ACCOUNT': 'Αποτυχία αποσύνδεσης τελευταίου λογαριασμού',
+  'api-errors.ACCOUNT_NOT_FOUND': 'Ο λογαριασμός δεν βρέθηκε',
+  'api-errors.USER_ALREADY_HAS_PASSWORD': 'Ο χρήστης έχει ήδη κωδικό',
+  'api-errors.INVALID_CODE': 'Ο κωδικός είναι άκυρος ή έχει λήξει',
+  'api-errors.OTP_NOT_ENABLED': 'Το 2FA δεν είναι ενεργό για αυτόν τον λογαριασμό',
+  'api-errors.OTP_HAS_EXPIRED': 'Ο κωδικός 2FA έχει λήξει',
+  'api-errors.TOTP_NOT_ENABLED': 'Το TOTP δεν είναι ενεργό για αυτόν τον λογαριασμό',
+  'api-errors.TWO_FACTOR_NOT_ENABLED':
+    'Ο έλεγχος δύο παραγόντων δεν είναι ενεργός για αυτόν τον λογαριασμό',
+  'api-errors.BACKUP_CODES_NOT_ENABLED':
+    'Οι κωδικοί ανάκτησης δεν είναι ενεργοί για αυτόν τον λογαριασμό',
+  'api-errors.INVALID_BACKUP_CODE': 'Ο κωδικός ανάκτησης είναι άκυρος ή έχει ήδη χρησιμοποιηθεί',
+  'api-errors.TOO_MANY_ATTEMPTS_REQUEST_NEW_CODE': 'Πολλές προσπάθειες. Ζητήστε νέο κωδικό.',
+  'api-errors.INVALID_TWO_FACTOR_COOKIE': 'Μη έγκυρο cookie δύο παραγόντων',
+
+  // Not found
+
+  'not-found.title': '404 - Η σελίδα δεν βρέθηκε',
+  'not-found.description': 'Η σελίδα που αναζητάτε δεν υπάρχει. Ελέγξτε το URL και δοκιμάστε ξανά.',
+
+  // Demo
+
+  'demo.popup.description':
+    'Αυτό είναι demo περιβάλλον. Τα δεδομένα αποθηκεύονται μόνο στο local storage του browser.',
+  'demo.popup.discord': 'Μπείτε στο {{ discordLink }} για υποστήριξη ή συζητήσεις.',
+  'demo.popup.discord-link-label': 'Discord server',
+  'demo.popup.reset': 'Επαναφορά δεδομένων demo',
+  'demo.popup.hide': 'Απόκρυψη',
+
+  // Color picker
+
+  'color-picker.hue': 'Απόχρωση',
+  'color-picker.saturation': 'Κορεσμός',
+  'color-picker.lightness': 'Φωτεινότητα',
+  'color-picker.select-color': 'Επιλογή χρώματος',
+  'color-picker.select-a-color': 'Επιλέξτε χρώμα',
+  'color-picker.random-color': 'Τυχαίο χρώμα',
+
+  // Subscriptions
+
+  'subscriptions.checkout-success.title': 'Η πληρωμή ολοκληρώθηκε!',
+  'subscriptions.checkout-success.description': 'Η συνδρομή σας ενεργοποιήθηκε επιτυχώς.',
+  'subscriptions.checkout-success.thank-you':
+    'Σας ευχαριστούμε που αναβαθμίσατε στο Papra Plus. Τώρα έχετε πρόσβαση σε όλα τα premium χαρακτηριστικά.',
+  'subscriptions.checkout-success.go-to-organizations': 'Μετάβαση στους Οργανισμούς',
+  'subscriptions.checkout-success.redirecting':
+    'Ανακατεύθυνση σε {{ count }} δευτερόλεπτο{{ plural }}...',
+
+  'subscriptions.checkout-cancel.title': 'Η πληρωμή ακυρώθηκε',
+  'subscriptions.checkout-cancel.description': 'Η αναβάθμιση συνδρομής ακυρώθηκε.',
+  'subscriptions.checkout-cancel.no-charges':
+    'Δεν έγινε καμία χρέωση. Μπορείτε να δοκιμάσετε ξανά οποιαδήποτε στιγμή.',
+  'subscriptions.checkout-cancel.back-to-organizations': 'Πίσω στους Οργανισμούς',
+  'subscriptions.checkout-cancel.need-help': 'Χρειάζεστε βοήθεια;',
+  'subscriptions.checkout-cancel.contact-support': 'Επικοινωνήστε με την υποστήριξη',
+
+  'subscriptions.upgrade-dialog.title': 'Αναβάθμιση οργανισμού',
+  'subscriptions.upgrade-dialog.description':
+    'Ξεκλειδώστε επιπλέον δυνατότητες για τον οργανισμό σας',
+  'subscriptions.upgrade-dialog.contact-us': 'Επικοινωνήστε μαζί μας',
+  'subscriptions.upgrade-dialog.enterprise-plans': 'αν χρειάζεστε εταιρικά πλάνα.',
+  'subscriptions.upgrade-dialog.per-month': '/μήνα',
+  'subscriptions.upgrade-dialog.billed-annually': '${{ price }} ετησίως',
+  'subscriptions.upgrade-dialog.upgrade-now': 'Αναβάθμιση τώρα',
+  'subscriptions.upgrade-dialog.promo-banner.title': 'Προσφορά περιορισμένου χρόνου',
+  'subscriptions.upgrade-dialog.promo-banner.description':
+    'Αποκτήστε {{ percent }}% έκπτωση σε όλα τα πλάνα για πάντα ως Early Adopters! Η προσφορά λήγει σε {{ days, >1:{days} ημέρες, =1:1 ημέρα, λιγότερο από 1 ημέρα }}.',
+
+  'subscriptions.plan.free.name': 'Δωρεάν πλάνο',
+  'subscriptions.plan.plus.name': 'Plus',
+  'subscriptions.plan.pro.name': 'Pro',
+
+  'subscriptions.features.storage-size': 'Χώρος αποθήκευσης εγγράφων',
+  'subscriptions.features.members': 'Μέλη οργανισμού',
+  'subscriptions.features.members-count': '{{ count }} μέλη',
+  'subscriptions.features.email-intakes': 'Email εισαγωγής',
+  'subscriptions.features.email-intakes-count-singular': '{{ count }} διεύθυνση',
+  'subscriptions.features.email-intakes-count-plural': '{{ count }} διευθύνσεις',
+  'subscriptions.features.max-upload-size': 'Μέγιστο μέγεθος αρχείου προς μεταφόρτωση',
+  'subscriptions.features.support': 'Υποστήριξη',
+  'subscriptions.features.support-community': 'Υποστήριξη κοινότητας',
+  'subscriptions.features.support-email': 'Υποστήριξη μέσω email',
+  'subscriptions.features.support-priority': 'Προτεραιότητα υποστήριξης',
+
+  'subscriptions.billing-interval.monthly': 'Μηνιαίο',
+  'subscriptions.billing-interval.annual': 'Ετήσιο',
+
+  'subscriptions.usage-warning.message':
+    'Έχετε χρησιμοποιήσει το {{ percent }}% του χώρου αποθήκευσης. Σκεφτείτε να αναβαθμίσετε το πλάνο σας.',
+  'subscriptions.usage-warning.upgrade-button': 'Αναβάθμιση πλάνου',
+
+  // Admin
+
+  'admin.layout.header': 'Πίνακας διαχείρισης Papra',
+  'admin.layout.back-to-app': 'Πίσω στην εφαρμογή',
+  'admin.layout.menu.analytics': 'Στατιστικά',
+  'admin.layout.menu.users': 'Χρήστες',
+  'admin.layout.menu.organizations': 'Οργανισμοί',
+
+  'admin.analytics.title': 'Πίνακας ελέγχου',
+  'admin.analytics.description': 'Στατιστικά και αναλύσεις για τη χρήση του Papra.',
+  'admin.analytics.user-count': 'Αριθμός χρηστών',
+  'admin.analytics.organization-count': 'Αριθμός οργανισμών',
+  'admin.analytics.document-count': 'Αριθμός εγγράφων',
+  'admin.analytics.documents-storage': 'Χώρος εγγράφων',
+  'admin.analytics.deleted-documents': 'Διαγεγραμμένα έγγραφα',
+  'admin.analytics.deleted-storage': 'Χώρος διαγεγραμμένων',
+
+  'admin.organizations.title': 'Διαχείριση οργανισμών',
+  'admin.organizations.description': 'Προβολή και διαχείριση όλων των οργανισμών στο σύστημα',
+  'admin.organizations.search-placeholder': 'Αναζήτηση με όνομα ή ID...',
+  'admin.organizations.loading': 'Φόρτωση οργανισμών...',
+  'admin.organizations.no-results': 'Δεν βρέθηκαν οργανισμοί που να ταιριάζουν.',
+  'admin.organizations.empty': 'Δεν βρέθηκαν οργανισμοί.',
+  'admin.organizations.table.id': 'ID',
+  'admin.organizations.table.name': 'Όνομα',
+  'admin.organizations.table.members': 'Μέλη',
+  'admin.organizations.table.created': 'Δημιουργήθηκε',
+  'admin.organizations.table.updated': 'Ενημερώθηκε',
+  'admin.organizations.pagination.info':
+    'Εμφάνιση {{ start }}–{{ end }} από {{ total }} {{ total, =1:οργανισμό, οργανισμούς }}',
+  'admin.organizations.pagination.page-info': 'Σελίδα {{ current }} από {{ total }}',
+
+  'admin.organization-detail.title': 'Λεπτομέρειες οργανισμού',
+  'admin.organization-detail.back': 'Πίσω στους οργανισμούς',
+  'admin.organization-detail.loading.info': 'Φόρτωση πληροφοριών...',
+  'admin.organization-detail.loading.stats': 'Φόρτωση στατιστικών...',
+  'admin.organization-detail.loading.intake-emails': 'Φόρτωση email εισαγωγής...',
+  'admin.organization-detail.loading.webhooks': 'Φόρτωση webhooks...',
+  'admin.organization-detail.loading.members': 'Φόρτωση μελών...',
+  'admin.organization-detail.basic-info.title': 'Πληροφορίες οργανισμού',
+  'admin.organization-detail.basic-info.description': 'Βασικά στοιχεία',
+  'admin.organization-detail.basic-info.id': 'ID',
+  'admin.organization-detail.basic-info.name': 'Όνομα',
+  'admin.organization-detail.basic-info.created': 'Δημιουργήθηκε',
+  'admin.organization-detail.basic-info.updated': 'Ενημερώθηκε',
+  'admin.organization-detail.members.title': 'Μέλη ({{ count }})',
+  'admin.organization-detail.members.description': 'Χρήστες που ανήκουν στον οργανισμό',
+  'admin.organization-detail.members.empty': 'Δεν υπάρχουν μέλη',
+  'admin.organization-detail.members.table.user': 'Χρήστης',
+  'admin.organization-detail.members.table.id': 'ID',
+  'admin.organization-detail.members.table.role': 'Ρόλος',
+  'admin.organization-detail.members.table.joined': 'Ημερομηνία ένταξης',
+  'admin.organization-detail.intake-emails.title': 'Email εισαγωγής ({{ count }})',
+  'admin.organization-detail.intake-emails.description':
+    'Email που χρησιμοποιούνται για εισαγωγή εγγράφων',
+  'admin.organization-detail.intake-emails.empty': 'Δεν υπάρχουν email εισαγωγής',
+  'admin.organization-detail.intake-emails.status.enabled': 'Ενεργό',
+  'admin.organization-detail.intake-emails.status.disabled': 'Ανενεργό',
+  'admin.organization-detail.intake-emails.badge.active': 'Ενεργό',
+  'admin.organization-detail.intake-emails.badge.inactive': 'Ανενεργό',
+  'admin.organization-detail.webhooks.title': 'Webhooks ({{ count }})',
+  'admin.organization-detail.webhooks.description': 'Διευθύνσεις webhook',
+  'admin.organization-detail.webhooks.empty': 'Δεν υπάρχουν webhooks',
+  'admin.organization-detail.webhooks.badge.active': 'Ενεργό',
+  'admin.organization-detail.webhooks.badge.inactive': 'Ανενεργό',
+  'admin.organization-detail.stats.title': 'Στατιστικά χρήσης',
+  'admin.organization-detail.stats.description': 'Στατιστικά εγγράφων και χώρου',
+  'admin.organization-detail.stats.active-documents': 'Ενεργά έγγραφα',
+  'admin.organization-detail.stats.active-storage': 'Χώρος ενεργών',
+  'admin.organization-detail.stats.deleted-documents': 'Διαγεγραμμένα έγγραφα',
+  'admin.organization-detail.stats.deleted-storage': 'Χώρος διαγεγραμμένων',
+  'admin.organization-detail.stats.total-documents': 'Συνολικά έγγραφα',
+  'admin.organization-detail.stats.total-storage': 'Συνολικός χώρος',
+
+  'admin.users.title': 'Διαχείριση χρηστών',
+  'admin.users.description': 'Προβολή και διαχείριση όλων των χρηστών στο σύστημα',
+  'admin.users.search-placeholder': 'Αναζήτηση με όνομα, email ή ID...',
+  'admin.users.loading': 'Φόρτωση χρηστών...',
+  'admin.users.no-results': 'Δεν βρέθηκαν χρήστες που να ταιριάζουν.',
+  'admin.users.empty': 'Δεν υπάρχουν χρήστες.',
+  'admin.users.table.user': 'Χρήστης',
+  'admin.users.table.id': 'ID',
+  'admin.users.table.status': 'Κατάσταση',
+  'admin.users.table.status.verified': 'Επαληθευμένο',
+  'admin.users.table.status.unverified': 'Μη επαληθευμένο',
+  'admin.users.table.orgs': 'Οργανισμοί',
+  'admin.users.table.created': 'Δημιουργήθηκε',
+  'admin.users.pagination.info':
+    'Εμφάνιση {{ start }}–{{ end }} από {{ total }} {{ total, =1:χρήστη, χρήστες }}',
+  'admin.users.pagination.page-info': 'Σελίδα {{ current }} από {{ total }}',
+
+  'admin.user-detail.back': 'Πίσω στους χρήστες',
+  'admin.user-detail.loading': 'Φόρτωση λεπτομερειών χρήστη...',
+  'admin.user-detail.unnamed': 'Χρήστης χωρίς όνομα',
+  'admin.user-detail.basic-info.title': 'Πληροφορίες χρήστη',
+  'admin.user-detail.basic-info.description': 'Βασικές λεπτομέρειες λογαριασμού',
+  'admin.user-detail.basic-info.user-id': 'ID χρήστη',
+  'admin.user-detail.basic-info.email': 'Email',
+  'admin.user-detail.basic-info.name': 'Όνομα',
+  'admin.user-detail.basic-info.name-empty': '-',
+  'admin.user-detail.basic-info.email-verified': 'Επαλήθευση email',
+  'admin.user-detail.basic-info.email-verified.yes': 'Ναι',
+  'admin.user-detail.basic-info.email-verified.no': 'Όχι',
+  'admin.user-detail.basic-info.max-organizations': 'Μέγιστοι οργανισμοί',
+  'admin.user-detail.basic-info.max-organizations.unlimited': 'Απεριόριστοι',
+  'admin.user-detail.basic-info.created': 'Δημιουργήθηκε',
+  'admin.user-detail.basic-info.updated': 'Τελευταία ενημέρωση',
+  'admin.user-detail.roles.title': 'Ρόλοι & Δικαιώματα',
+  'admin.user-detail.roles.description': 'Ρόλοι και επίπεδα πρόσβασης',
+  'admin.user-detail.roles.empty': 'Δεν έχουν ανατεθεί ρόλοι',
+  'admin.user-detail.organizations.title': 'Οργανισμοί ({{ count }})',
+  'admin.user-detail.organizations.description': 'Οργανισμοί στους οποίους ανήκει ο χρήστης',
+  'admin.user-detail.organizations.empty': 'Δεν ανήκει σε κανέναν οργανισμό',
+  'admin.user-detail.organizations.table.id': 'ID',
+  'admin.user-detail.organizations.table.name': 'Όνομα',
+  'admin.user-detail.organizations.table.created': 'Δημιουργήθηκε',
+  'admin.user-detail.plan-entitlements.title': 'Δικαιώματα προγράμματος',
+  'admin.user-detail.plan-entitlements.description':
+    'Δικαιώματα που αναβαθμίζουν το πρόγραμμα των οργανισμών που κατέχει αυτός ο χρήστης',
+  'admin.user-detail.plan-entitlements.empty': 'Δεν υπάρχουν δικαιώματα προγράμματος',
+  'admin.user-detail.plan-entitlements.table.type': 'Τύπος',
+  'admin.user-detail.plan-entitlements.table.source': 'Πηγή',
+  'admin.user-detail.plan-entitlements.table.granted': 'Χορηγήθηκε',
+  'admin.user-detail.plan-entitlements.table.expires': 'Λήγει',
+  'admin.user-detail.plan-entitlements.never-expires': 'Ποτέ',
+  'admin.user-detail.plan-entitlements.expired': 'Έληξε',
+  'admin.user-detail.plan-entitlements.grant.button': 'Χορήγηση δικαιώματος',
+  'admin.user-detail.plan-entitlements.grant.title': 'Χορήγηση δικαιώματος προγράμματος',
+  'admin.user-detail.plan-entitlements.grant.description':
+    'Χορηγήστε ένα δικαίωμα προγράμματος σε αυτόν τον χρήστη, προαιρετικά με ημερομηνία λήξης.',
+  'admin.user-detail.plan-entitlements.grant.type-label': 'Τύπος δικαιώματος',
+  'admin.user-detail.plan-entitlements.grant.expiration.toggle': 'Ορισμός ημερομηνίας λήξης',
+  'admin.user-detail.plan-entitlements.grant.expiration.pick-date': 'Επιλέξτε ημερομηνία',
+  'admin.user-detail.plan-entitlements.grant.submit': 'Χορήγηση δικαιώματος',
+  'admin.user-detail.plan-entitlements.grant.cancel': 'Άκυρο',
+  'admin.user-detail.plan-entitlements.grant.success': 'Το δικαίωμα χορηγήθηκε με επιτυχία.',
+  'admin.user-detail.plan-entitlements.revoke.button': 'Ανάκληση',
+  'admin.user-detail.plan-entitlements.revoke.confirm.title': 'Ανάκληση δικαιώματος;',
+  'admin.user-detail.plan-entitlements.revoke.confirm.message':
+    'Ο χρήστης θα χάσει τα οφέλη του προγράμματος που χορηγήθηκαν από αυτό το δικαίωμα.',
+  'admin.user-detail.plan-entitlements.revoke.confirm.confirm-button': 'Ανάκληση δικαιώματος',
+  'admin.user-detail.plan-entitlements.revoke.confirm.cancel-button': 'Άκυρο',
+  'admin.user-detail.plan-entitlements.revoke.success': 'Το δικαίωμα ανακλήθηκε με επιτυχία.',
+  'admin.user-detail.delete.title': 'Διαγραφή χρήστη',
+  'admin.user-detail.delete.description':
+    'Διαγράφει οριστικά αυτόν τον λογαριασμό χρήστη. Αυτό θα επεκταθεί στις συμμετοχές του σε οργανισμούς, στις συνεδρίες, στις ρυθμίσεις δύο παραγόντων και σε άλλα δεδομένα ταυτοποίησης. Οι οργανισμοί που εξακολουθεί να κατέχει πρέπει πρώτα να διαγραφούν ή να μεταβιβαστούν.',
+  'admin.user-detail.delete.button': 'Διαγραφή χρήστη',
+  'admin.user-detail.delete.self-warning':
+    'Δεν μπορείτε να διαγράψετε τον δικό σας λογαριασμό από τον πίνακα διαχείρισης.',
+  'admin.user-detail.delete.confirm.title': 'Διαγραφή χρήστη;',
+  'admin.user-detail.delete.confirm.message':
+    'Αυτή η ενέργεια δεν μπορεί να αναιρεθεί. Πληκτρολογήστε το email του χρήστη παρακάτω για επιβεβαίωση.',
+  'admin.user-detail.delete.confirm.confirm-button': 'Διαγραφή χρήστη',
+  'admin.user-detail.delete.confirm.cancel-button': 'Άκυρο',
+  'admin.user-detail.delete.success': 'Ο χρήστης διαγράφηκε με επιτυχία.',
+
+  // Common / Shared
+
+  'common.confirm-modal.type-to-confirm': 'Πληκτρολογήστε "{{ text }}" για επιβεβαίωση',
+  'common.tables.rows-per-page': 'Γραμμές ανά σελίδα',
+  'common.tables.pagination-info': 'Σελίδα {{ currentPage }} από {{ totalPages }}',
+  'common.tables.first-page': 'Μετάβαση στην πρώτη σελίδα',
+  'common.tables.previous-page': 'Μετάβαση στην προηγούμενη σελίδα',
+  'common.tables.next-page': 'Μετάβαση στην επόμενη σελίδα',
+  'common.tables.last-page': 'Μετάβαση στην τελευταία σελίδα',
+  'common.back-to-home': 'Επιστροφή στην αρχική',
+
+  // About page
+
+  'about.title': 'Σχετικά με το Papra',
+  'about.version': 'Έκδοση',
+  'about.git-commit': 'Git Commit',
+  'about.commit-date': 'Ημερομηνία commit',
+  'about.description':
+    'Το Papra είναι ένα open-source σύστημα διαχείρισης εγγράφων για αρχειοθέτηση, οργάνωση, ετικετοποίηση και διαχείριση εγγράφων.',
+  'about.links.title': 'Σύνδεσμοι',
+  'about.links.documentation': 'Τεκμηρίωση',
+  'about.links.documentation-description': 'Οδηγοί χρήσης & Αναφορά API',
+  'about.links.github': 'GitHub',
+  'about.links.github-description': 'Πηγαίος κώδικας & issues',
+  'about.links.discord': 'Κοινότητα Discord',
+  'about.links.discord-description': 'Μπείτε στην κοινότητα',
+  'about.links.sponsor': 'Υποστήριξη',
+  'about.links.sponsor-description': 'Στηρίξτε την ανάπτυξη του Papra',
+
+  'config.server-unreachable.title': 'Ο διακομιστής δεν είναι προσβάσιμος',
+  'config.server-unreachable.description':
+    'Ο διακομιστής φαίνεται να μην είναι προσβάσιμος. Εάν κάνετε self-hosting, βεβαιωθείτε ότι ο διακομιστής εκτελείται και έχει ρυθμιστεί σωστά. Μπορείτε να ελέγξετε την κονσόλα για περισσότερες πληροφορίες.',
+  'config.server-unreachable.retry': 'Επανάληψη',
+  'config.server-unreachable.retry-error.title':
+    'Ο διακομιστής εξακολουθεί να μην είναι προσβάσιμος',
+  'config.server-unreachable.retry-error.description':
+    'Ο διακομιστής εξακολουθεί να μην είναι προσβάσιμος, δοκιμάστε ξανά αργότερα.',
+
+  'coming-soon.title': 'Σύντομα κοντά σας',
+  'coming-soon.description': 'Αυτή η λειτουργία θα είναι σύντομα διαθέσιμη, ελέγξτε ξανά αργότερα.',
+
+  'socials.bluesky': 'Bluesky',
+  'socials.mastodon': 'Mastodon',
+  'socials.x': 'X',
+  'socials.reddit': 'Reddit',
+  'socials.linkedin': 'LinkedIn',
+};

@@ -1,0 +1,1446 @@
+import type { TranslationsDictionary } from '@/modules/i18n/locales.types';
+
+export const translations: Partial<TranslationsDictionary> = {
+  // Authentication
+
+  'auth.request-password-reset.title': 'Resetează parola',
+  'auth.request-password-reset.description': 'Introdu adresa de e-mail pentru a reseta parola.',
+  'auth.request-password-reset.requested':
+    'Dacă există un cont pentru acest e-mail, am trimis un e-mail pentru resetarea parolei.',
+  'auth.request-password-reset.back-to-login': 'Înapoi la autentificare',
+  'auth.request-password-reset.form.email.label': 'E-mail',
+  'auth.request-password-reset.form.email.placeholder': 'Exemplu: popescu@papra.app',
+  'auth.request-password-reset.form.email.required': 'Introdu adresa de e-mail',
+  'auth.request-password-reset.form.email.invalid': 'Adresa de e-mail este invalidă',
+  'auth.request-password-reset.form.submit': 'Trimite cererea de resetare a parolei',
+
+  'auth.reset-password.title': 'Resetează parola',
+  'auth.reset-password.description': 'Introdu o parolă noua pentră a o reseta pe cea veche.',
+  'auth.reset-password.reset': 'Parola a fost resetată cu success.',
+  'auth.reset-password.back-to-login': 'Înapoi la autentificare',
+  'auth.reset-password.form.new-password.label': 'Parolă nouă',
+  'auth.reset-password.form.new-password.placeholder': 'Exemplu: **********',
+  'auth.reset-password.form.new-password.required': 'Introdu parola nouă',
+  'auth.reset-password.form.new-password.min-length':
+    'Parola trebuie să fie de minim {{ minLength }} caractere',
+  'auth.reset-password.form.new-password.max-length':
+    'Parola trebuie să fie de maxim {{ maxLength }} de caractere',
+  'auth.reset-password.form.submit': 'Resetează parola',
+
+  'auth.email-provider.open': 'Deschide {{ provider }}',
+
+  'auth.login.title': 'Autentificare la Papra',
+  'auth.login.description':
+    'Introdu e-mailul sau folosește autentificarea cu cont social pentru a accesa contul Papra.',
+  'auth.login.login-with-provider': 'Autentificare cu {{ provider }}',
+  'auth.login.no-account': 'Nu ai cont?',
+  'auth.login.register': 'Înregistrare',
+  'auth.login.form.email.label': 'E-mail',
+  'auth.login.form.email.placeholder': 'Exemplu: popescu@papra.app',
+  'auth.login.form.email.required': 'Introdu adresa de e-mail',
+  'auth.login.form.email.invalid': 'Adresa e-mail este invalidă',
+  'auth.login.form.password.label': 'Parola',
+  'auth.login.form.password.placeholder': 'Setează o parola noua',
+  'auth.login.form.password.required': 'Introdu parola noua',
+  'auth.login.form.remember-me.label': 'Ține-mă minte',
+  'auth.login.form.forgot-password.label': 'Ai uitat parola?',
+  'auth.login.form.submit': 'Autentificare',
+
+  'auth.login.two-factor.title': 'Verificare în doi pași',
+  'auth.login.two-factor.description.totp':
+    'Introduceți codul de verificare de 6 cifre din aplicația dvs. de autentificare.',
+  'auth.login.two-factor.description.backup-code':
+    'Introduceți unul dintre codurile dvs. de rezervă pentru a accesa contul.',
+  'auth.login.two-factor.code.label.totp': 'Cod de autentificare',
+  'auth.login.two-factor.code.label.backup-code': 'Cod de rezervă',
+  'auth.login.two-factor.code.placeholder.backup-code': 'Introduceți codul de rezervă',
+  'auth.login.two-factor.code.required': 'Vă rugăm să introduceți codul de verificare',
+  'auth.login.two-factor.trust-device.label':
+    'Acordă încredere acestui dispozitiv pentru 30 de zile',
+  'auth.login.two-factor.back': 'Înapoi la autentificare',
+  'auth.login.two-factor.submit': 'Verifică',
+  'auth.login.two-factor.verification-failed':
+    'Verificare eșuată. Verificați codul și încercați din nou.',
+  'auth.login.two-factor.use-backup-code': 'Folosește cod de rezervă',
+  'auth.login.two-factor.use-totp': 'Folosește aplicația de autentificare',
+
+  'auth.register.title': 'Înregistrare la Papra',
+  'auth.register.description': 'Introdu e-mailul pentru a accesa Papra.',
+  'auth.register.register-with-email': 'înregistrează-te cu e-mail',
+  'auth.register.register-with-provider': 'Inregistreaza-te cu {{ provider }}',
+  'auth.register.providers.google': 'Google',
+  'auth.register.providers.github': 'GitHub',
+  'auth.register.have-account': 'Ai deja un cont?',
+  'auth.register.login': 'Autentificare',
+  'auth.register.registration-disabled.title': 'Înregistrarea este dezactivată',
+  'auth.register.registration-disabled.description':
+    'Crearea de conturi noi este momentan dezactivată pe această instanță de Papra. Doar utilizatorii cu conturi existente se pot autentifica. Dacă aceasta pare a fi o greșeală, contactează administratorul acestei instanțe.',
+  'auth.register.form.email.label': 'E-mail',
+  'auth.register.form.email.placeholder': 'Exemplu: popescu@papra.app',
+  'auth.register.form.email.required': 'Introdu adresa de e-mail',
+  'auth.register.form.email.invalid': 'Adresa e-mail este invalida',
+  'auth.register.form.password.label': 'Parola',
+  'auth.register.form.password.placeholder': 'Setează parola',
+  'auth.register.form.password.required': 'Te rugăm să introduci parola',
+  'auth.register.form.password.min-length':
+    'Parola trebuie să fie de minim {{ minLength }} caractere',
+  'auth.register.form.password.max-length':
+    'Parola trebuie să fie de maxim {{ maxLength }} de caractere',
+  'auth.register.form.name.label': 'Nume',
+  'auth.register.form.name.placeholder': 'Exemplu: Andrei Popescu',
+  'auth.register.form.name.required': 'Introdu numele',
+  'auth.register.form.name.max-length': 'Numele trebuie să fie de minim {{ maxLength }} caractere',
+  'auth.register.form.submit': 'Înregistrare',
+
+  'auth.email-validation-required.title': 'Verifică-ți email-ul',
+  'auth.email-validation-required.description':
+    'A fost trimis un e-mail de verificare la adresa ta de e-mail. Te rugăm să îți verifici adresa de e-mail dând click pe linkul din e-mail.',
+
+  'auth.email-verification.success.title': 'Email verificat',
+  'auth.email-verification.success.description':
+    'Email-ul tău a fost verificat cu succes. Acum te poți autentifica în contul tău.',
+  'auth.email-verification.success.login': 'Mergi la autentificare',
+  'auth.email-verification.error.title': 'Verificare eșuată',
+  'auth.email-verification.error.description':
+    'Linkul de verificare este invalid sau a expirat. Te rugăm să soliciți un nou e-mail de verificare autentificându-te.',
+  'auth.email-verification.error.back': 'Înapoi la autentificare',
+
+  'auth.legal-links.description':
+    'Continuând, confirmați că întelegeți și sunteti de acord cu {{ terms }} și {{ privacy }}.',
+  'auth.legal-links.terms': 'Termenii și condițiile',
+  'auth.legal-links.privacy': 'Politica de confidențialitate',
+
+  'auth.no-auth-provider.title': 'Niciun furnizor de autentificare',
+  'auth.no-auth-provider.description':
+    'Nu este niciun furnizor de autentificare activat pe această instanță de Papra. Te rugăm să contactezi administratorul aceste instanțe pentru a le activa.',
+
+  // User settings
+
+  'user.settings.title': 'Setările utilizatorului',
+  'user.settings.description': 'Configurează setările contului aici.',
+
+  'user.settings.email.title': 'Adresa de e-mail',
+  'user.settings.email.description': 'Adresa de e-mail nu poate fi schimbată.',
+  'user.settings.email.label': 'Adresa de e-mail',
+
+  'user.settings.name.title': 'Numele complet',
+  'user.settings.name.description': 'Numele complet este afișat altor membri din organizație.',
+  'user.settings.name.label': 'Numele complet',
+  'user.settings.name.placeholder': 'Ex. Andrei Popescu',
+  'user.settings.name.update': 'Schimbă numele',
+  'user.settings.name.updated': 'Numele a fost schimbat',
+
+  'user.settings.logout.title': 'Deconectare',
+  'user.settings.logout.description':
+    'Vei fi deconectat din cont. Te poți conecta înapoi ulterior.',
+  'user.settings.logout.button': 'Deconectare',
+
+  'user.settings.two-factor.title': 'Autentificare cu doi factori',
+  'user.settings.two-factor.description':
+    'Adăugați un nivel suplimentar de securitate contului dvs.',
+  'user.settings.two-factor.status.enabled': 'Activată',
+  'user.settings.two-factor.status.disabled': 'Dezactivată',
+  'user.settings.two-factor.enable-button': 'Activează A2F',
+  'user.settings.two-factor.disable-button': 'Dezactivează A2F',
+  'user.settings.two-factor.regenerate-codes-button': 'Regenerează codurile de rezervă',
+
+  'user.settings.two-factor.enable-dialog.title': 'Activare autentificare cu doi factori',
+  'user.settings.two-factor.enable-dialog.description': 'Introduceți parola pentru a activa A2F.',
+  'user.settings.two-factor.enable-dialog.password.label': 'Parolă',
+  'user.settings.two-factor.enable-dialog.password.placeholder': 'Introduceți parola',
+  'user.settings.two-factor.enable-dialog.password.required': 'Vă rugăm să introduceți parola',
+  'user.settings.two-factor.enable-dialog.cancel': 'Anulează',
+  'user.settings.two-factor.enable-dialog.submit': 'Continuă',
+
+  'user.settings.two-factor.setup-dialog.title': 'Configurare autentificare cu doi factori',
+  'user.settings.two-factor.setup-dialog.step1.title': 'Pasul 1: Scanați codul QR',
+  'user.settings.two-factor.setup-dialog.step1.description':
+    'Scanați codul QR de mai jos sau introduceți manual cheia de configurare în aplicația dvs. de autentificare.',
+  'user.settings.two-factor.setup-dialog.copy-setup-key': 'Copiază cheia de configurare',
+  'user.settings.two-factor.setup-dialog.step2.title': 'Pasul 2: Verificați codul',
+  'user.settings.two-factor.setup-dialog.step2.description':
+    'Introduceți codul de 6 cifre generat de aplicația dvs. de autentificare pentru a verifica și activa autentificarea cu doi factori.',
+  'user.settings.two-factor.setup-dialog.cancel': 'Anulează',
+  'user.settings.two-factor.setup-dialog.verify': 'Verifică și activează A2F',
+
+  'user.settings.two-factor.backup-codes-dialog.title': 'Coduri de rezervă',
+  'user.settings.two-factor.backup-codes-dialog.description':
+    'Salvați aceste coduri de rezervă într-un loc sigur. Le puteți folosi pentru a accesa contul dacă pierdeți accesul la aplicația dvs. de autentificare.',
+  'user.settings.two-factor.backup-codes-dialog.copy': 'Copiază codurile de rezervă',
+  'user.settings.two-factor.backup-codes-dialog.download': 'Descarcă codurile de rezervă',
+  'user.settings.two-factor.backup-codes-dialog.download-filename': 'papra-2fa-backup-codes.txt',
+  'user.settings.two-factor.backup-codes-dialog.close': 'Am salvat codurile',
+
+  'user.settings.two-factor.disable-dialog.title': 'Dezactivare autentificare cu doi factori',
+  'user.settings.two-factor.disable-dialog.description':
+    'Introduceți parola pentru a dezactiva A2F. Aceasta va face contul dvs. mai puțin sigur.',
+  'user.settings.two-factor.disable-dialog.password.label': 'Parolă',
+  'user.settings.two-factor.disable-dialog.password.placeholder': 'Introduceți parola',
+  'user.settings.two-factor.disable-dialog.password.required': 'Vă rugăm să introduceți parola',
+  'user.settings.two-factor.disable-dialog.cancel': 'Anulează',
+  'user.settings.two-factor.disable-dialog.submit': 'Dezactivează A2F',
+
+  'user.settings.two-factor.regenerate-dialog.title': 'Regenerare coduri de rezervă',
+  'user.settings.two-factor.regenerate-dialog.description':
+    'Aceasta va invalida toate codurile de rezervă existente și va genera altele noi. Introduceți parola pentru a continua.',
+  'user.settings.two-factor.regenerate-dialog.password.label': 'Parolă',
+  'user.settings.two-factor.regenerate-dialog.password.placeholder': 'Introduceți parola',
+  'user.settings.two-factor.regenerate-dialog.password.required': 'Vă rugăm să introduceți parola',
+  'user.settings.two-factor.regenerate-dialog.cancel': 'Anulează',
+  'user.settings.two-factor.regenerate-dialog.submit': 'Regenerează codurile',
+
+  'user.settings.two-factor.enabled': 'Autentificarea cu doi factori a fost activată',
+  'user.settings.two-factor.disabled': 'Autentificarea cu doi factori a fost dezactivată',
+  'user.settings.two-factor.codes-regenerated': 'Codurile de rezervă au fost regenerate',
+
+  // Organizations
+
+  'organizations.list.title': 'Organizațiile tale',
+  'organizations.list.description':
+    'Organizațiile sunt o modalitate de a grupa documentele și de a gestiona accesul la acestea. Poți crea multiple organizații și invita membrii echipei tale să colaboreze.',
+  'organizations.list.create-new': 'Creează o organizație nouă',
+  'organizations.list.back': 'Înapoi la organizații',
+  'organizations.list.deleted.title': 'Organizații șterse',
+  'organizations.list.deleted.description':
+    'Organizațiile șterse sunt păstrate {{ days }} zile înainte de a fi eliminate definitiv. Le poți restaura în această perioadă.',
+  'organizations.list.deleted.empty': 'Nu există organizații șterse',
+  'organizations.list.deleted.empty-description':
+    'Când ștergi o organizație, va apărea aici pentru {{ days }} zile înainte de a fi ștearsă definitiv.',
+  'organizations.list.deleted.restore': 'Restaurează',
+  'organizations.list.deleted.restore-success': 'Organizația a fost restaurată cu succes',
+  'organizations.list.deleted.restore-confirm.title': 'Restaurează organizația',
+  'organizations.list.deleted.restore-confirm.message':
+    'Ești sigur că vrei să restaurezi această organizație? Va fi mutată înapoi în lista organizațiilor active.',
+  'organizations.list.deleted.restore-confirm.confirm-button': 'Restaurează organizația',
+  'organizations.list.deleted.deleted-at': 'Ștearsă {{ date }}',
+  'organizations.list.deleted.purge-at': 'Va fi ștearsă definitiv {{ date }}',
+  'organizations.list.deleted.days-remaining':
+    '({{ daysUntilPurge, =1:{daysUntilPurge} zi, {daysUntilPurge} zile }} rămas{{ daysUntilPurge, =1:ă, e}})',
+
+  'organizations.details.no-documents.title': 'Niciun document',
+  'organizations.details.no-documents.description':
+    'Încă nu există documente în această organizație. Încarcă niște documente pentru a începe.',
+  'organizations.details.upload-documents': 'Încarcă documente',
+  'organizations.details.documents-count': 'documente in total',
+  'organizations.details.total-size': 'mărime totala',
+  'organizations.details.latest-documents': 'Ultimele documente încarcate',
+
+  'organizations.create.title': 'Creează o organizație nouă',
+  'organizations.create.description':
+    'Documentele sunt grupate în funcție de organizație. Poți crea mai multe organizații pentru documente diferite, de exemplu, pentru uz personal și profesional.',
+  'organizations.create.back': 'Înapoi',
+  'organizations.create.error.max-count-reached':
+    'Ai ajuns la numărul maxim de organizații pe care le poți crea. Dacă ai nevoie de mai multe, contactează asistența.',
+  'organizations.create.form.name.label': 'Numle organizației',
+  'organizations.create.form.name.placeholder': 'Ex. Acme SRL.',
+  'organizations.create.form.name.required': 'Introdu numele organizației',
+  'organizations.create.form.submit': 'Creează organizația',
+  'organizations.create.success': 'Organizația a fost creată cu succes',
+  'organizations.switcher.create': 'Creează o organizație nouă',
+
+  'organizations.create-first.title': 'Creează organizația',
+  'organizations.create-first.description':
+    'Documentele sunt grupate în funcție de organizație. Poți crea mai multe organizații pentru documente diferite, de exemplu, pentru uz personal și profesional.',
+  'organizations.create-first.default-name': 'Organizația mea',
+  'organizations.create-first.user-name': 'Organizația lui {{ name }}',
+
+  'organization.settings.title': 'Setările organizației',
+  'organization.settings.page.title': 'Setările organizației',
+  'organization.settings.page.description': 'Gestionează setarile organizației aici.',
+  'organization.settings.name.title': 'Numele organizației',
+  'organization.settings.name.update': 'Actualizează numele',
+  'organization.settings.name.placeholder': 'Ex. Acme SRL.',
+  'organization.settings.name.updated': 'Numele organizației a fost actualizat',
+  'organization.settings.subscription.title': 'Abonament',
+  'organization.settings.subscription.description': 'Gestionează facturile și metodele de plată.',
+  'organization.settings.subscription.manage': 'Gestionează-ți abonamentul',
+  'organization.settings.subscription.error': 'Eroare la obținerea URL-ului portalului de client',
+  'organization.settings.delete.title': 'Șterge organizația',
+  'organization.settings.delete.description':
+    'Ștergerea acestei organizații va elimina definitiv toate datele asociate cu aceasta.',
+  'organization.settings.delete.confirm.title': 'Șterge organizatia',
+  'organization.settings.delete.confirm.message':
+    'Sigur doriți să ștergeți această organizație? Organizația va fi marcată pentru ștergere și eliminată definitiv după {{ days }} zile. În această perioadă, o puteți restaura din lista dvs. de organizații. Toate documentele și datele vor fi șterse definitiv după această perioadă.',
+  'organization.settings.delete.confirm.confirm-button': 'Șterge organizație',
+  'organization.settings.delete.confirm.cancel-button': 'Anulează',
+  'organization.settings.delete.success': 'Organizație ștearsă cu succes',
+  'organization.settings.delete.only-owner':
+    'Doar proprietarul organizației poate șterge această organizație.',
+  'organization.settings.delete.has-active-subscription':
+    'Nu se poate șterge organizația cu un abonament activ, vă rugăm să anulați mai întâi abonamentul de mai sus.',
+
+  'organization.usage.page.title': 'Utilizare',
+  'organization.usage.page.description':
+    'Vizualizează utilizarea curentă și limitele organizației tale.',
+  'organization.usage.storage.title': 'Stocare documente',
+  'organization.usage.storage.description': 'Spațiul total folosit de documentele tale',
+  'organization.usage.intake-emails.title': 'E-mailuri de intrare',
+  'organization.usage.intake-emails.description': 'Număr de adrese de e-mail de intrare',
+  'organization.usage.members.title': 'Membri',
+  'organization.usage.members.description': 'Număr de membri în organizație',
+  'organization.usage.unlimited': 'Nelimitat',
+
+  'organizations.members.title': 'Membri',
+  'organizations.members.description': 'Gestionează membrii organizației tale',
+  'organizations.members.invite-member': 'Invită membru',
+  'organizations.members.invite-member-disabled-tooltip':
+    'Doar administratorii sau proprietarii pot invita membrii la organizație',
+  'organizations.members.remove-from-organization': 'Elimina din organizație',
+  'organizations.members.role': 'Rol',
+  'organizations.members.roles.owner': 'Proprietar',
+  'organizations.members.roles.admin': 'Admin',
+  'organizations.members.roles.member': 'Membru',
+  'organizations.members.delete.confirm.title': 'Elimină membrul',
+  'organizations.members.delete.confirm.message':
+    'Ești sigur că vrei să elimini acest membru din organizație?',
+  'organizations.members.delete.confirm.confirm-button': 'Elimină',
+  'organizations.members.delete.confirm.cancel-button': 'Anulează',
+  'organizations.members.delete.success': 'Membru eliminat cu succes',
+  'organizations.members.update-role.success': 'Rolul membrului a fost actualizat',
+  'organizations.members.table.headers.name': 'Nume',
+  'organizations.members.table.headers.email': 'E-mail',
+  'organizations.members.table.headers.role': 'Rol',
+  'organizations.members.table.headers.created': 'Creat',
+  'organizations.members.table.headers.actions': 'Acțiuni',
+
+  'organizations.invite-member.title': 'Invită membru',
+  'organizations.invite-member.description': 'Invită un membru la organizație',
+  'organizations.invite-member.form.email.label': 'E-mail',
+  'organizations.invite-member.form.email.placeholder': 'Exemplu: ada@papra.app',
+  'organizations.invite-member.form.email.required': 'Introdu o adresă de e-mail validă',
+  'organizations.invite-member.form.role.label': 'Rol',
+  'organizations.invite-member.form.submit': 'Invită membru',
+  'organizations.invite-member.success.message': 'Membru invitat',
+  'organizations.invite-member.success.description':
+    'Adresă de e-mail a fost invitată la organizație.',
+  'organizations.invite-member.error.message': 'Eroare la invitarea membrului',
+
+  'organizations.invitations.title': 'Invitații',
+  'organizations.invitations.description': 'Gestionează invitațiile la organizație',
+  'organizations.invitations.list.cta': 'Invită membru',
+  'organizations.invitations.list.empty.title': 'Nicio invitație în așteptare',
+  'organizations.invitations.list.empty.description':
+    'Încă nu ai fost invitat la nicio organizație.',
+  'organizations.invitations.status.pending': 'În așteptare',
+  'organizations.invitations.status.accepted': 'Acceptată',
+  'organizations.invitations.status.rejected': 'Respinsă',
+  'organizations.invitations.status.expired': 'Expirată',
+  'organizations.invitations.status.cancelled': 'Anulată',
+  'organizations.invitations.resend': 'Retrimite invitația',
+  'organizations.invitations.cancel.title': 'Anulează invitația',
+  'organizations.invitations.cancel.description':
+    'Ești sigur că vrei să anulezi această invitație?',
+  'organizations.invitations.cancel.confirm': 'Anulează invitația',
+  'organizations.invitations.cancel.cancel': 'Anulează',
+  'organizations.invitations.resend.title': 'Retrimite invitația',
+  'organizations.invitations.resend.description':
+    'Ești sigur că vrei să retrimiți această invitație? Se va trimite un nou e-mail destinatarului.',
+  'organizations.invitations.resend.confirm': 'Retrimite invitația',
+  'organizations.invitations.resend.cancel': 'Anulează',
+
+  'invitations.list.title': 'Invitații',
+  'invitations.list.description': 'Gestionează invitații la organizație',
+  'invitations.list.empty.title': 'Nicio invitație în așteptare',
+  'invitations.list.empty.description': 'Încă nu ai fost invitat la nicio organizație.',
+  'invitations.list.headers.organization': 'Organizație',
+  'invitations.list.headers.status': 'Status',
+  'invitations.list.headers.created': 'Creat la',
+  'invitations.list.headers.actions': 'Acțiuni',
+  'invitations.list.actions.accept': 'Acceptă',
+  'invitations.list.actions.reject': 'Refuză',
+  'invitations.list.actions.accept.success.message': 'Invitație acceptată',
+  'invitations.list.actions.accept.success.description': 'Invitația a fost acceptată.',
+  'invitations.list.actions.reject.success.message': 'Invitație refuzată',
+  'invitations.list.actions.reject.success.description': 'Invitația a fost refuzată.',
+
+  // Documents
+
+  'documents.list.title': 'Documente',
+  'documents.list.no-documents.title': 'Niciun document',
+  'documents.list.no-documents.description':
+    'Încă nu există documente în aceasta organizație. Începe prin a încarca câteva documente.',
+  'documents.list.no-results': 'Nu au fost găsite documente',
+  'documents.list.table.headers.file-name': 'Nume fișier',
+  'documents.list.table.headers.created': 'Creat la',
+  'documents.list.table.headers.deleted': 'Șters la',
+  'documents.list.table.headers.actions': 'Acțiuni',
+  'documents.list.table.headers.tags': 'Etichete',
+  'documents.list.search.placeholder': 'Caută documente...',
+  'documents.list.search.total-count-with-query':
+    '{{ count }} {{ count, =1:document, documente }} corespunzător acestei căutări',
+  'documents.list.search.total-count-no-query':
+    '{{ count }} {{ count, =1:document, documente }} în total',
+  'documents.list.batch.selected-count':
+    '{{ count }} {{ count, =1:document, documente }} {{ count, =1:selectat, selectate }}',
+  'documents.list.batch.clear': 'Șterge selecția',
+  'documents.list.batch.tag-action': 'Etichetează',
+  'documents.list.batch.trash-action': 'Coș de gunoi',
+  'documents.list.batch.error': 'Operațiunea în lot a eșuat. Încercați din nou.',
+  'documents.list.batch.select-all-matching':
+    'Selectează toate cele {{ count }} care corespund acestei căutări',
+  'documents.list.batch.select-all':
+    'Selectează cele {{ count }} {{ count, =1:document, documente }}',
+  'documents.list.batch.all-matching-selected':
+    'Toate cele {{ count }} {{ count, =1:document, documente }} care corespund acestei căutări sunt selectate',
+  'documents.list.batch.all-selected':
+    'Toate cele {{ count }} {{ count, =1:document, documente }} sunt selectate',
+  'documents.list.batch.trash.confirm.title': 'Mută în coșul de gunoi',
+  'documents.list.batch.trash.confirm.description':
+    'Mutați {{ count }} {{ count, =1:document, documente }} în coșul de gunoi? Le puteți restaura mai târziu din coș.',
+  'documents.list.batch.trash.confirm.label': 'Mută în coșul de gunoi',
+  'documents.list.batch.trash.confirm.cancel': 'Anulează',
+  'documents.list.batch.trash.success':
+    '{{ count }} {{ count, =1:document, documente }} {{ count, =1:mutat, mutate }} în coșul de gunoi',
+  'documents.list.batch.tags.dialog.title': 'Actualizează etichetele',
+  'documents.list.batch.tags.dialog.description':
+    'Adăugați sau eliminați etichete pe {{ count }} {{ count, =1:document, documente }} {{ count, =1:selectat, selectate }}.',
+  'documents.list.batch.tags.dialog.add-label': 'Etichete de adăugat',
+  'documents.list.batch.tags.dialog.remove-label': 'Etichete de eliminat',
+  'documents.list.batch.tags.dialog.overlap-error':
+    'O etichetă nu poate fi adăugată și eliminată în aceeași operațiune.',
+  'documents.list.batch.tags.dialog.submit': 'Aplică',
+  'documents.list.batch.tags.dialog.cancel': 'Anulează',
+  'documents.list.batch.tags.success':
+    'Etichete actualizate pe {{ count }} {{ count, =1:document, documente }}',
+
+  'documents.tabs.info': 'Info',
+  'documents.tabs.content': 'Conținut',
+  'documents.tabs.activity': 'Activitate',
+  'documents.deleted.message':
+    'Acest document a fost șters și va fi eliminat definitiv după {{ days }} zile.',
+  'documents.actions.download.title': 'Descarcă',
+  'documents.actions.download.error': 'Nu s-a putut descărca documentul',
+  'documents.actions.restore': 'Restaurează',
+  'documents.actions.delete': 'Șterge',
+  'documents.actions.edit': 'Editează',
+  'documents.actions.cancel': 'Anulează',
+  'documents.actions.save': 'Salvează',
+  'documents.actions.saving': 'Se salvează...',
+  'documents.content.alert':
+    'Conținutul documentului este extras automat din document la încarcare. Este folosit doar pentru căutare și indexare.',
+  'documents.content.empty-placeholder':
+    'Acest document nu are conținut extra, poți introduce manual aici.',
+  'documents.info.id': 'ID',
+  'documents.info.name': 'Nume',
+  'documents.info.type': 'Tip',
+  'documents.info.size': 'Dimensiune',
+  'documents.info.created-at': 'Creat la',
+  'documents.info.updated-at': 'Actualizat la',
+  'documents.info.never': 'Niciodată',
+  'documents.info.document-date': 'Data',
+  'documents.list.table.headers.document-date': 'Data',
+  'documents.info.no-date': 'Fără dată',
+  'documents.info.today': 'Astăzi',
+  'documents.notes.label': 'Notițe',
+  'documents.notes.placeholder': 'Adăugați notițe despre acest document',
+  'documents.notes.saving': 'Se salvează',
+  'documents.notes.saved': 'Salvat',
+  'documents.notes.save-error': 'Salvarea notițelor a eșuat',
+
+  'documents.management.details': 'Detalii document',
+  'documents.management.rename': 'Redenumește documentul',
+  'documents.management.delete': 'Șterge documentul',
+
+  'documents.import.drop-area.title': 'Plasează fișierele aici',
+  'documents.import.drop-area.description': 'Trage și plasează fișierele aici pentru a le importa',
+
+  'documents.list.select.all': 'Selectează toate rândurile de pe această pagină',
+  'documents.list.select.row': 'Selectează rândul',
+
+  'custom-properties.types.text': 'Text',
+  'custom-properties.types.number': 'Număr',
+  'custom-properties.types.date': 'Dată',
+  'custom-properties.types.boolean': 'Boolean',
+  'custom-properties.types.select': 'Selectare',
+  'custom-properties.types.multi_select': 'Selectare multiplă',
+  'custom-properties.types.user_relation': 'Utilizator',
+  'custom-properties.types.document_relation': 'Document',
+
+  'custom-properties.list.title': 'Proprietăți personalizate',
+  'custom-properties.list.description':
+    'Definiți câmpuri de metadate personalizate pentru documentele dvs. Proprietățile pot fi text, numere, date, valori booleene sau liste de selectare.',
+  'custom-properties.list.create-button': 'Creare proprietate',
+  'custom-properties.list.empty.title': 'Proprietăți personalizate',
+  'custom-properties.list.empty.description':
+    'Proprietățile personalizate vă permit să adăugați metadate structurate la documentele dvs., precum date de expirare, nume de companii sau sume.',
+  'custom-properties.list.table.name': 'Nume',
+  'custom-properties.list.table.type': 'Tip',
+  'custom-properties.list.table.description': 'Descriere',
+  'custom-properties.list.table.created': 'Creat',
+  'custom-properties.list.table.actions': 'Acțiuni',
+  'custom-properties.list.table.no-description': 'Fără descriere',
+  'custom-properties.list.delete.confirm-title': 'Ștergere proprietate personalizată',
+  'custom-properties.list.delete.confirm-message':
+    'Sigur doriți să ștergeți proprietatea personalizată „{{ name }}”? Această acțiune nu poate fi anulată.',
+  'custom-properties.list.delete.confirm-button': 'Șterge',
+  'custom-properties.list.delete.success': 'Proprietatea personalizată a fost ștearsă cu succes',
+  'custom-properties.list.delete.error': 'Ștergerea proprietății personalizate a eșuat',
+
+  'custom-properties.create.title': 'Creare proprietate personalizată',
+  'custom-properties.create.submit': 'Creare proprietate',
+  'custom-properties.create.success': 'Proprietatea personalizată a fost creată cu succes',
+  'custom-properties.create.error': 'Crearea proprietății personalizate a eșuat',
+
+  'custom-properties.update.title': 'Editare proprietate personalizată',
+  'custom-properties.update.submit': 'Salvare modificări',
+  'custom-properties.update.success': 'Proprietatea personalizată a fost actualizată cu succes',
+  'custom-properties.update.error': 'Actualizarea proprietății personalizate a eșuat',
+
+  'custom-properties.form.name.label': 'Nume',
+  'custom-properties.form.name.placeholder': 'ex.: Suma facturii',
+  'custom-properties.form.name.required': 'Numele este obligatoriu',
+  'custom-properties.form.name.max-length': 'Numele trebuie să aibă cel mult 255 de caractere',
+  'custom-properties.form.description.label': 'Descriere',
+  'custom-properties.form.description.optional': '(opțional)',
+  'custom-properties.form.description.placeholder': 'Descrieți la ce servește această proprietate',
+  'custom-properties.form.description.max-length':
+    'Descrierea trebuie să aibă cel mult 1000 de caractere',
+  'custom-properties.form.type.label': 'Tip',
+  'custom-properties.form.type.immutable': 'Tipul proprietății nu poate fi modificat după creare.',
+  'custom-properties.form.options.title': 'Opțiuni',
+  'custom-properties.form.options.description':
+    'Definiți opțiunile disponibile pentru această proprietate.',
+  'custom-properties.form.options.name.placeholder': 'Denumire opțiune',
+  'custom-properties.form.options.name.required': 'Denumirea opțiunii este obligatorie',
+  'custom-properties.form.options.name.max-length':
+    'Denumirea opțiunii trebuie să aibă cel mult 255 de caractere',
+  'custom-properties.form.options.validation.required': 'Adăugați cel puțin o opțiune',
+  'custom-properties.form.options.add': 'Adăugare opțiune',
+  'custom-properties.form.cancel': 'Anulare',
+  'custom-properties.form.save-error':
+    'A apărut o eroare la salvarea definiției proprietății. Vă rugăm să încercați din nou.',
+
+  'documents.custom-properties.section-title': 'Proprietăți',
+  'documents.custom-properties.no-value': 'Nesetat',
+  'documents.custom-properties.text-placeholder': 'Introduceți o valoare...',
+  'documents.custom-properties.save': 'Salvare',
+  'documents.custom-properties.clear': 'Golire',
+  'documents.custom-properties.document-relation-search-placeholder': 'Căutare documente...',
+  'documents.custom-properties.user-relation-manage': 'Gestionare utilizatori',
+  'documents.custom-properties.document-relation-manage': 'Gestionare documente',
+  'documents.custom-properties.no-results': 'Niciun rezultat',
+
+  'documents.rename.title': 'Redenumește documentul',
+  'documents.rename.form.name.label': 'Nume',
+  'documents.rename.form.name.placeholder': 'Exemplu: Factura 2024',
+  'documents.rename.form.name.required': 'Te rugăm să introduci un nume pentru document',
+  'documents.rename.form.name.max-length': 'Numele trebuie să aibă mai puțin de 255 de caractere',
+  'documents.rename.form.submit': 'Redenumește documentul',
+  'documents.rename.success': 'Document redenumit cu succes',
+  'documents.rename.cancel': 'Anulează',
+
+  'import-documents.title.error': '{{ count }} documente au eșuat',
+  'import-documents.title.success': '{{ count }} documente importate',
+  'import-documents.title.pending': '{{ count }} / {{ total }} documente importate',
+  'import-documents.title.none': 'Importă documente',
+  'import-documents.no-import-in-progress': 'Niciun import de documente în curs',
+
+  'documents.deleted.title': 'Documente șterse',
+  'documents.deleted.empty.title': 'Niciun document șters',
+  'documents.deleted.empty.description':
+    'Nu ai niciun document șters. Documentele care sunt șterse vor fi mutate în coșul de gunoi timp de {{ days }} zile.',
+  'documents.deleted.retention-notice':
+    'Toate documentele șterse sunt stocate în coșul de gunoi timp de {{ days }} zile. După acest interval, documentele vor fi șterse definitiv și nu le vei mai putea restaura.',
+  'documents.deleted.deleted-at': 'Șterse la',
+  'documents.deleted.restoring': 'Se restaurează...',
+  'documents.deleted.deleting': 'Se șterge...',
+
+  'documents.preview.unknown-file-type':
+    'Nicio previzualizare disponibilă pentru acest tip de fișier',
+  'documents.preview.binary-file': 'Acesta pare a fi un fișier binar și nu poate fi afișat ca text',
+
+  'documents.open-with.label': 'Deschide cu',
+  'documents.open-with.pdf-viewer': 'Vizualizator PDF',
+
+  'documents.pdf-viewer.loading': 'Se încarcă PDF-ul',
+  'documents.pdf-viewer.not-a-pdf':
+    'Acest document nu este un PDF și nu poate fi deschis în vizualizatorul PDF.',
+
+  'documents.pdf-viewer.toolbar.hide-sidebar': 'Ascunde panoul lateral',
+  'documents.pdf-viewer.toolbar.show-sidebar': 'Afișează panoul lateral',
+  'documents.pdf-viewer.toolbar.previous-page': 'Pagina anterioară',
+  'documents.pdf-viewer.toolbar.next-page': 'Pagina următoare',
+  'documents.pdf-viewer.toolbar.fit-width': 'Potrivire la lățime',
+  'documents.pdf-viewer.toolbar.fit-page': 'Potrivire la pagină',
+  'documents.pdf-viewer.toolbar.rotate-clockwise': 'Rotire în sensul acelor de ceasornic',
+  'documents.pdf-viewer.toolbar.download': 'Descarcă',
+  'documents.pdf-viewer.toolbar.print': 'Tipărește',
+
+  'documents.pdf-viewer.zoom.zoom-out': 'Micșorează',
+  'documents.pdf-viewer.zoom.zoom-in': 'Mărește',
+  'documents.pdf-viewer.zoom.auto': 'Automat',
+  'documents.pdf-viewer.zoom.actual-size': 'Dimensiune reală',
+  'documents.pdf-viewer.zoom.page-fit': 'Potrivire la pagină',
+  'documents.pdf-viewer.zoom.page-width': 'Lățimea paginii',
+
+  'documents.pdf-viewer.more-actions.label': 'Mai multe acțiuni',
+  'documents.pdf-viewer.more-actions.presentation-mode': 'Mod prezentare',
+  'documents.pdf-viewer.more-actions.download': 'Descarcă',
+  'documents.pdf-viewer.more-actions.print': 'Tipărește',
+  'documents.pdf-viewer.more-actions.go-to-first-page': 'Mergi la prima pagină',
+  'documents.pdf-viewer.more-actions.go-to-last-page': 'Mergi la ultima pagină',
+  'documents.pdf-viewer.more-actions.rotate-clockwise': 'Rotire în sensul acelor de ceasornic',
+  'documents.pdf-viewer.more-actions.rotate-counterclockwise':
+    'Rotire în sens invers acelor de ceasornic',
+  'documents.pdf-viewer.more-actions.page-scrolling': 'Derulare pe pagini',
+  'documents.pdf-viewer.more-actions.vertical-scrolling': 'Derulare verticală',
+  'documents.pdf-viewer.more-actions.horizontal-scrolling': 'Derulare orizontală',
+  'documents.pdf-viewer.more-actions.wrapped-scrolling': 'Derulare continuă',
+  'documents.pdf-viewer.more-actions.no-spreads': 'Fără pagini duble',
+  'documents.pdf-viewer.more-actions.odd-spreads': 'Pagini duble impare',
+  'documents.pdf-viewer.more-actions.even-spreads': 'Pagini duble pare',
+  'documents.pdf-viewer.more-actions.document-properties': 'Proprietățile documentului',
+
+  'documents.pdf-viewer.properties.title': 'Proprietățile documentului',
+  'documents.pdf-viewer.properties.na': 'N/D',
+  'documents.pdf-viewer.properties.file-name': 'Numele fișierului',
+  'documents.pdf-viewer.properties.file-size': 'Dimensiunea fișierului',
+  'documents.pdf-viewer.properties.doc-title': 'Titlu',
+  'documents.pdf-viewer.properties.author': 'Autor',
+  'documents.pdf-viewer.properties.subject': 'Subiect',
+  'documents.pdf-viewer.properties.keywords': 'Cuvinte cheie',
+  'documents.pdf-viewer.properties.creation-date': 'Data creării',
+  'documents.pdf-viewer.properties.modification-date': 'Data modificării',
+  'documents.pdf-viewer.properties.creator': 'Creat cu',
+  'documents.pdf-viewer.properties.pdf-producer': 'Producător PDF',
+  'documents.pdf-viewer.properties.pdf-version': 'Versiune PDF',
+  'documents.pdf-viewer.properties.page-count': 'Număr de pagini',
+  'documents.pdf-viewer.properties.page-size': 'Dimensiunea paginii',
+  'documents.pdf-viewer.properties.fast-web-view': 'Vizualizare web rapidă',
+  'documents.pdf-viewer.properties.yes': 'Da',
+  'documents.pdf-viewer.properties.no': 'Nu',
+
+  'documents.pdf-viewer.sidebar.page-thumbnails': 'Miniaturi pagini',
+  'documents.pdf-viewer.sidebar.document-outline': 'Structura documentului',
+  'documents.pdf-viewer.sidebar.attachments': 'Atașamente',
+
+  'documents.pdf-viewer.thumbnails.page-alt': 'Pagina {{ page }}',
+  'document-share-links.share-action': 'Partajează',
+  'document-share-links.copy': 'Copiază linkul',
+  'document-share-links.copied': 'Link copiat în clipboard',
+  'document-share-links.copy-error': 'Copierea linkului a eșuat',
+  'document-share-links.enabled': 'Link de partajare activat',
+  'document-share-links.disabled': 'Link de partajare dezactivat',
+  'document-share-links.deleted': 'Link de partajare șters',
+  'document-share-links.password-protected': 'Protejat cu parolă',
+  'document-share-links.no-password': 'Fără parolă',
+  'document-share-links.never-expires': 'Nu expiră niciodată',
+  'document-share-links.expires-on': 'Expiră pe {{ date }}',
+  'document-share-links.list.title': 'Linkuri de partajare',
+  'document-share-links.list.description': 'Gestionați linkurile de partajare pentru „{{ name }}”.',
+  'document-share-links.list.create-new': 'Creează link nou',
+  'document-share-links.create.title': 'Creează un link de partajare',
+  'document-share-links.create.description':
+    'Creați un nou link de partajare pentru acest document.',
+  'document-share-links.create.password.toggle': 'Solicită o parolă',
+  'document-share-links.create.password.hint':
+    'Opțional, destinatarii vor trebui să o introducă înainte de a accesa.',
+  'document-share-links.create.password.placeholder': 'Introduceți sau generați o parolă',
+  'document-share-links.create.password.generate': 'Generează',
+  'document-share-links.create.expiration.toggle': 'Setează o dată de expirare',
+  'document-share-links.create.expiration.hint':
+    'Opțional, linkul va expira automat după această dată.',
+  'document-share-links.create.expiration.24h': '24 de ore',
+  'document-share-links.create.expiration.7d': '7 zile',
+  'document-share-links.create.expiration.30d': '30 de zile',
+  'document-share-links.create.expiration.custom': 'Personalizat',
+  'document-share-links.create.expiration.pick-date': 'Alegeți o dată',
+  'document-share-links.create.cancel': 'Anulează',
+  'document-share-links.create.submit': 'Creează linkul',
+  'document-share-links.create.error': 'Crearea linkului de partajare a eșuat',
+  'document-share-links.created.title': 'Link de partajare creat',
+  'document-share-links.created.description':
+    'Linkul de partajare este gata — copiați-l și partajați-l.',
+  'document-share-links.created.done': 'Gata',
+  'document-share-links.actions.menu': 'Acțiuni',
+  'document-share-links.actions.open-document': 'Deschide documentul',
+  'document-share-links.actions.enable': 'Activează linkul',
+  'document-share-links.actions.disable': 'Dezactivează linkul',
+  'document-share-links.actions.stop-sharing': 'Oprește partajarea',
+  'document-share-links.delete.confirm.title': 'Șterge linkul de partajare',
+  'document-share-links.delete.confirm.message':
+    'Oricine are acest link va pierde imediat accesul. Această acțiune nu poate fi anulată.',
+  'document-share-links.delete.confirm.confirm-button': 'Șterge linkul',
+  'document-share-links.delete.confirm.cancel-button': 'Anulează',
+  'document-share-links.management.title': 'Linkuri de partajare',
+  'document-share-links.management.description':
+    'Gestionați toate linkurile de partajare create în această organizație.',
+  'document-share-links.management.empty.title': 'Niciun link de partajare',
+  'document-share-links.management.empty.description':
+    'Linkurile de partajare create pentru documentele acestei organizații vor apărea aici.',
+  'document-share-links.management.table.document': 'Document',
+  'document-share-links.management.table.link': 'Link',
+  'document-share-links.management.table.status': 'Stare',
+  'document-share-links.management.table.security': 'Securitate',
+  'document-share-links.management.table.expiry': 'Expirare',
+  'document-share-links.management.table.last-accessed': 'Ultimul acces',
+  'document-share-links.management.table.actions': 'Acțiuni',
+  'document-share-links.management.status.expired': 'Expirat',
+  'document-share-links.management.status.enabled': 'Activat',
+  'document-share-links.management.status.disabled': 'Dezactivat',
+  'document-share-links.management.status.trashed': 'Document în coșul de gunoi',
+  'document-share-links.management.status.trashed-hint':
+    'Documentul partajat este în coșul de gunoi, așa că acest link este inactiv până la restaurarea documentului.',
+  'document-share-links.management.security.password': 'Parolă',
+  'document-share-links.management.security.public': 'Public',
+  'document-share-links.management.never': 'Niciodată',
+  'document-share-links.public.download': 'Descarcă',
+  'document-share-links.public.download-error': 'Descărcarea fișierului a eșuat',
+  'document-share-links.public.password.title': 'Parolă necesară',
+  'document-share-links.public.password.description':
+    'Acest document este protejat. Introduceți parola pentru a-l accesa.',
+  'document-share-links.public.password.label': 'Parolă',
+  'document-share-links.public.password.placeholder': 'Introduceți parola',
+  'document-share-links.public.password.submit': 'Deblochează',
+  'document-share-links.public.password.invalid': 'Parolă incorectă',
+  'document-share-links.public.password.too-many-attempts':
+    'Prea multe încercări. Încercați din nou mai târziu.',
+  'document-share-links.public.gone.title': 'Link indisponibil',
+  'document-share-links.public.gone.description':
+    'Acest link de partajare a expirat sau a fost dezactivat.',
+  'document-share-links.public.not-found.title': 'Link negăsit',
+  'document-share-links.public.not-found.description': 'Acest link de partajare nu există.',
+
+  'trash.delete-all.button': 'Șterge tot',
+  'trash.delete-all.confirm.title': 'Ștergi definitiv toate documentele?',
+  'trash.delete-all.confirm.description':
+    'Ești sigur că dorești să ștergi definitiv toate documentele din coșul de gunoi? Această acțiune nu poate fi anulată.',
+  'trash.delete-all.confirm.label': 'Șterge',
+  'trash.delete-all.confirm.cancel': 'Anulează',
+  'trash.delete.button': 'Șterge',
+  'trash.delete.confirm.title': 'Ștergi definitiv documentul?',
+  'trash.delete.confirm.description':
+    'Sunteti sigur ca doriti să stergeti definitiv acest document din cosul de gunoi? Această actiune nu poate fi anulată.',
+  'trash.delete.confirm.label': 'Șterge',
+  'trash.delete.confirm.cancel': 'Anulează',
+  'trash.deleted.success.title': 'Document șters',
+  'trash.deleted.success.description': 'Documentul a fost șters definitiv.',
+
+  'activity.document.created': 'Documentul a fost creat',
+  'activity.document.updated.single': 'Câmpul {{ field }} a fost actualizat',
+  'activity.document.updated.multiple': 'Câmpurile {{ fields }} au fost actualizate',
+  'activity.document.updated': 'Documentul a fost actualizat',
+  'activity.document.deleted': 'Documentul a fost șters',
+  'activity.document.restored': 'Documentul a fost restaurat',
+  'activity.document.tagged': 'Eticheta {{ tag }} a fost adaugată',
+  'activity.document.untagged': 'Eticheta {{ tag }} a fost eliminată',
+
+  'activity.document.user.name': 'de {{ name }}',
+
+  'activity.load-more': 'Încarcă mai multe',
+  'activity.no-more-activities': 'Nu mai sunt activități pentru acest document',
+
+  // Tags
+
+  'tags.no-tags.title': 'Încă nu există etichete',
+  'tags.no-tags.description':
+    'Această organizație nu are încă etichete. Etichetele sunt folosite pentru a clasifica documentele. Poți adăuga etichete la documente pentru a le găsi și organiza mai ușor.',
+  'tags.no-tags.create-tag': 'Creează eticheta',
+
+  'tags.title': 'Etichete documente',
+  'tags.description':
+    'Etichetele sunt folosite pentru a clasifica documentele. Poți adăuga etichete la documente pentru a le găsi și organiza mai ușor.',
+  'tags.create': 'Creează eticheta',
+  'tags.update': 'Actualizează eticheta',
+  'tags.delete': 'Șterge eticheta',
+  'tags.delete.confirm.title': 'Șterge eticheta',
+  'tags.delete.confirm.message':
+    'Ești sigur că vrei să ștergi eticheta „{{ name }}”? Stergerea unei etichete o va elimina din toate documentele.',
+  'tags.delete.confirm.confirm-button': 'Șterge',
+  'tags.delete.confirm.cancel-button': 'Anulează',
+  'tags.delete.success': 'Eticheta a fost ștearsă cu succes',
+  'tags.create.success': 'Eticheta "{{ name }}" a fost creată cu succes.',
+  'tags.update.success': 'Eticheta "{{ name }}" a fost actualizată cu succes.',
+  'tags.form.name.label': 'Nume',
+  'tags.form.name.placeholder': 'Ex. Contracte',
+  'tags.form.name.required': 'Te rugăm să introduci un nume pentru etichetă',
+  'tags.form.name.max-length': 'Numele etichetei trebuie să aibă mai puțin de 64 de caractere',
+  'tags.form.color.label': 'Culoare',
+  'tags.form.color.required': 'Te rugăm să introduci o culoare',
+  'tags.form.color.invalid': 'Culoarea hex este formatată greșit.',
+  'tags.form.description.label': 'Descriere',
+  'tags.form.description.optional': '(optional)',
+  'tags.form.description.placeholder': 'Ex. Toate contractele semnate de companie',
+  'tags.form.description.max-length': 'Descrierea trebuie să aibă mai puțin de 256 de caractere',
+  'tags.form.no-description': 'Nicio descriere',
+  'tags.table.headers.tag': 'Etichetă',
+  'tags.table.headers.description': 'Descriere',
+  'tags.table.headers.documents': 'Documente',
+  'tags.table.headers.created': 'Creat la',
+  'tags.table.headers.actions': 'Acțiuni',
+  'tags.picker.search-placeholder': 'Caută etichete...',
+  'tags.picker.filter-placeholder': 'Filtrează etichete...',
+  'tags.picker.create-new-with-name': 'Creează etichetă nouă "{{ name }}"',
+  'tags.picker.create-new': 'Creează etichetă nouă',
+  'document-views.create': 'Creează vizualizare',
+  'document-views.save-as-view': 'Salvează interogarea ca vizualizare',
+  'document-views.update': 'Actualizează vizualizarea',
+  'document-views.delete': 'Șterge vizualizarea',
+  'document-views.delete.confirm.title': 'Șterge vizualizarea',
+  'document-views.delete.confirm.message': 'Sigur doriți să ștergeți această vizualizare?',
+  'document-views.delete.confirm.confirm-button': 'Șterge',
+  'document-views.delete.confirm.cancel-button': 'Anulează',
+  'document-views.delete.success': 'Vizualizare ștearsă cu succes',
+  'document-views.create.success': 'Vizualizarea „{{ name }}” a fost creată cu succes.',
+  'document-views.update.success': 'Vizualizarea „{{ name }}” a fost actualizată cu succes.',
+  'document-views.form.name.label': 'Nume',
+  'document-views.form.name.placeholder': 'Ex. Inbox',
+  'document-views.form.name.required': 'Introduceți un nume de vizualizare',
+  'document-views.form.name.max-length':
+    'Numele vizualizării trebuie să aibă mai puțin de 100 de caractere',
+  'document-views.form.query.label': 'Interogare',
+  'document-views.form.query.placeholder': 'Ex. tag:inbox AND -tag:archived',
+  'document-views.form.query.required': 'Introduceți o interogare',
+  'document-views.form.query.max-length':
+    'Interogarea trebuie să aibă mai puțin de 500 de caractere',
+  'document-views.form.query.hint':
+    'Folosiți aceeași sintaxă ca bara de căutare a documentelor. Ex. tag:inbox, has:tags, before:2024-01-01',
+  'document-views.form.description.label': 'Descriere',
+  'document-views.form.description.optional': '(opțional)',
+  'document-views.form.description.placeholder': 'Ex. Documente care așteaptă procesarea',
+  'document-views.form.description.max-length':
+    'Descrierea trebuie să aibă mai puțin de 256 de caractere',
+  'document-views.actions.menu': 'Acțiuni vizualizare',
+  'document-views.view.no-documents':
+    'Niciun document nu corespunde interogării acestei vizualizări.',
+  'document-views.view.not-found': 'Vizualizare negăsită.',
+  'api-errors.document_views.already_exists':
+    'O vizualizare cu acest nume există deja pentru această organizație',
+  'api-errors.document_views.not_found': 'Vizualizare negăsită',
+
+  // Tagging rules
+
+  'tagging-rules.field.name': 'numele documentului',
+  'tagging-rules.field.content': 'conținutul documentului',
+  'tagging-rules.operator.equals': 'egal cu',
+  'tagging-rules.operator.not-equals': 'nu este egal cu',
+  'tagging-rules.operator.contains': 'conține',
+  'tagging-rules.operator.not-contains': 'nu conține',
+  'tagging-rules.operator.starts-with': 'începe cu',
+  'tagging-rules.operator.ends-with': 'se termină cu',
+  'tagging-rules.list.title': 'Reguli de etichetare',
+  'tagging-rules.list.description':
+    'Gestionează regulile de etichetare ale organizației pentru a eticheta automat documentele pe baza unor condiții definite.',
+  'tagging-rules.list.demo-warning':
+    'Notă: Deoarece acesta este un mediu demonstrativ (fără server), regulile de etichetare nu vor fi aplicate documentelor nou adăugate.',
+  'tagging-rules.list.no-tagging-rules.title': 'Nicio regulă de etichetare',
+  'tagging-rules.list.no-tagging-rules.description':
+    'Creează o regulă de etichetare pentru a eticheta automat documentele adăugate pe baza unor condiții definite.',
+  'tagging-rules.list.no-tagging-rules.create-tagging-rule': 'Creează regula de etichetare',
+  'tagging-rules.list.card.no-conditions': 'Nicio condiție',
+  'tagging-rules.list.card.one-condition': 'O condiție',
+  'tagging-rules.list.card.conditions': '{{ count }} condiții',
+  'tagging-rules.list.card.delete': 'Șterge regula',
+  'tagging-rules.list.card.edit': 'Editează regula',
+  'tagging-rules.create.title': 'Creează regula de etichetare',
+  'tagging-rules.create.success': 'Regula de etichetare a fost creată cu succes',
+  'tagging-rules.create.error': 'Nu s-a putut crea regula de etichetare',
+  'tagging-rules.create.submit': 'Creează regula',
+  'tagging-rules.form.name.label': 'Nume',
+  'tagging-rules.form.name.placeholder': 'Exemplu: Etichetează facturile',
+  'tagging-rules.form.name.min-length': 'Te rugăm să introduci numele regulii',
+  'tagging-rules.form.name.max-length': 'Numele trebuie să aibă mai puțin de 64 de caractere',
+  'tagging-rules.form.description.label': 'Descriere',
+  'tagging-rules.form.description.placeholder':
+    "Exemplu: Etichetează documentele cu 'factură' în nume",
+  'tagging-rules.form.description.max-length':
+    'Descrierea trebuie să aibă mai puțin de 256 de caractere',
+  'tagging-rules.form.conditions.label': 'Condiții',
+  'tagging-rules.form.conditions.description':
+    'Definește condițiile care trebuie îndeplinite pentru ca regula să se aplice. Fără condiții înseamnă că regula se va aplica tuturor documentelor',
+  'tagging-rules.form.conditions.add-condition': 'Adaugă condiție',
+  'tagging-rules.form.conditions.connector.when': 'Când',
+  'tagging-rules.form.conditions.connector.and': 'și că',
+  'tagging-rules.form.conditions.connector.or': 'sau că',
+  'tagging-rules.condition-match-mode.all': 'Toate condițiile trebuie îndeplinite',
+  'tagging-rules.condition-match-mode.any': 'Orice condiție trebuie îndeplinită',
+  'tagging-rules.form.conditions.no-conditions.title': 'Nicio condiție',
+  'tagging-rules.form.conditions.no-conditions.description':
+    'Nu ai adăugat nicio condiție acestei reguli. Această regula va aplica etichetele sale tuturor documentelor.',
+  'tagging-rules.form.conditions.no-conditions.confirm': 'Aplică regula fara condiții',
+  'tagging-rules.form.conditions.no-conditions.cancel': 'Anulează',
+  'tagging-rules.form.conditions.value.placeholder': 'Exemplu: factură',
+  'tagging-rules.form.conditions.value.min-length':
+    'Te rugăm să introduci o valoare pentru condiție',
+  'tagging-rules.form.tags.label': 'Etichete',
+  'tagging-rules.form.tags.description':
+    'Selectează etichetele de aplicat documentelor adăugate care corespund condițiilor',
+  'tagging-rules.form.tags.min-length': 'Este necesară cel puțin o etichetă de aplicat',
+  'tagging-rules.form.tags.add-tag': 'Creează eticheta',
+  'tagging-rules.update.title': 'Actualizează regula de etichetare',
+  'tagging-rules.update.error': 'Nu s-a putut actualiza regula de etichetare',
+  'tagging-rules.update.submit': 'Actualizează regula',
+  'tagging-rules.update.cancel': 'Anulează',
+  'tagging-rules.apply.button': 'Aplicați la documente existente',
+  'tagging-rules.apply.confirm.title': 'Aplicați regula la documente existente?',
+  'tagging-rules.apply.confirm.description':
+    'Aceasta va verifica toate documentele existente din organizația dvs. și va aplica etichetele unde condițiile corespund. Procesarea va avea loc în fundal.',
+  'tagging-rules.apply.confirm.button': 'Aplicați regula',
+  'tagging-rules.apply.success': 'Aplicarea regulii a fost pornită în fundal',
+  'tagging-rules.apply.error': 'Eroare la pornirea aplicării regulii',
+  'tagging-rules.apply.processing': 'Se pornește...',
+
+  // Intake emails
+
+  'intake-emails.title': 'E-mailuri de primire',
+  'intake-emails.description':
+    'Adresele de e-mail de primire sunt folosite pentru a introduce automat email-uri în Papra. Doar redirecționează e-mailuri către adresa de primire, iar fișierele atașate vor fi adăugate automat în documentele organizației tale.',
+  'intake-emails.disabled.title': 'Email-urile de primire sunt dezactivate',
+  'intake-emails.disabled.description':
+    'Email-urile de primire sunt dezactivate pe aceasta instanță. Te rugăm să contactezi administratorul pentru a le activa. Consultă {{ documentation }} pentru mai multe informații.',
+  'intake-emails.disabled.documentation': 'documentația',
+  'intake-emails.info':
+    'Vor fi procesate numai e-mailurile de primire activate de la originile permise. Poți activa sau dezactiva un e-mail de primire în orice moment.',
+  'intake-emails.empty.title': 'Niciun e-mail de primire',
+  'intake-emails.empty.description':
+    'Generează o adresă de primire pentru a primi cu ușurință fișiere atașate din e-mail.',
+  'intake-emails.empty.generate': 'Generează e-mail de primire',
+  'intake-emails.count': '{{ count }} email{{ plural }} de primire pentru această organizație',
+  'intake-emails.new': 'E-mail nou de primire',
+  'intake-emails.disabled-label': '(Dezactivat)',
+  'intake-emails.no-origins': 'Nicio origine de e-mail permisă',
+  'intake-emails.allowed-origins': 'Permis de la {{ count }} adrese{{ plural }}',
+  'intake-emails.actions.enable': 'Activează',
+  'intake-emails.actions.disable': 'Dezactivează',
+  'intake-emails.actions.manage-origins': 'Gestionează adresele de origine',
+  'intake-emails.actions.delete': 'Șterge',
+  'intake-emails.delete.confirm.title': 'Ștergi email-ul de primire?',
+  'intake-emails.delete.confirm.message':
+    'Ești sigur că vrei să ștergi acest e-mail de primire? Această acțiune nu poate fi anulată.',
+  'intake-emails.delete.confirm.confirm-button': 'Șterge email-ul de primire',
+  'intake-emails.delete.confirm.cancel-button': 'Anulează',
+  'intake-emails.delete.success': 'E-mail de primire șters',
+  'intake-emails.create.success': 'E-mail de primire creat',
+  'intake-emails.update.success.enabled': 'E-mail de primire activat',
+  'intake-emails.update.success.disabled': 'E-mail de primire dezactivat',
+  'intake-emails.allowed-origins.title': 'Origini permise',
+  'intake-emails.allowed-origins.description':
+    'Doar email-urile trimise la {{ e-mail }} de la aceste origini vor fi procesate. Dacă nu sunt specificate origini, toate email-urile vor fi ignorate.',
+  'intake-emails.allowed-origins.add.label': 'Adaugă adresa de e-mail de origine permisă',
+  'intake-emails.allowed-origins.add.placeholder': 'Ex. ada@papra.app',
+  'intake-emails.allowed-origins.add.button': 'Adaugă',
+  'intake-emails.allowed-origins.delete.label': 'Șterge originea permisă',
+  'intake-emails.actions.more': 'Mai multe acțiuni',
+  'intake-emails.allowed-origins.add.error.exists':
+    'Acest e-mail este deja în originile permise pentru acest e-mail de primire',
+
+  // API keys
+
+  'api-keys.permissions.select-all': 'Selectează tot',
+  'api-keys.permissions.deselect-all': 'Deselectează tot',
+  'api-keys.permissions.organizations.title': 'Organizații',
+  'api-keys.permissions.organizations.organizations:create': 'Creează organizații',
+  'api-keys.permissions.organizations.organizations:read': 'Citește organizații',
+  'api-keys.permissions.organizations.organizations:update': 'Actualizează organizații',
+  'api-keys.permissions.organizations.organizations:delete': 'Șterge organizații',
+  'api-keys.permissions.documents.title': 'Documente',
+  'api-keys.permissions.documents.documents:create': 'Creează documente',
+  'api-keys.permissions.documents.documents:read': 'Citește documente',
+  'api-keys.permissions.documents.documents:update': 'Actualizează documente',
+  'api-keys.permissions.documents.documents:delete': 'Șterge documente',
+  'api-keys.permissions.tags.title': 'Etichete',
+  'api-keys.permissions.tags.tags:create': 'Creează etichete',
+  'api-keys.permissions.tags.tags:read': 'Citește etichete',
+  'api-keys.permissions.tags.tags:update': 'Actualizează etichete',
+  'api-keys.permissions.tags.tags:delete': 'Șterge etichete',
+  'api-keys.permissions.custom-properties.title': 'Proprietăți personalizate',
+  'api-keys.permissions.custom-properties.custom-properties:create':
+    'Creează proprietăți personalizate',
+  'api-keys.permissions.custom-properties.custom-properties:read':
+    'Citește proprietăți personalizate',
+  'api-keys.permissions.custom-properties.custom-properties:update':
+    'Actualizează proprietăți personalizate',
+  'api-keys.permissions.custom-properties.custom-properties:delete':
+    'Șterge proprietăți personalizate',
+  'api-keys.create.title': 'Creează cheie API',
+  'api-keys.create.description': 'Creează o nouă cheie API pentru a accesa API-ul Papra.',
+  'api-keys.create.success': 'Cheia API a fost creată cu succes.',
+  'api-keys.create.back': 'Înapoi la cheile API',
+  'api-keys.create.form.name.label': 'Nume',
+  'api-keys.create.form.name.placeholder': 'Exemplu: Cheia mea API',
+  'api-keys.create.form.name.required': 'Te rugăm să introduci un nume pentru cheia API',
+  'api-keys.create.form.permissions.label': 'Permisiuni',
+  'api-keys.create.form.permissions.required': 'Te rugăm să selectezi cel puțin o permisiune',
+  'api-keys.create.form.submit': 'Creează cheie API',
+  'api-keys.create.created.title': 'Cheie API creată',
+  'api-keys.create.created.description':
+    'Cheia API a fost creată cu succes. Salveaz-o într-un loc sigur, deoarece nu va fi afișată din nou.',
+  'api-keys.list.title': 'Chei API',
+  'api-keys.list.description': 'Gestionează-ți cheile API aici.',
+  'api-keys.list.create': 'Creează cheie API',
+  'api-keys.list.empty.title': 'Nicio cheie API',
+  'api-keys.list.empty.description': 'Creează o cheie API pentru a accesa API-ul Papra.',
+  'api-keys.list.card.created': 'Creat la',
+  'api-keys.delete.success': 'Cheia API a fost ștearsă cu succes',
+  'api-keys.delete.confirm.title': 'Șterge cheia API',
+  'api-keys.delete.confirm.message':
+    'Ești sigur ca vrei să ștergi aceasta cheie API? Această acțiune nu poate fi anulată.',
+  'api-keys.delete.confirm.confirm-button': 'Șterge',
+  'api-keys.delete.confirm.cancel-button': 'Anulează',
+
+  // Webhooks
+
+  'webhooks.list.title': 'Webhook-uri',
+  'webhooks.list.description': 'Gestionează webhook-urile organizației tale',
+  'webhooks.list.empty.title': 'Niciun webhook',
+  'webhooks.list.empty.description':
+    'Creează primul webhook pentru a începe să primesti evenimente',
+  'webhooks.list.create': 'Creează webhook',
+  'webhooks.list.card.last-triggered': 'Ultima declanșare',
+  'webhooks.list.card.never': 'Niciodată',
+  'webhooks.list.card.created': 'Creat la',
+  'webhooks.create.title': 'Creează webhook',
+  'webhooks.create.description': 'Creează un nou webhook pentru a primi evenimente',
+  'webhooks.create.success': 'Webhook creat cu succes',
+  'webhooks.create.back': 'Înapoi',
+  'webhooks.create.form.submit': 'Creează webhook',
+  'webhooks.create.form.name.label': 'Nume webhook',
+  'webhooks.create.form.name.placeholder': 'Introdu numele webhook-ului',
+  'webhooks.create.form.name.required': 'Numele este obligatoriu',
+  'webhooks.create.form.name.max-length': 'Numele trebuie să aibă cel mult 128 de caractere',
+  'webhooks.create.form.url.label': 'URL webhook',
+  'webhooks.create.form.url.placeholder': 'Introdu URL-ul webhook-ului',
+  'webhooks.create.form.url.required': 'URL-ul este obligatoriu',
+  'webhooks.create.form.url.invalid': 'URL-ul este invalid',
+  'webhooks.create.form.secret.label': 'Secret',
+  'webhooks.create.form.secret.placeholder': 'Introdu secretul webhook-ului',
+  'webhooks.create.form.events.label': 'Evenimente',
+  'webhooks.create.form.events.required': 'Este necesar cel puțin un eveniment',
+  'webhooks.update.title': 'Editează webhook',
+  'webhooks.update.description': 'Actualizează detaliile webhook-ului',
+  'webhooks.update.success': 'Webhook actualizat cu succes',
+  'webhooks.update.submit': 'Actualizează webhook',
+  'webhooks.update.cancel': 'Anulează',
+  'webhooks.update.form.secret.placeholder': 'Introdu un secret nou',
+  'webhooks.update.form.secret.placeholder-redacted': '[Secret protejat]',
+  'webhooks.update.form.rotate-secret.button': 'Rotește secretul',
+  'webhooks.delete.success': 'Webhook șters cu succes',
+  'webhooks.delete.confirm.title': 'Șterge webhook',
+  'webhooks.delete.confirm.message': 'Ești sigur ca vrei să ștergi acest webhook?',
+  'webhooks.delete.confirm.confirm-button': 'Șterge',
+  'webhooks.delete.confirm.cancel-button': 'Anulează',
+
+  'webhooks.events.documents.title': 'Evenimente documente',
+  'webhooks.events.documents.document:created.description': 'Document creat',
+  'webhooks.events.documents.document:deleted.description': 'Document șters',
+  'webhooks.events.documents.document:updated.description': 'Document actualizat',
+  'webhooks.events.documents.document:tag:added.description':
+    'O etichetă a fost adăugată la un document',
+  'webhooks.events.documents.document:tag:removed.description':
+    'O etichetă a fost eliminată dintr-un document',
+
+  // Navigation
+
+  'layout.menu.home': 'Acasă',
+  'layout.menu.documents': 'Documente',
+  'layout.menu.tags': 'Etichete',
+  'layout.menu.custom-properties': 'Proprietăți personalizate',
+  'layout.menu.tagging-rules': 'Reguli de etichetare',
+  'layout.menu.share-links': 'Linkuri de partajare',
+  'layout.menu.deleted-documents': 'Documente șterse',
+  'layout.menu.organization-settings': 'Setări organizație',
+  'layout.menu.api-keys': 'Chei API',
+  'layout.menu.settings': 'Setări',
+  'layout.menu.account': 'Cont',
+  'layout.menu.general-settings': 'Setări generale',
+  'layout.menu.usage': 'Utilizare',
+  'layout.menu.intake-emails': 'Email-uri de primire',
+  'layout.menu.webhooks': 'Webhook-uri',
+  'layout.menu.members': 'Membri',
+  'layout.menu.document-views': 'Vizualizări',
+  'layout.menu.invitations': 'Invitații',
+  'layout.menu.admin': 'Administrare',
+
+  'layout.upgrade-cta.title': 'Ai nevoie de mai mult spațiu?',
+  'layout.upgrade-cta.description':
+    'Obține de 10x mai mult spațiu de stocare + colaborare în echipă',
+  'layout.upgrade-cta.button': 'Actualizează la Plus',
+
+  'layout.theme.light': 'Mod luminos',
+  'layout.theme.dark': 'Mod intunecat',
+  'layout.theme.system': 'Modul sistemului',
+
+  'layout.theme-switcher.label': 'Selector de temă',
+  'layout.language-switcher.label': 'Selector de limbă',
+
+  'layout.search.placeholder': 'Căutare rapidă',
+  'layout.menu.import-document': 'Importă un document',
+
+  'user-menu.trigger.label': 'Meniu utilizator',
+  'user-menu.account-settings': 'Setări cont',
+  'user-menu.api-keys': 'Chei API',
+  'user-menu.invitations': 'Invitații',
+  'user-menu.language': 'Limbă',
+  'user-menu.theme': 'Temă',
+  'user-menu.about': 'Despre Papra',
+  'user-menu.logout': 'Deconectare',
+
+  // Command palette
+
+  'command-palette.search.placeholder': 'Caută comenzi sau documente',
+  'command-palette.no-results': 'Niciun rezultat gasit',
+  'command-palette.sections.documents': 'Documente',
+  'command-palette.sections.theme': 'Temă',
+  'command-palette.show-more-results': 'Arată încă {{ count }} rezultate pentru "{{ query }}"',
+
+  // API errors
+
+  'api-errors.api.timeout':
+    'Cererea a durat prea mult și a expirat. Vă rugăm să încercați din nou.',
+  'api-errors.document.already_exists': 'Documentul există deja',
+  'api-errors.document.size_too_large': 'Fișierul este prea mare',
+  'api-errors.intake-emails.already_exists': 'Un email de primire cu această adresă există deja.',
+  'api-errors.intake_email.limit_reached':
+    'Numărul maxim de email-uri de primire pentru această organizație a fost atins. Te rugăm să-ți îmbunătățești planul pentru a crea mai multe email-uri de primire.',
+  'api-errors.user.max_organization_count_reached':
+    'Ai atins numărul maxim de organizații pe care le poți crea. Dacă ai nevoie să creezi mai multe, te rugăm să contactezi asistența.',
+  'api-errors.default': 'A apărut o eroare la procesarea cererii.',
+  'api-errors.organization.invitation_already_exists':
+    'O invitatie pentru acest e-mail există deja în această organizație.',
+  'api-errors.user.already_in_organization': 'Acest utilizator este deja în această organizație.',
+  'api-errors.user.organization_invitation_limit_reached':
+    'Numărul maxim de invitații a fost atins pentru astazi. Te rugăm să încerci din nou mâine.',
+  'api-errors.demo.not_available': 'Această functie nu este disponibila în demo',
+  'api-errors.tags.already_exists':
+    'O etichetă cu acest nume există deja pentru aceasta organizație',
+  'api-errors.tags.organization_limit_reached':
+    'Numărul maxim de etichete pentru această organizație a fost atins.',
+  'api-errors.internal.error':
+    'A apărut o eroare la procesarea cererii. Te rugăm să încerci din nou.',
+  'api-errors.auth.invalid_origin':
+    'Origine invalidă a aplicației. Dacă hospedezi Papra, asigură-te că variabila de mediu APP_BASE_URL corespunde URL-ului actual. Pentru mai multe detalii, consulta https://docs.papra.app/resources/troubleshooting/#invalid-application-origin',
+  'api-errors.organization.max_members_count_reached':
+    'Numărul maxim de membri și invitații în așteptare pentru această organizație a fost atins. Te rugăm să îți actualizezi planul pentru a adăuga mai mulți membri.',
+  'api-errors.organization.has_active_subscription':
+    'Nu se poate șterge organizația cu un abonament activ. Vă rugăm să anulați mai întâi abonamentul folosind butonul Gestionați abonamentul de mai sus.',
+  'api-errors.webhooks.ssrf_unsafe_url':
+    'URL-ul furnizat nu este permis. URL-urile webhook nu trebuie să indice spre adrese IP private sau rezervate.',
+  'api-errors.users.still_owns_organizations':
+    'Acest utilizator deține încă una sau mai multe organizații. Ștergeți aceste organizații înainte de a șterge utilizatorul.',
+  'api-errors.plan_entitlements.already_exists': 'Acest utilizator are deja un drept de acest tip.',
+  'api-errors.plan_entitlements.not_found': 'Dreptul de plan nu a fost găsit.',
+  'api-errors.plan_entitlements.not_eligible':
+    'Acest utilizator nu este eligibil pentru acest drept.',
+  'api-errors.users.cannot_delete_self':
+    'Nu vă puteți șterge propriul cont din panoul de administrare.',
+  // Better auth api errors
+  'api-errors.USER_NOT_FOUND': 'Utilizatorul nu a fost găsit',
+  'api-errors.FAILED_TO_CREATE_USER': 'Eroare la crearea utilizatorului',
+  'api-errors.FAILED_TO_CREATE_SESSION': 'Eroare la crearea sesiunii',
+  'api-errors.FAILED_TO_UPDATE_USER': 'Eroare la actualizarea utilizatorului',
+  'api-errors.FAILED_TO_GET_SESSION': 'Eroare la obținerea sesiunii',
+  'api-errors.INVALID_PASSWORD': 'Parolă invalidă',
+  'api-errors.INVALID_EMAIL': 'Email invalid',
+  'api-errors.INVALID_EMAIL_OR_PASSWORD':
+    'Email-ul sau parola este incorectă, sau contul nu există.',
+  'api-errors.SOCIAL_ACCOUNT_ALREADY_LINKED': 'Contul social este deja asociat',
+  'api-errors.PROVIDER_NOT_FOUND': 'Furnizorul nu a fost găsit',
+  'api-errors.INVALID_TOKEN': 'Token invalid',
+  'api-errors.ID_TOKEN_NOT_SUPPORTED': 'Token ID nu este suportat',
+  'api-errors.FAILED_TO_GET_USER_INFO': 'Eroare la obținerea informațiilor utilizatorului',
+  'api-errors.USER_EMAIL_NOT_FOUND': 'Email-ul utilizatorului nu a fost găsit',
+  'api-errors.EMAIL_NOT_VERIFIED': 'Email-ul nu este verificat',
+  'api-errors.PASSWORD_TOO_SHORT': 'Parolă prea scurtă',
+  'api-errors.PASSWORD_TOO_LONG': 'Parolă prea lungă',
+  'api-errors.USER_ALREADY_EXISTS': 'Există deja un utilizator cu acest email',
+  'api-errors.EMAIL_CAN_NOT_BE_UPDATED': 'Email-ul nu poate fi actualizat',
+  'api-errors.CREDENTIAL_ACCOUNT_NOT_FOUND': 'Contul de autentificare nu a fost găsit',
+  'api-errors.SESSION_EXPIRED': 'Sesiunea a expirat',
+  'api-errors.FAILED_TO_UNLINK_LAST_ACCOUNT': 'Eroare la disocierea ultimului cont',
+  'api-errors.ACCOUNT_NOT_FOUND': 'Contul nu a fost găsit',
+  'api-errors.USER_ALREADY_HAS_PASSWORD': 'Utilizatorul are deja o parolă',
+  'api-errors.INVALID_CODE': 'Codul furnizat este invalid sau a expirat',
+  'api-errors.OTP_NOT_ENABLED': 'Autentificarea cu doi factori nu este activată pentru acest cont',
+  'api-errors.OTP_HAS_EXPIRED': 'Codul de autentificare cu doi factori a expirat',
+  'api-errors.TOTP_NOT_ENABLED': 'TOTP nu este activat pentru acest cont',
+  'api-errors.TWO_FACTOR_NOT_ENABLED':
+    'Autentificarea cu doi factori nu este activată pentru acest cont',
+  'api-errors.BACKUP_CODES_NOT_ENABLED': 'Codurile de rezervă nu sunt activate pentru acest cont',
+  'api-errors.INVALID_BACKUP_CODE':
+    'Codul de rezervă furnizat este invalid sau a fost deja folosit',
+  'api-errors.TOO_MANY_ATTEMPTS_REQUEST_NEW_CODE':
+    'Prea multe încercări. Vă rugăm să solicitați un cod nou.',
+  'api-errors.INVALID_TWO_FACTOR_COOKIE': 'Cookie de autentificare cu doi factori invalid',
+
+  // Not found
+
+  'not-found.title': '404 - Nu a fost gasit',
+  'not-found.description':
+    'Ne pare rău, pagina pe care o cauți nu pare să existe. Te rugăm să verifici URL-ul și să încerci din nou.',
+
+  // Demo
+
+  'demo.popup.description':
+    'Acesta este un mediu demonstrativ, toate datele sunt salvate in stocarea locală a browserului.',
+  'demo.popup.discord':
+    'Alătură-te {{ discordLink }} pentru a obtine asistență, a propune funcționalități sau doar pentru a discuta.',
+  'demo.popup.discord-link-label': 'serverului de Discord',
+  'demo.popup.reset': 'Resetează datele demo',
+  'demo.popup.hide': 'Ascunde',
+
+  // Color picker
+
+  'color-picker.hue': 'Nuanță',
+  'color-picker.saturation': 'Saturație',
+  'color-picker.lightness': 'Luminozitate',
+  'color-picker.select-color': 'Selectează culoarea',
+  'color-picker.select-a-color': 'Selectează o culoare',
+  'color-picker.random-color': 'Culoare aleatorie',
+
+  // Subscriptions
+
+  'subscriptions.checkout-success.title': 'Plată reușită!',
+  'subscriptions.checkout-success.description': 'Abonamentul tău a fost activat cu succes.',
+  'subscriptions.checkout-success.thank-you':
+    'Mulțumim pentru că ai făcut upgrade la Papra Plus. Acum ai acces la toate funcționalitățile premium.',
+  'subscriptions.checkout-success.go-to-organizations': 'Mergi la Organizații',
+  'subscriptions.checkout-success.redirecting':
+    'Redirecționare în {{ count }} secundă{{ plural }}...',
+
+  'subscriptions.checkout-cancel.title': 'Plată anulată',
+  'subscriptions.checkout-cancel.description': 'Upgrade-ul abonamentului tău a fost anulat.',
+  'subscriptions.checkout-cancel.no-charges':
+    'Nu au fost efectuate taxe pe contul tău. Poți încerca din nou oricând ești gata.',
+  'subscriptions.checkout-cancel.back-to-organizations': 'Înapoi la Organizații',
+  'subscriptions.checkout-cancel.need-help': 'Ai nevoie de ajutor?',
+  'subscriptions.checkout-cancel.contact-support': 'Contactează asistența',
+
+  'subscriptions.upgrade-dialog.title': 'Upgrade la Plus',
+  'subscriptions.upgrade-dialog.description':
+    'Deblochează funcționalități puternice pentru organizația ta',
+  'subscriptions.upgrade-dialog.contact-us': 'Contactează-ne',
+  'subscriptions.upgrade-dialog.enterprise-plans':
+    'dacă ai nevoie de planuri enterprise personalizate.',
+  'subscriptions.upgrade-dialog.per-month': '/lună',
+  'subscriptions.upgrade-dialog.billed-annually': '${{ price }} facturat anual',
+  'subscriptions.upgrade-dialog.upgrade-now': 'Upgrade acum',
+  'subscriptions.upgrade-dialog.promo-banner.title': 'Ofertă pe durată limitată',
+  'subscriptions.upgrade-dialog.promo-banner.description':
+    'Obțineți {{ percent }}% reducere pe organizație la toate planurile pentru totdeauna ca early adopter! Oferta expiră în {{ days, >1:{days} zile, =1:1 zi, mai puțin de o zi }}.',
+
+  'subscriptions.plan.free.name': 'Plan gratuit',
+  'subscriptions.plan.plus.name': 'Plus',
+  'subscriptions.plan.pro.name': 'Pro',
+
+  'subscriptions.features.storage-size': 'Dimensiune stocare documente',
+  'subscriptions.features.members': 'Membri ai organizației',
+  'subscriptions.features.members-count': '{{ count }} membri',
+  'subscriptions.features.email-intakes': 'Email-uri de primire',
+  'subscriptions.features.email-intakes-count-singular': '{{ count }} adresă',
+  'subscriptions.features.email-intakes-count-plural': '{{ count }} adrese',
+  'subscriptions.features.max-upload-size': 'Dimensiune maximă fișier upload',
+  'subscriptions.features.support': 'Asistență',
+  'subscriptions.features.support-community': 'Asistență comunitate',
+  'subscriptions.features.support-email': 'Asistență email',
+  'subscriptions.features.support-priority': 'Asistență prioritară',
+
+  'subscriptions.billing-interval.monthly': 'Lunar',
+  'subscriptions.billing-interval.annual': 'Anual',
+
+  'subscriptions.usage-warning.message':
+    'Ai folosit {{ percent }}% din spațiul de stocare pentru documente. Ia în considerare actualizarea planului pentru a obține mai mult spațiu.',
+  'subscriptions.usage-warning.upgrade-button': 'Actualizează planul',
+
+  // Admin
+
+  'admin.layout.header': 'Administrare Papra',
+  'admin.layout.back-to-app': 'Înapoi la aplicație',
+  'admin.layout.menu.analytics': 'Statistici',
+  'admin.layout.menu.users': 'Utilizatori',
+  'admin.layout.menu.organizations': 'Organizații',
+
+  'admin.analytics.title': 'Tablou de bord',
+  'admin.analytics.description': 'Informații și statistici despre utilizarea Papra.',
+  'admin.analytics.user-count': 'Număr de utilizatori',
+  'admin.analytics.organization-count': 'Număr de organizații',
+  'admin.analytics.document-count': 'Număr de documente',
+  'admin.analytics.documents-storage': 'Stocare documente',
+  'admin.analytics.deleted-documents': 'Documente șterse',
+  'admin.analytics.deleted-storage': 'Stocare ștearsă',
+
+  'admin.organizations.title': 'Gestionare organizații',
+  'admin.organizations.description': 'Gestionați și vizualizați toate organizațiile din sistem',
+  'admin.organizations.search-placeholder': 'Căutare după nume sau ID...',
+  'admin.organizations.loading': 'Se încarcă organizațiile...',
+  'admin.organizations.no-results': 'Nu s-au găsit organizații care să corespundă căutării.',
+  'admin.organizations.empty': 'Nu s-au găsit organizații.',
+  'admin.organizations.table.id': 'ID',
+  'admin.organizations.table.name': 'Nume',
+  'admin.organizations.table.members': 'Membri',
+  'admin.organizations.table.created': 'Creată',
+  'admin.organizations.table.updated': 'Actualizată',
+  'admin.organizations.pagination.info':
+    'Se afișează {{ start }} până la {{ end }} din {{ total }} {{ total, =1:organizație, organizații }}',
+  'admin.organizations.pagination.page-info': 'Pagina {{ current }} din {{ total }}',
+
+  'admin.organization-detail.title': 'Detalii organizație',
+  'admin.organization-detail.back': 'Înapoi la organizații',
+  'admin.organization-detail.loading.info': 'Se încarcă informațiile organizației...',
+  'admin.organization-detail.loading.stats': 'Se încarcă statisticile...',
+  'admin.organization-detail.loading.intake-emails': 'Se încarcă email-urile de primire...',
+  'admin.organization-detail.loading.webhooks': 'Se încarcă webhook-urile...',
+  'admin.organization-detail.loading.members': 'Se încarcă membrii...',
+  'admin.organization-detail.basic-info.title': 'Informații organizație',
+  'admin.organization-detail.basic-info.description': 'Detalii de bază ale organizației',
+  'admin.organization-detail.basic-info.id': 'ID',
+  'admin.organization-detail.basic-info.name': 'Nume',
+  'admin.organization-detail.basic-info.created': 'Creată',
+  'admin.organization-detail.basic-info.updated': 'Actualizată',
+  'admin.organization-detail.members.title': 'Membri ({{ count }})',
+  'admin.organization-detail.members.description': 'Utilizatori care aparțin acestei organizații',
+  'admin.organization-detail.members.empty': 'Nu s-au găsit membri',
+  'admin.organization-detail.members.table.user': 'Utilizator',
+  'admin.organization-detail.members.table.id': 'ID',
+  'admin.organization-detail.members.table.role': 'Rol',
+  'admin.organization-detail.members.table.joined': 'Alăturat',
+  'admin.organization-detail.intake-emails.title': 'Email-uri de primire ({{ count }})',
+  'admin.organization-detail.intake-emails.description':
+    'Adrese email pentru preluarea documentelor',
+  'admin.organization-detail.intake-emails.empty': 'Nu sunt configurate email-uri de primire',
+  'admin.organization-detail.intake-emails.status.enabled': 'Activat',
+  'admin.organization-detail.intake-emails.status.disabled': 'Dezactivat',
+  'admin.organization-detail.intake-emails.badge.active': 'Activ',
+  'admin.organization-detail.intake-emails.badge.inactive': 'Inactiv',
+  'admin.organization-detail.webhooks.title': 'Webhook-uri ({{ count }})',
+  'admin.organization-detail.webhooks.description': 'Puncte de acces webhook configurate',
+  'admin.organization-detail.webhooks.empty': 'Nu sunt configurate webhook-uri',
+  'admin.organization-detail.webhooks.badge.active': 'Activ',
+  'admin.organization-detail.webhooks.badge.inactive': 'Inactiv',
+  'admin.organization-detail.stats.title': 'Statistici de utilizare',
+  'admin.organization-detail.stats.description': 'Statistici documente și stocare',
+  'admin.organization-detail.stats.active-documents': 'Documente active',
+  'admin.organization-detail.stats.active-storage': 'Stocare activă',
+  'admin.organization-detail.stats.deleted-documents': 'Documente șterse',
+  'admin.organization-detail.stats.deleted-storage': 'Stocare ștearsă',
+  'admin.organization-detail.stats.total-documents': 'Total documente',
+  'admin.organization-detail.stats.total-storage': 'Stocare totală',
+
+  'admin.users.title': 'Gestionare utilizatori',
+  'admin.users.description': 'Gestionați și vizualizați toți utilizatorii din sistem',
+  'admin.users.search-placeholder': 'Căutare după nume, email sau ID...',
+  'admin.users.loading': 'Se încarcă utilizatorii...',
+  'admin.users.no-results': 'Nu s-au găsit utilizatori care să corespundă căutării.',
+  'admin.users.empty': 'Nu s-au găsit utilizatori.',
+  'admin.users.table.user': 'Utilizator',
+  'admin.users.table.id': 'ID',
+  'admin.users.table.status': 'Status',
+  'admin.users.table.status.verified': 'Verificat',
+  'admin.users.table.status.unverified': 'Neverificat',
+  'admin.users.table.orgs': 'Org',
+  'admin.users.table.created': 'Creat',
+  'admin.users.pagination.info':
+    'Se afișează {{ start }} până la {{ end }} din {{ total }} {{ total, =1:utilizator, utilizatori }}',
+  'admin.users.pagination.page-info': 'Pagina {{ current }} din {{ total }}',
+
+  'admin.user-detail.back': 'Înapoi la utilizatori',
+  'admin.user-detail.loading': 'Se încarcă detaliile utilizatorului...',
+  'admin.user-detail.unnamed': 'Utilizator fără nume',
+  'admin.user-detail.basic-info.title': 'Informații utilizator',
+  'admin.user-detail.basic-info.description':
+    'Detalii de bază ale utilizatorului și informații despre cont',
+  'admin.user-detail.basic-info.user-id': 'ID utilizator',
+  'admin.user-detail.basic-info.email': 'Email',
+  'admin.user-detail.basic-info.name': 'Nume',
+  'admin.user-detail.basic-info.name-empty': '-',
+  'admin.user-detail.basic-info.email-verified': 'Email verificat',
+  'admin.user-detail.basic-info.email-verified.yes': 'Da',
+  'admin.user-detail.basic-info.email-verified.no': 'Nu',
+  'admin.user-detail.basic-info.max-organizations': 'Organizații max',
+  'admin.user-detail.basic-info.max-organizations.unlimited': 'Nelimitat',
+  'admin.user-detail.basic-info.created': 'Creat',
+  'admin.user-detail.basic-info.updated': 'Ultima actualizare',
+  'admin.user-detail.roles.title': 'Roluri și permisiuni',
+  'admin.user-detail.roles.description': 'Roluri utilizator și niveluri de acces',
+  'admin.user-detail.roles.empty': 'Nu sunt atribuite roluri',
+  'admin.user-detail.organizations.title': 'Organizații ({{ count }})',
+  'admin.user-detail.organizations.description': 'Organizații din care face parte acest utilizator',
+  'admin.user-detail.organizations.empty': 'Nu este membru al niciunei organizații',
+  'admin.user-detail.organizations.table.id': 'ID',
+  'admin.user-detail.organizations.table.name': 'Nume',
+  'admin.user-detail.organizations.table.created': 'Creată',
+  'admin.user-detail.plan-entitlements.title': 'Drepturi de plan',
+  'admin.user-detail.plan-entitlements.description':
+    'Drepturi care îmbunătățesc planul organizațiilor deținute de acest utilizator',
+  'admin.user-detail.plan-entitlements.empty': 'Niciun drept de plan',
+  'admin.user-detail.plan-entitlements.table.type': 'Tip',
+  'admin.user-detail.plan-entitlements.table.source': 'Sursă',
+  'admin.user-detail.plan-entitlements.table.granted': 'Acordat',
+  'admin.user-detail.plan-entitlements.table.expires': 'Expiră',
+  'admin.user-detail.plan-entitlements.never-expires': 'Niciodată',
+  'admin.user-detail.plan-entitlements.expired': 'Expirat',
+  'admin.user-detail.plan-entitlements.grant.button': 'Acordă drept',
+  'admin.user-detail.plan-entitlements.grant.title': 'Acordă drept de plan',
+  'admin.user-detail.plan-entitlements.grant.description':
+    'Acordați un drept de plan acestui utilizator, opțional cu o dată de expirare.',
+  'admin.user-detail.plan-entitlements.grant.type-label': 'Tip de drept',
+  'admin.user-detail.plan-entitlements.grant.expiration.toggle': 'Setează o dată de expirare',
+  'admin.user-detail.plan-entitlements.grant.expiration.pick-date': 'Alegeți o dată',
+  'admin.user-detail.plan-entitlements.grant.submit': 'Acordă drept',
+  'admin.user-detail.plan-entitlements.grant.cancel': 'Anulează',
+  'admin.user-detail.plan-entitlements.grant.success': 'Drept acordat cu succes.',
+  'admin.user-detail.plan-entitlements.revoke.button': 'Revocă',
+  'admin.user-detail.plan-entitlements.revoke.confirm.title': 'Revocați dreptul?',
+  'admin.user-detail.plan-entitlements.revoke.confirm.message':
+    'Utilizatorul va pierde beneficiile planului acordate de acest drept.',
+  'admin.user-detail.plan-entitlements.revoke.confirm.confirm-button': 'Revocă dreptul',
+  'admin.user-detail.plan-entitlements.revoke.confirm.cancel-button': 'Anulează',
+  'admin.user-detail.plan-entitlements.revoke.success': 'Drept revocat cu succes.',
+  'admin.user-detail.delete.title': 'Șterge utilizatorul',
+  'admin.user-detail.delete.description':
+    'Șterge definitiv acest cont de utilizator. Această acțiune se va extinde la apartenențele sale la organizații, sesiuni, setările cu doi factori și alte date de autentificare. Organizațiile pe care încă le deține trebuie mai întâi șterse sau transferate.',
+  'admin.user-detail.delete.button': 'Șterge utilizatorul',
+  'admin.user-detail.delete.self-warning':
+    'Nu vă puteți șterge propriul cont din panoul de administrare.',
+  'admin.user-detail.delete.confirm.title': 'Ștergeți utilizatorul?',
+  'admin.user-detail.delete.confirm.message':
+    'Această acțiune nu poate fi anulată. Tastați adresa de email a utilizatorului mai jos pentru a confirma.',
+  'admin.user-detail.delete.confirm.confirm-button': 'Șterge utilizatorul',
+  'admin.user-detail.delete.confirm.cancel-button': 'Anulează',
+  'admin.user-detail.delete.success': 'Utilizator șters cu succes.',
+
+  // Common / Shared
+
+  'common.confirm-modal.type-to-confirm': 'Tastează "{{ text }}" pentru confirmare',
+  'common.tables.rows-per-page': 'Rânduri pe pagină',
+  'common.tables.pagination-info': 'Pagina {{ currentPage }} din {{ totalPages }}',
+  'common.tables.first-page': 'Mergi la prima pagină',
+  'common.tables.previous-page': 'Mergi la pagina anterioară',
+  'common.tables.next-page': 'Mergi la pagina următoare',
+  'common.tables.last-page': 'Mergi la ultima pagină',
+  'common.back-to-home': 'Înapoi la pagina principală',
+
+  // About page
+
+  'about.title': 'Despre Papra',
+  'about.version': 'Versiune',
+  'about.git-commit': 'Commit Git',
+  'about.commit-date': 'Data Commit-ului',
+  'about.description':
+    'Papra este un sistem de gestionare a documentelor cu sursă deschisă care vă ajută să arhivați, să organizați, să etichetați și să gestionați documentele cu ușurință.',
+  'about.links.title': 'Linkuri',
+  'about.links.documentation': 'Documentație',
+  'about.links.documentation-description': 'Ghiduri utilizator și referință API',
+  'about.links.github': 'GitHub',
+  'about.links.github-description': 'Cod sursă și tracker de probleme',
+  'about.links.discord': 'Comunitatea Discord',
+  'about.links.discord-description': 'Alăturați-vă comunității noastre',
+  'about.links.sponsor': 'Sponsorizează',
+  'about.links.sponsor-description': 'Susține dezvoltarea Papra',
+
+  'config.server-unreachable.title': 'Server inaccesibil',
+  'config.server-unreachable.description':
+    'Serverul pare să fie inaccesibil. Dacă îl găzduiești singur, asigură-te că serverul rulează și este configurat corect. Poți verifica consola pentru mai multe informații.',
+  'config.server-unreachable.retry': 'Reîncearcă',
+  'config.server-unreachable.retry-error.title': 'Serverul este în continuare inaccesibil',
+  'config.server-unreachable.retry-error.description':
+    'Serverul rămâne inaccesibil, încearcă din nou mai târziu.',
+
+  'coming-soon.title': 'În curând',
+  'coming-soon.description': 'Această funcție va fi disponibilă în curând, revino mai târziu.',
+
+  'socials.bluesky': 'Bluesky',
+  'socials.mastodon': 'Mastodon',
+  'socials.x': 'X',
+  'socials.reddit': 'Reddit',
+  'socials.linkedin': 'LinkedIn',
+};

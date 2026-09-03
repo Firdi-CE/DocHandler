@@ -1,0 +1,1435 @@
+import type { TranslationsDictionary } from '@/modules/i18n/locales.types';
+
+export const translations: Partial<TranslationsDictionary> = {
+  // Authentication
+
+  'auth.request-password-reset.title': 'Сброс пароля',
+  'auth.request-password-reset.description': 'Введите адрес электронной почты для сброса пароля.',
+  'auth.request-password-reset.requested':
+    'Если такой адрес электронной почты существует, то мы отправим на него письмо для сброса пароля.',
+  'auth.request-password-reset.back-to-login': 'Назад к авторизации',
+  'auth.request-password-reset.form.email.label': 'Email',
+  'auth.request-password-reset.form.email.placeholder': 'Пример: ada@papra.app',
+  'auth.request-password-reset.form.email.required': 'Введите адрес электронной почты',
+  'auth.request-password-reset.form.email.invalid': 'Неверный адрес электронной почты',
+  'auth.request-password-reset.form.submit': 'Сбросить пароль',
+
+  'auth.reset-password.title': 'Сбросить пароль',
+  'auth.reset-password.description': 'Введите новый пароль для сброса.',
+  'auth.reset-password.reset': 'Ваш пароль был успешно сброшен.',
+  'auth.reset-password.back-to-login': 'Назад к авторизации',
+  'auth.reset-password.form.new-password.label': 'Новый пароль',
+  'auth.reset-password.form.new-password.placeholder': 'Пример: **********',
+  'auth.reset-password.form.new-password.required': 'Введите новый пароль',
+  'auth.reset-password.form.new-password.min-length':
+    'Пароль должен быть не короче {{ minLength }} символов',
+  'auth.reset-password.form.new-password.max-length':
+    'Пароль должен быть короче {{ maxLength }} символов',
+  'auth.reset-password.form.submit': 'Сбросить пароль',
+
+  'auth.email-provider.open': 'Открыть {{ provider }}',
+
+  'auth.login.title': 'Войти в Papra',
+  'auth.login.description':
+    'Введите email или войдите через соцсети, чтобы получить доступ к аккаунту Papra.',
+  'auth.login.login-with-provider': 'Войти с помощью {{ provider }}',
+  'auth.login.no-account': 'Нет учётной записи?',
+  'auth.login.register': 'Зарегистрируйтесь',
+  'auth.login.form.email.label': 'Электронная почта',
+  'auth.login.form.email.placeholder': 'Пример: ada@papra.app',
+  'auth.login.form.email.required': 'Введите адрес электронной почты',
+  'auth.login.form.email.invalid': 'Неверный адрес электронной почты',
+  'auth.login.form.password.label': 'Пароль',
+  'auth.login.form.password.placeholder': 'Установите пароль',
+  'auth.login.form.password.required': 'Введите пароль',
+  'auth.login.form.remember-me.label': 'Запомнить меня',
+  'auth.login.form.forgot-password.label': 'Забыли пароль?',
+  'auth.login.form.submit': 'Войти',
+
+  'auth.login.two-factor.title': 'Проверка второго фактора',
+  'auth.login.two-factor.description.totp':
+    'Введите 6-значный код из вашего приложения-аутентификатора.',
+  'auth.login.two-factor.description.backup-code':
+    'Введите один из резервных кодов для доступа к учётной записи.',
+  'auth.login.two-factor.code.label.totp': 'Код из приложения',
+  'auth.login.two-factor.code.label.backup-code': 'Резервный код',
+  'auth.login.two-factor.code.placeholder.backup-code': 'Введите резервный код',
+  'auth.login.two-factor.code.required': 'Введите код',
+  'auth.login.two-factor.trust-device.label': 'Доверять этому устройству 30 дней',
+  'auth.login.two-factor.back': 'Назад к авторизации',
+  'auth.login.two-factor.submit': 'Подтвердить',
+  'auth.login.two-factor.verification-failed':
+    'Неверный код. Пожалуйста, проверьте его и повторите попытку.',
+  'auth.login.two-factor.use-backup-code': 'Использовать резервный код',
+  'auth.login.two-factor.use-totp': 'Использовать приложение-аутентификатор',
+
+  'auth.register.title': 'Регистрация в Papra',
+  'auth.register.description': 'Создайте аккаунт, чтобы начать использовать Papra.',
+  'auth.register.register-with-email': 'Зарегистрироваться через email',
+  'auth.register.register-with-provider': 'Зарегистрироваться через {{ provider }}',
+  'auth.register.providers.google': 'Google',
+  'auth.register.providers.github': 'GitHub',
+  'auth.register.have-account': 'Уже есть аккаунт?',
+  'auth.register.login': 'Войти',
+  'auth.register.registration-disabled.title': 'Регистрация отключена',
+  'auth.register.registration-disabled.description':
+    'Регистрация новых аккаунтов на этом сервере Papra временно закрыта. Войти могут только зарегистрированные пользователи. Если вы считаете, что это ошибка, пожалуйста, свяжитесь с администратором.',
+  'auth.register.form.email.label': 'Электронная почта',
+  'auth.register.form.email.placeholder': 'Пример: ada@papra.app',
+  'auth.register.form.email.required': 'Введите адрес электронной почты',
+  'auth.register.form.email.invalid': 'Неверный адрес электронной почты',
+  'auth.register.form.password.label': 'Пароль',
+  'auth.register.form.password.placeholder': 'Введите пароль',
+  'auth.register.form.password.required': 'Введите пароль',
+  'auth.register.form.password.min-length': 'Пароль должен быть не короче {{ minLength }} символов',
+  'auth.register.form.password.max-length': 'Пароль должен быть короче {{ maxLength }} символов',
+  'auth.register.form.name.label': 'Имя',
+  'auth.register.form.name.placeholder': 'Пример: Ада Лавлейс',
+  'auth.register.form.name.required': 'Имя не может быть пустым',
+  'auth.register.form.name.max-length': 'Имя должно быть короче {{ maxLength }} символов',
+  'auth.register.form.submit': 'Зарегистрироваться',
+
+  'auth.email-validation-required.title': 'Подтвердите почту',
+  'auth.email-validation-required.description':
+    'На ваш адрес отправлено письмо с подтверждением. Пожалуйста, перейдите по ссылке в письме, чтобы подтвердить почту.',
+
+  'auth.email-verification.success.title': 'Электронная почта подтверждена',
+  'auth.email-verification.success.description':
+    'Адрес электронной почты был успешно подтверждён. Теперь вы можете войти в свой аккаунт.',
+  'auth.email-verification.success.login': 'Перейти к авторизации',
+  'auth.email-verification.error.title': 'Не удалось подтвердить',
+  'auth.email-verification.error.description':
+    'Ссылка для подтверждения недействительна или срок её действия истёк. Пожалуйста, войдите в систему, чтобы отправить письмо повторно.',
+  'auth.email-verification.error.back': 'Назад к авторизации',
+
+  'auth.legal-links.description':
+    'Продолжая, вы подтверждаете, что принимаете {{ terms }} и соглашаетесь с {{ privacy }}.',
+  'auth.legal-links.terms': 'Условия использования',
+  'auth.legal-links.privacy': 'Политику конфиденциальности',
+
+  'auth.no-auth-provider.title': 'Нет провайдера аутентификации',
+  'auth.no-auth-provider.description':
+    'На этом сервере Papra не включён ни один провайдер аутентификации. Обратитесь к администратору, чтобы включить их.',
+
+  // User settings
+
+  'user.settings.title': 'Пользовательские настройки',
+  'user.settings.description': 'Здесь вы можете управлять настройками аккаунта.',
+
+  'user.settings.email.title': 'Адрес электронной почты',
+  'user.settings.email.description': 'Ваш адрес электронной почты не может быть изменён.',
+  'user.settings.email.label': 'Адрес электронной почты',
+
+  'user.settings.name.title': 'Полное имя',
+  'user.settings.name.description': 'Ваше имя показывается другим членам организации.',
+  'user.settings.name.label': 'Полное имя',
+  'user.settings.name.placeholder': 'Например: Иван Иванов',
+  'user.settings.name.update': 'Обновить имя',
+  'user.settings.name.updated': 'Ваше имя успешно обновлено',
+
+  'user.settings.logout.title': 'Выход',
+  'user.settings.logout.description': 'Выйти из аккаунта. Вы сможете войти снова в любое время.',
+  'user.settings.logout.button': 'Выйти',
+
+  'user.settings.two-factor.title': 'Двухфакторная аутентификация',
+  'user.settings.two-factor.description':
+    'Добавьте дополнительный уровень безопасности для вашего аккаунта.',
+  'user.settings.two-factor.status.enabled': 'Включено',
+  'user.settings.two-factor.status.disabled': 'Отключено',
+  'user.settings.two-factor.enable-button': 'Включить 2FA',
+  'user.settings.two-factor.disable-button': 'Отключить 2FA',
+  'user.settings.two-factor.regenerate-codes-button': 'Перегенерировать резервные коды',
+
+  'user.settings.two-factor.enable-dialog.title': 'Включить двухфакторную аутентификацию',
+  'user.settings.two-factor.enable-dialog.description': 'Введите пароль, чтобы включить 2FA.',
+  'user.settings.two-factor.enable-dialog.password.label': 'Пароль',
+  'user.settings.two-factor.enable-dialog.password.placeholder': 'Введите пароль',
+  'user.settings.two-factor.enable-dialog.password.required': 'Введите пароль',
+  'user.settings.two-factor.enable-dialog.cancel': 'Отмена',
+  'user.settings.two-factor.enable-dialog.submit': 'Продолжить',
+
+  'user.settings.two-factor.setup-dialog.title': 'Настройка двухфакторной аутентификации',
+  'user.settings.two-factor.setup-dialog.step1.title': 'Шаг 1: Отсканируйте QR-код',
+  'user.settings.two-factor.setup-dialog.step1.description':
+    'Отсканируйте QR-код ниже или вручную введите ключ настройки в приложение-аутентификатор.',
+  'user.settings.two-factor.setup-dialog.copy-setup-key': 'Скопировать ключ настройки',
+  'user.settings.two-factor.setup-dialog.step2.title': 'Шаг 2: Проверьте код',
+  'user.settings.two-factor.setup-dialog.step2.description':
+    'Введите 6-значный код, сгенерированный приложением-аутентификатором, чтобы подтвердить и включить двухфакторную аутентификацию.',
+  'user.settings.two-factor.setup-dialog.cancel': 'Отмена',
+  'user.settings.two-factor.setup-dialog.verify': 'Проверить и включить 2FA',
+
+  'user.settings.two-factor.backup-codes-dialog.title': 'Резервные коды',
+  'user.settings.two-factor.backup-codes-dialog.description':
+    'Сохраните эти резервные коды в безопасном месте. Вы можете использовать их для доступа к аккаунту, если потеряете доступ к приложению-аутентификатору.',
+  'user.settings.two-factor.backup-codes-dialog.copy': 'Скопировать резервные коды',
+  'user.settings.two-factor.backup-codes-dialog.download': 'Скачать резервные коды',
+  'user.settings.two-factor.backup-codes-dialog.download-filename': 'papra-2fa-backup-codes.txt',
+  'user.settings.two-factor.backup-codes-dialog.close': 'Я сохранил коды',
+
+  'user.settings.two-factor.disable-dialog.title': 'Отключить двухфакторную аутентификацию',
+  'user.settings.two-factor.disable-dialog.description':
+    'Введите пароль, чтобы отключить 2FA. Ваш аккаунт будет менее защищённым.',
+  'user.settings.two-factor.disable-dialog.password.label': 'Пароль',
+  'user.settings.two-factor.disable-dialog.password.placeholder': 'Введите пароль',
+  'user.settings.two-factor.disable-dialog.password.required': 'Введите пароль',
+  'user.settings.two-factor.disable-dialog.cancel': 'Отмена',
+  'user.settings.two-factor.disable-dialog.submit': 'Отключить 2FA',
+
+  'user.settings.two-factor.regenerate-dialog.title': 'Перегенерировать резервные коды',
+  'user.settings.two-factor.regenerate-dialog.description':
+    'Это сделает недействительными все существующие резервные коды и сгенерирует новые. Введите пароль, чтобы продолжить.',
+  'user.settings.two-factor.regenerate-dialog.password.label': 'Пароль',
+  'user.settings.two-factor.regenerate-dialog.password.placeholder': 'Введите пароль',
+  'user.settings.two-factor.regenerate-dialog.password.required': 'Введите пароль',
+  'user.settings.two-factor.regenerate-dialog.cancel': 'Отмена',
+  'user.settings.two-factor.regenerate-dialog.submit': 'Перегенерировать коды',
+
+  'user.settings.two-factor.enabled': 'Двухфакторная аутентификация включена',
+  'user.settings.two-factor.disabled': 'Двухфакторная аутентификация отключена',
+  'user.settings.two-factor.codes-regenerated': 'Резервные коды были перегенерированы',
+
+  // Organizations
+
+  'organizations.list.title': 'Ваши организации',
+  'organizations.list.description':
+    'Организации — это способ группировки ваших документов и управления доступом к ним. Вы можете создать несколько организаций и пригласить членов команды для совместной работы.',
+  'organizations.list.create-new': 'Создать новую организацию',
+  'organizations.list.back': 'Назад к организациям',
+  'organizations.list.deleted.title': 'Удалённые организации',
+  'organizations.list.deleted.description':
+    'Удалённые организации хранятся {{ days }} дней перед окончательным удалением. Вы можете восстановить их в течение этого периода.',
+  'organizations.list.deleted.empty': 'Нет удалённых организаций',
+  'organizations.list.deleted.empty-description':
+    'Когда вы удалите организацию, она появится здесь на {{ days }} дней перед окончательным удалением.',
+  'organizations.list.deleted.restore': 'Восстановить',
+  'organizations.list.deleted.restore-success': 'Организация успешно восстановлена',
+  'organizations.list.deleted.restore-confirm.title': 'Восстановить организацию',
+  'organizations.list.deleted.restore-confirm.message':
+    'Вы уверены, что хотите восстановить эту организацию? Она будет перемещена обратно в список ваших активных организаций.',
+  'organizations.list.deleted.restore-confirm.confirm-button': 'Восстановить организацию',
+  'organizations.list.deleted.deleted-at': 'Удалено {{ date }}',
+  'organizations.list.deleted.purge-at': 'Будет окончательно удалено {{ date }}',
+  'organizations.list.deleted.days-remaining':
+    '({{ daysUntilPurge, =1:остался {daysUntilPurge} день, =2:осталось {daysUntilPurge} дня, осталось {daysUntilPurge} дней }})',
+
+  'organizations.details.no-documents.title': 'Нет документов',
+  'organizations.details.no-documents.description':
+    'В этой организации пока нет документов. Загрузите первый документ.',
+  'organizations.details.upload-documents': 'Загрузить документы',
+  'organizations.details.documents-count': 'документов',
+  'organizations.details.total-size': 'общий размер',
+  'organizations.details.latest-documents': 'Последние импортированные документы',
+
+  'organizations.create.title': 'Создать новую организацию',
+  'organizations.create.description':
+    'Ваши документы будут группироваться по организациям. Вы можете создать несколько организаций для разделения документов, например, для личных и рабочих документов.',
+  'organizations.create.back': 'Назад',
+  'organizations.create.error.max-count-reached':
+    'Вы достигли максимального количества организаций, которые можете создать. Если вам нужно создать больше, пожалуйста, свяжитесь со службой поддержки.',
+  'organizations.create.form.name.label': 'Название организации',
+  'organizations.create.form.name.placeholder': 'Например: ООО «Рога и Копыта»',
+  'organizations.create.form.name.required': 'Введите название организации',
+  'organizations.create.form.submit': 'Создать организацию',
+  'organizations.create.success': 'Организация успешно создана',
+  'organizations.switcher.create': 'Создать новую организацию',
+
+  'organizations.create-first.title': 'Создать организацию',
+  'organizations.create-first.description':
+    'Ваши документы будут группироваться по организациям. Вы можете создать несколько организаций для разделения документов, например, для личных и рабочих документов.',
+  'organizations.create-first.default-name': 'Моя организация',
+  'organizations.create-first.user-name': 'Организация {{ name }}',
+
+  'organization.settings.title': 'Настройки организации',
+  'organization.settings.page.title': 'Настройки организации',
+  'organization.settings.page.description': 'Управляйте настройками вашей организации здесь.',
+  'organization.settings.name.title': 'Название организации',
+  'organization.settings.name.update': 'Обновить название',
+  'organization.settings.name.placeholder': 'Например: ООО «Рога и Копыта»',
+  'organization.settings.name.updated': 'Название организации обновлено',
+  'organization.settings.subscription.title': 'Подписка',
+  'organization.settings.subscription.description':
+    'Управляйте счетами, платежами и способами оплаты.',
+  'organization.settings.subscription.manage': 'Управление подпиской',
+  'organization.settings.subscription.error': 'Не удалось получить URL портала клиента',
+  'organization.settings.delete.title': 'Удаление организации',
+  'organization.settings.delete.description':
+    'Удаление этой организации навсегда удалит все связанные с ней данные.',
+  'organization.settings.delete.confirm.title': 'Удаление организации',
+  'organization.settings.delete.confirm.message':
+    'Вы уверены, что хотите удалить эту организацию? Организация будет помечена для удаления и окончательно удалена через {{ days }} дней. В течение этого периода вы можете восстановить её из списка организаций. Все документы и данные будут окончательно удалены по истечении этого срока.',
+  'organization.settings.delete.confirm.confirm-button': 'Удалить организацию',
+  'organization.settings.delete.confirm.cancel-button': 'Отмена',
+  'organization.settings.delete.success': 'Организация удалена',
+  'organization.settings.delete.only-owner': 'Только владелец может удалить организацию.',
+  'organization.settings.delete.has-active-subscription':
+    'Невозможно удалить организацию с активной подпиской, пожалуйста, сначала отмените подписку выше.',
+
+  'organization.usage.page.title': 'Статистика использования',
+  'organization.usage.page.description':
+    'Просмотр текущей статистики использования и лимитов вашей организации.',
+  'organization.usage.storage.title': 'Размер документов',
+  'organization.usage.storage.description': 'Объём памяти, который занимают ваши документы',
+  'organization.usage.intake-emails.title': 'Email для импорта',
+  'organization.usage.intake-emails.description': 'Количество email-адресов для импорта документов',
+  'organization.usage.members.title': 'Участники',
+  'organization.usage.members.description': 'Количество участников в организации',
+  'organization.usage.unlimited': 'Неограничено',
+
+  'organizations.members.title': 'Участники',
+  'organizations.members.description': 'Управление участниками вашей организации',
+  'organizations.members.invite-member': 'Пригласить участника',
+  'organizations.members.invite-member-disabled-tooltip':
+    'Только администраторы или владельцы могут приглашать участников в организацию',
+  'organizations.members.remove-from-organization': 'Удалить из организации',
+  'organizations.members.role': 'Роль',
+  'organizations.members.roles.owner': 'Владелец',
+  'organizations.members.roles.admin': 'Администратор',
+  'organizations.members.roles.member': 'Участник',
+  'organizations.members.delete.confirm.title': 'Удалить участника',
+  'organizations.members.delete.confirm.message':
+    'Вы уверены, что хотите удалить этого участника из организации?',
+  'organizations.members.delete.confirm.confirm-button': 'Удалить',
+  'organizations.members.delete.confirm.cancel-button': 'Отмена',
+  'organizations.members.delete.success': 'Участник удалён из организации',
+  'organizations.members.update-role.success': 'Роль участника обновлена',
+  'organizations.members.table.headers.name': 'Имя',
+  'organizations.members.table.headers.email': 'Email',
+  'organizations.members.table.headers.role': 'Роль',
+  'organizations.members.table.headers.created': 'Создан',
+  'organizations.members.table.headers.actions': 'Действия',
+
+  'organizations.invite-member.title': 'Пригласить участника',
+  'organizations.invite-member.description': 'Пригласить участника в вашу организацию',
+  'organizations.invite-member.form.email.label': 'Email',
+  'organizations.invite-member.form.email.placeholder': 'Пример: ada@papra.app',
+  'organizations.invite-member.form.email.required':
+    'Введите действительный адрес электронной почты',
+  'organizations.invite-member.form.role.label': 'Роль',
+  'organizations.invite-member.form.submit': 'Пригласить в организацию',
+  'organizations.invite-member.success.message': 'Участник приглашён',
+  'organizations.invite-member.success.description': 'Email был приглашён в организацию.',
+  'organizations.invite-member.error.message': 'Не удалось пригласить участника',
+
+  'organizations.invitations.title': 'Приглашения',
+  'organizations.invitations.description': 'Управление приглашениями организации',
+  'organizations.invitations.list.cta': 'Пригласить участника',
+  'organizations.invitations.list.empty.title': 'Нет ожидающих приглашений',
+  'organizations.invitations.list.empty.description':
+    'Вас пока ещё не пригласили ни в одну организацию.',
+  'organizations.invitations.status.pending': 'Ожидает',
+  'organizations.invitations.status.accepted': 'Принято',
+  'organizations.invitations.status.rejected': 'Отклонено',
+  'organizations.invitations.status.expired': 'Истекло',
+  'organizations.invitations.status.cancelled': 'Отменено',
+  'organizations.invitations.resend': 'Переотправить приглашение',
+  'organizations.invitations.cancel.title': 'Отменить приглашение',
+  'organizations.invitations.cancel.description': 'Вы уверены, что хотите отменить приглашение?',
+  'organizations.invitations.cancel.confirm': 'Отменить приглашение',
+  'organizations.invitations.cancel.cancel': 'Отмена',
+  'organizations.invitations.resend.title': 'Отправить приглашение повторно',
+  'organizations.invitations.resend.description':
+    'Вы уверены, что хотите повторно отправить приглашение? Получателю будет отправлено новое письмо.',
+  'organizations.invitations.resend.confirm': 'Отправить повторно',
+  'organizations.invitations.resend.cancel': 'Отмена',
+
+  'invitations.list.title': 'Приглашения',
+  'invitations.list.description': 'Управление приглашениями организации',
+  'invitations.list.empty.title': 'Нет ожидающих приглашений',
+  'invitations.list.empty.description': 'Вас пока ещё не пригласили ни в одну организацию.',
+  'invitations.list.headers.organization': 'Организация',
+  'invitations.list.headers.status': 'Статус',
+  'invitations.list.headers.created': 'Создано',
+  'invitations.list.headers.actions': 'Действия',
+  'invitations.list.actions.accept': 'Принять',
+  'invitations.list.actions.reject': 'Отклонить',
+  'invitations.list.actions.accept.success.message': 'Приглашение принято',
+  'invitations.list.actions.accept.success.description': 'Приглашение было принято.',
+  'invitations.list.actions.reject.success.message': 'Приглашение отклонено',
+  'invitations.list.actions.reject.success.description': 'Приглашение было отклонено.',
+
+  // Documents
+
+  'documents.list.title': 'Документы',
+  'documents.list.no-documents.title': 'Нет документов',
+  'documents.list.no-documents.description':
+    'В этой организации пока нет документов. Загрузите первый документ.',
+  'documents.list.no-results': 'Документы не найдены',
+  'documents.list.table.headers.file-name': 'Имя файла',
+  'documents.list.table.headers.created': 'Создан',
+  'documents.list.table.headers.deleted': 'Удалён',
+  'documents.list.table.headers.actions': 'Действия',
+  'documents.list.table.headers.tags': 'Теги',
+  'documents.list.search.placeholder': 'Поиск документов...',
+  'documents.list.search.total-count-with-query':
+    '{{ count }} {{ count, =1:документ, [2-4]:документа, документов }} соответствует этому запросу',
+  'documents.list.search.total-count-no-query':
+    '{{ count }} {{ count, =1:документ, [2-4]:документа, документов }} всего',
+  'documents.list.batch.selected-count':
+    'Выбрано {{ count }} {{ count, =1:документ, [2-4]:документа, документов }}',
+  'documents.list.batch.clear': 'Очистить выбор',
+  'documents.list.batch.tag-action': 'Метки',
+  'documents.list.batch.trash-action': 'В корзину',
+  'documents.list.batch.error': 'Не удалось выполнить массовую операцию. Попробуйте снова.',
+  'documents.list.batch.select-all-matching':
+    'Выбрать все {{ count }}, соответствующие этому запросу',
+  'documents.list.batch.select-all':
+    'Выбрать все {{ count }} {{ count, =1:документ, [2-4]:документа, документов }}',
+  'documents.list.batch.all-matching-selected':
+    'Выбраны все {{ count }} {{ count, =1:документ, [2-4]:документа, документов }}, соответствующие этому запросу',
+  'documents.list.batch.all-selected':
+    'Выбраны все {{ count }} {{ count, =1:документ, [2-4]:документа, документов }}',
+  'documents.list.batch.trash.confirm.title': 'Переместить в корзину',
+  'documents.list.batch.trash.confirm.description':
+    'Переместить {{ count }} {{ count, =1:документ, [2-4]:документа, документов }} в корзину? Позже их можно восстановить из корзины.',
+  'documents.list.batch.trash.confirm.label': 'Переместить в корзину',
+  'documents.list.batch.trash.confirm.cancel': 'Отмена',
+  'documents.list.batch.trash.success':
+    '{{ count }} {{ count, =1:документ, [2-4]:документа, документов }} перемещено в корзину',
+  'documents.list.batch.tags.dialog.title': 'Обновить метки',
+  'documents.list.batch.tags.dialog.description':
+    'Добавьте или удалите метки у {{ count }} {{ count, =1:выбранного документа, [2-4]:выбранных документов, выбранных документов }}.',
+  'documents.list.batch.tags.dialog.add-label': 'Метки для добавления',
+  'documents.list.batch.tags.dialog.remove-label': 'Метки для удаления',
+  'documents.list.batch.tags.dialog.overlap-error':
+    'Метку нельзя одновременно добавить и удалить в одной операции.',
+  'documents.list.batch.tags.dialog.submit': 'Применить',
+  'documents.list.batch.tags.dialog.cancel': 'Отмена',
+  'documents.list.batch.tags.success':
+    'Метки обновлены у {{ count }} {{ count, =1:документа, [2-4]:документов, документов }}',
+
+  'documents.tabs.info': 'Информация',
+  'documents.tabs.content': 'Содержимое',
+  'documents.tabs.activity': 'Активность',
+  'documents.deleted.message':
+    'Этот документ был удален и будет окончательно удален через {{ days }} {{ count, =1:дней, [2-4]:дня, дней }}.',
+  'documents.actions.download.title': 'Скачать',
+  'documents.actions.download.error': 'Не удалось загрузить документ',
+  'documents.actions.restore': 'Восстановить',
+  'documents.actions.delete': 'Удалить',
+  'documents.actions.edit': 'Редактировать',
+  'documents.actions.cancel': 'Отмена',
+  'documents.actions.save': 'Сохранить',
+  'documents.actions.saving': 'Сохранение...',
+  'documents.content.alert':
+    'Содержимое документа автоматически извлекается из документа при загрузке. Оно используется только для поиска и индексации.',
+  'documents.content.empty-placeholder':
+    'У этого документа нет извлечённого содержимого, вы можете установить его вручную.',
+  'documents.info.id': 'ID',
+  'documents.info.name': 'Имя',
+  'documents.info.type': 'Тип',
+  'documents.info.size': 'Размер',
+  'documents.info.created-at': 'Создан',
+  'documents.info.updated-at': 'Обновлён',
+  'documents.info.never': 'Никогда',
+  'documents.info.document-date': 'Дата',
+  'documents.list.table.headers.document-date': 'Дата',
+  'documents.info.no-date': 'Нет даты',
+  'documents.info.today': 'Сегодня',
+  'documents.notes.label': 'Заметки',
+  'documents.notes.placeholder': 'Добавьте заметки об этом документе',
+  'documents.notes.saving': 'Сохранение',
+  'documents.notes.saved': 'Сохранено',
+  'documents.notes.save-error': 'Не удалось сохранить заметки',
+
+  'documents.management.details': 'Сведения о документе',
+  'documents.management.rename': 'Переименовать документ',
+  'documents.management.delete': 'Удалить документ',
+
+  'documents.import.drop-area.title': 'Перетащите файлы сюда',
+  'documents.import.drop-area.description': 'Перетащите файлы сюда, чтобы импортировать их',
+
+  'documents.list.select.all': 'Выбрать все строки на этой странице',
+  'documents.list.select.row': 'Выбрать строку',
+
+  'custom-properties.types.text': 'Текст',
+  'custom-properties.types.number': 'Число',
+  'custom-properties.types.date': 'Дата',
+  'custom-properties.types.boolean': 'Логическое значение',
+  'custom-properties.types.select': 'Выбор',
+  'custom-properties.types.multi_select': 'Множественный выбор',
+  'custom-properties.types.user_relation': 'Пользователь',
+  'custom-properties.types.document_relation': 'Документ',
+
+  'custom-properties.list.title': 'Пользовательские свойства',
+  'custom-properties.list.description':
+    'Задайте пользовательские поля метаданных для ваших документов. Свойства могут быть текстом, числами, датами, логическими значениями или списками выбора.',
+  'custom-properties.list.create-button': 'Создать свойство',
+  'custom-properties.list.empty.title': 'Пользовательские свойства',
+  'custom-properties.list.empty.description':
+    'Пользовательские свойства позволяют добавлять структурированные метаданные к документам, например даты истечения срока, названия компаний или суммы.',
+  'custom-properties.list.table.name': 'Название',
+  'custom-properties.list.table.type': 'Тип',
+  'custom-properties.list.table.description': 'Описание',
+  'custom-properties.list.table.created': 'Создано',
+  'custom-properties.list.table.actions': 'Действия',
+  'custom-properties.list.table.no-description': 'Нет описания',
+  'custom-properties.list.delete.confirm-title': 'Удалить пользовательское свойство',
+  'custom-properties.list.delete.confirm-message':
+    'Вы уверены, что хотите удалить пользовательское свойство «{{ name }}»? Это действие нельзя отменить.',
+  'custom-properties.list.delete.confirm-button': 'Удалить',
+  'custom-properties.list.delete.success': 'Пользовательское свойство успешно удалено',
+  'custom-properties.list.delete.error': 'Не удалось удалить пользовательское свойство',
+
+  'custom-properties.create.title': 'Создание пользовательского свойства',
+  'custom-properties.create.submit': 'Создать свойство',
+  'custom-properties.create.success': 'Пользовательское свойство успешно создано',
+  'custom-properties.create.error': 'Не удалось создать пользовательское свойство',
+
+  'custom-properties.update.title': 'Изменение пользовательского свойства',
+  'custom-properties.update.submit': 'Сохранить изменения',
+  'custom-properties.update.success': 'Пользовательское свойство успешно обновлено',
+  'custom-properties.update.error': 'Не удалось обновить пользовательское свойство',
+
+  'custom-properties.form.name.label': 'Название',
+  'custom-properties.form.name.placeholder': 'например, Сумма счёта',
+  'custom-properties.form.name.required': 'Название обязательно',
+  'custom-properties.form.name.max-length': 'Название должно содержать не более 255 символов',
+  'custom-properties.form.description.label': 'Описание',
+  'custom-properties.form.description.optional': '(необязательно)',
+  'custom-properties.form.description.placeholder': 'Опишите, для чего используется это свойство',
+  'custom-properties.form.description.max-length':
+    'Описание должно содержать не более 1000 символов',
+  'custom-properties.form.type.label': 'Тип',
+  'custom-properties.form.type.immutable': 'Тип свойства нельзя изменить после создания.',
+  'custom-properties.form.options.title': 'Варианты',
+  'custom-properties.form.options.description': 'Задайте доступные варианты для этого свойства.',
+  'custom-properties.form.options.name.placeholder': 'Название варианта',
+  'custom-properties.form.options.name.required': 'Название варианта обязательно',
+  'custom-properties.form.options.name.max-length':
+    'Название варианта должно содержать не более 255 символов',
+  'custom-properties.form.options.validation.required': 'Добавьте хотя бы один вариант',
+  'custom-properties.form.options.add': 'Добавить вариант',
+  'custom-properties.form.cancel': 'Отмена',
+  'custom-properties.form.save-error':
+    'Произошла ошибка при сохранении определения свойства. Пожалуйста, попробуйте ещё раз.',
+
+  'documents.custom-properties.section-title': 'Свойства',
+  'documents.custom-properties.no-value': 'Не задано',
+  'documents.custom-properties.text-placeholder': 'Введите значение...',
+  'documents.custom-properties.save': 'Сохранить',
+  'documents.custom-properties.clear': 'Очистить',
+  'documents.custom-properties.document-relation-search-placeholder': 'Поиск документов...',
+  'documents.custom-properties.user-relation-manage': 'Управление пользователями',
+  'documents.custom-properties.document-relation-manage': 'Управление документами',
+  'documents.custom-properties.no-results': 'Нет результатов',
+
+  'documents.rename.title': 'Переименовывание документа',
+  'documents.rename.form.name.label': 'Имя',
+  'documents.rename.form.name.placeholder': 'Пример: Счёт 2024',
+  'documents.rename.form.name.required': 'Введите имя документа',
+  'documents.rename.form.name.max-length': 'Имя должно быть короче 255 символов',
+  'documents.rename.form.submit': 'Переименовать документ',
+  'documents.rename.success': 'Документ успешно переименован',
+  'documents.rename.cancel': 'Отмена',
+
+  'import-documents.title.error':
+    '{{ count }} {{ count, =1:документ, [2-4]:документа, документов }} не удалось импортировать',
+  'import-documents.title.success':
+    '{{ count }} {{ count, =1:документ, [2-4]:документа, документов }} импортировано',
+  'import-documents.title.pending': '{{ count }} / {{ total }} документов импортировано',
+  'import-documents.title.none': 'Импортировать документы',
+  'import-documents.no-import-in-progress': 'В данный момент нет импорта документов',
+
+  'documents.deleted.title': 'Удалённые документы',
+  'documents.deleted.empty.title': 'Нет удалённых документов',
+  'documents.deleted.empty.description':
+    'У вас нет удалённых документов. При удалении документы будут перемещены в корзину на {{ days }} дней.',
+  'documents.deleted.retention-notice':
+    'Все удалённые документы хранятся в корзине {{ days }} дней. По истечении этого срока документы будут удалены без возможности восстановления.',
+  'documents.deleted.deleted-at': 'Удалено',
+  'documents.deleted.restoring': 'Восстановление...',
+  'documents.deleted.deleting': 'Удаление...',
+
+  'documents.preview.unknown-file-type': 'Предпросмотр для этого типа файлов недоступен',
+  'documents.preview.binary-file': 'Это двоичный файл, который не может быть отображён как текст',
+
+  'documents.open-with.label': 'Открыть с помощью',
+  'documents.open-with.pdf-viewer': 'Просмотр PDF',
+
+  'documents.pdf-viewer.loading': 'Загрузка PDF',
+  'documents.pdf-viewer.not-a-pdf':
+    'Этот документ не является PDF и не может быть открыт в просмотрщике PDF.',
+
+  'documents.pdf-viewer.toolbar.hide-sidebar': 'Скрыть боковую панель',
+  'documents.pdf-viewer.toolbar.show-sidebar': 'Показать боковую панель',
+  'documents.pdf-viewer.toolbar.previous-page': 'Предыдущая страница',
+  'documents.pdf-viewer.toolbar.next-page': 'Следующая страница',
+  'documents.pdf-viewer.toolbar.fit-width': 'По ширине',
+  'documents.pdf-viewer.toolbar.fit-page': 'По размеру страницы',
+  'documents.pdf-viewer.toolbar.rotate-clockwise': 'Повернуть по часовой стрелке',
+  'documents.pdf-viewer.toolbar.download': 'Скачать',
+  'documents.pdf-viewer.toolbar.print': 'Печать',
+
+  'documents.pdf-viewer.zoom.zoom-out': 'Уменьшить',
+  'documents.pdf-viewer.zoom.zoom-in': 'Увеличить',
+  'documents.pdf-viewer.zoom.auto': 'Авто',
+  'documents.pdf-viewer.zoom.actual-size': 'Реальный размер',
+  'documents.pdf-viewer.zoom.page-fit': 'По размеру страницы',
+  'documents.pdf-viewer.zoom.page-width': 'По ширине страницы',
+
+  'documents.pdf-viewer.more-actions.label': 'Ещё',
+  'documents.pdf-viewer.more-actions.presentation-mode': 'Режим презентации',
+  'documents.pdf-viewer.more-actions.download': 'Скачать',
+  'documents.pdf-viewer.more-actions.print': 'Печать',
+  'documents.pdf-viewer.more-actions.go-to-first-page': 'Перейти к первой странице',
+  'documents.pdf-viewer.more-actions.go-to-last-page': 'Перейти к последней странице',
+  'documents.pdf-viewer.more-actions.rotate-clockwise': 'Повернуть по часовой стрелке',
+  'documents.pdf-viewer.more-actions.rotate-counterclockwise': 'Повернуть против часовой стрелки',
+  'documents.pdf-viewer.more-actions.page-scrolling': 'Постраничная прокрутка',
+  'documents.pdf-viewer.more-actions.vertical-scrolling': 'Вертикальная прокрутка',
+  'documents.pdf-viewer.more-actions.horizontal-scrolling': 'Горизонтальная прокрутка',
+  'documents.pdf-viewer.more-actions.wrapped-scrolling': 'Непрерывная прокрутка',
+  'documents.pdf-viewer.more-actions.no-spreads': 'Без разворотов',
+  'documents.pdf-viewer.more-actions.odd-spreads': 'Нечётные развороты',
+  'documents.pdf-viewer.more-actions.even-spreads': 'Чётные развороты',
+  'documents.pdf-viewer.more-actions.document-properties': 'Свойства документа',
+
+  'documents.pdf-viewer.properties.title': 'Свойства документа',
+  'documents.pdf-viewer.properties.na': 'Н/Д',
+  'documents.pdf-viewer.properties.file-name': 'Имя файла',
+  'documents.pdf-viewer.properties.file-size': 'Размер файла',
+  'documents.pdf-viewer.properties.doc-title': 'Название',
+  'documents.pdf-viewer.properties.author': 'Автор',
+  'documents.pdf-viewer.properties.subject': 'Тема',
+  'documents.pdf-viewer.properties.keywords': 'Ключевые слова',
+  'documents.pdf-viewer.properties.creation-date': 'Дата создания',
+  'documents.pdf-viewer.properties.modification-date': 'Дата изменения',
+  'documents.pdf-viewer.properties.creator': 'Создано в',
+  'documents.pdf-viewer.properties.pdf-producer': 'Создатель PDF',
+  'documents.pdf-viewer.properties.pdf-version': 'Версия PDF',
+  'documents.pdf-viewer.properties.page-count': 'Количество страниц',
+  'documents.pdf-viewer.properties.page-size': 'Размер страницы',
+  'documents.pdf-viewer.properties.fast-web-view': 'Быстрый просмотр в браузере',
+  'documents.pdf-viewer.properties.yes': 'Да',
+  'documents.pdf-viewer.properties.no': 'Нет',
+
+  'documents.pdf-viewer.sidebar.page-thumbnails': 'Миниатюры страниц',
+  'documents.pdf-viewer.sidebar.document-outline': 'Структура документа',
+  'documents.pdf-viewer.sidebar.attachments': 'Вложения',
+
+  'documents.pdf-viewer.thumbnails.page-alt': 'Страница {{ page }}',
+  'document-share-links.share-action': 'Поделиться',
+  'document-share-links.copy': 'Копировать ссылку',
+  'document-share-links.copied': 'Ссылка скопирована в буфер обмена',
+  'document-share-links.copy-error': 'Не удалось скопировать ссылку',
+  'document-share-links.enabled': 'Ссылка для общего доступа включена',
+  'document-share-links.disabled': 'Ссылка для общего доступа отключена',
+  'document-share-links.deleted': 'Ссылка для общего доступа удалена',
+  'document-share-links.password-protected': 'Защищено паролем',
+  'document-share-links.no-password': 'Без пароля',
+  'document-share-links.never-expires': 'Никогда не истекает',
+  'document-share-links.expires-on': 'Истекает {{ date }}',
+  'document-share-links.list.title': 'Ссылки для общего доступа',
+  'document-share-links.list.description': 'Управляйте ссылками для общего доступа к «{{ name }}».',
+  'document-share-links.list.create-new': 'Создать новую ссылку',
+  'document-share-links.create.title': 'Создать ссылку для общего доступа',
+  'document-share-links.create.description':
+    'Создайте новую ссылку для общего доступа к этому документу.',
+  'document-share-links.create.password.toggle': 'Требовать пароль',
+  'document-share-links.create.password.hint':
+    'Необязательно, получателям нужно будет ввести его перед доступом.',
+  'document-share-links.create.password.placeholder': 'Введите или сгенерируйте пароль',
+  'document-share-links.create.password.generate': 'Сгенерировать',
+  'document-share-links.create.expiration.toggle': 'Установить срок действия',
+  'document-share-links.create.expiration.hint':
+    'Необязательно, ссылка автоматически перестанет действовать после этой даты.',
+  'document-share-links.create.expiration.24h': '24 часа',
+  'document-share-links.create.expiration.7d': '7 дней',
+  'document-share-links.create.expiration.30d': '30 дней',
+  'document-share-links.create.expiration.custom': 'Произвольно',
+  'document-share-links.create.expiration.pick-date': 'Выберите дату',
+  'document-share-links.create.cancel': 'Отмена',
+  'document-share-links.create.submit': 'Создать ссылку',
+  'document-share-links.create.error': 'Не удалось создать ссылку для общего доступа',
+  'document-share-links.created.title': 'Ссылка для общего доступа создана',
+  'document-share-links.created.description':
+    'Ваша ссылка для общего доступа готова — скопируйте и поделитесь ею.',
+  'document-share-links.created.done': 'Готово',
+  'document-share-links.actions.menu': 'Действия',
+  'document-share-links.actions.open-document': 'Открыть документ',
+  'document-share-links.actions.enable': 'Включить ссылку',
+  'document-share-links.actions.disable': 'Отключить ссылку',
+  'document-share-links.actions.stop-sharing': 'Прекратить общий доступ',
+  'document-share-links.delete.confirm.title': 'Удалить ссылку для общего доступа',
+  'document-share-links.delete.confirm.message':
+    'Любой, у кого есть эта ссылка, немедленно потеряет доступ. Это действие нельзя отменить.',
+  'document-share-links.delete.confirm.confirm-button': 'Удалить ссылку',
+  'document-share-links.delete.confirm.cancel-button': 'Отмена',
+  'document-share-links.management.title': 'Ссылки для общего доступа',
+  'document-share-links.management.description':
+    'Управляйте всеми ссылками для общего доступа, созданными в этой организации.',
+  'document-share-links.management.empty.title': 'Нет ссылок для общего доступа',
+  'document-share-links.management.empty.description':
+    'Здесь будут отображаться ссылки для общего доступа, созданные для документов этой организации.',
+  'document-share-links.management.table.document': 'Документ',
+  'document-share-links.management.table.link': 'Ссылка',
+  'document-share-links.management.table.status': 'Статус',
+  'document-share-links.management.table.security': 'Безопасность',
+  'document-share-links.management.table.expiry': 'Срок действия',
+  'document-share-links.management.table.last-accessed': 'Последний доступ',
+  'document-share-links.management.table.actions': 'Действия',
+  'document-share-links.management.status.expired': 'Истёк',
+  'document-share-links.management.status.enabled': 'Включено',
+  'document-share-links.management.status.disabled': 'Отключено',
+  'document-share-links.management.status.trashed': 'Документ в корзине',
+  'document-share-links.management.status.trashed-hint':
+    'Общий документ находится в корзине, поэтому ссылка неактивна до восстановления документа.',
+  'document-share-links.management.security.password': 'Пароль',
+  'document-share-links.management.security.public': 'Публичный',
+  'document-share-links.management.never': 'Никогда',
+  'document-share-links.public.download': 'Скачать',
+  'document-share-links.public.download-error': 'Не удалось скачать файл',
+  'document-share-links.public.password.title': 'Требуется пароль',
+  'document-share-links.public.password.description':
+    'Этот документ защищён. Введите пароль для доступа к нему.',
+  'document-share-links.public.password.label': 'Пароль',
+  'document-share-links.public.password.placeholder': 'Введите пароль',
+  'document-share-links.public.password.submit': 'Разблокировать',
+  'document-share-links.public.password.invalid': 'Неверный пароль',
+  'document-share-links.public.password.too-many-attempts':
+    'Слишком много попыток. Повторите попытку позже.',
+  'document-share-links.public.gone.title': 'Ссылка недоступна',
+  'document-share-links.public.gone.description':
+    'Эта ссылка для общего доступа истекла или была отключена.',
+  'document-share-links.public.not-found.title': 'Ссылка не найдена',
+  'document-share-links.public.not-found.description':
+    'Эта ссылка для общего доступа не существует.',
+
+  'trash.delete-all.button': 'Удалить всё',
+  'trash.delete-all.confirm.title': 'Окончательно удалить все документы?',
+  'trash.delete-all.confirm.description':
+    'Вы уверены, что хотите окончательно удалить все документы из корзины? Это действие нельзя отменить.',
+  'trash.delete-all.confirm.label': 'Удалить',
+  'trash.delete-all.confirm.cancel': 'Отмена',
+  'trash.delete.button': 'Удалить',
+  'trash.delete.confirm.title': 'Окончательно удалить документ?',
+  'trash.delete.confirm.description':
+    'Вы уверены, что хотите окончательно удалить этот документ из корзины? Это действие нельзя отменить.',
+  'trash.delete.confirm.label': 'Удалить',
+  'trash.delete.confirm.cancel': 'Отмена',
+  'trash.deleted.success.title': 'Документ удалён',
+  'trash.deleted.success.description': 'Документ был окончательно удалён.',
+
+  'activity.document.created': 'Документ был создан',
+  'activity.document.updated.single': '{{ field }} был обновлён',
+  'activity.document.updated.multiple': '{{ fields }} были обновлены',
+  'activity.document.updated': 'Документ был обновлён',
+  'activity.document.deleted': 'Документ был удалён',
+  'activity.document.restored': 'Документ был восстановлен',
+  'activity.document.tagged': 'Тег {{ tag }} был добавлен',
+  'activity.document.untagged': 'Тег {{ tag }} был удалён',
+
+  'activity.document.user.name': ', {{ name }}',
+
+  'activity.load-more': 'Загрузить ещё',
+  'activity.no-more-activities': 'Нет других событий по документу',
+
+  // Tags
+
+  'tags.no-tags.title': 'Пока нет тегов',
+  'tags.no-tags.description':
+    'В этой организации пока нет тегов. Теги используются для категоризации документов. Вы можете добавлять теги к документам, чтобы их было легче находить и организовывать.',
+  'tags.no-tags.create-tag': 'Создать тег',
+
+  'tags.title': 'Теги документов',
+  'tags.description':
+    'Теги используются для категоризации документов. Вы можете добавлять теги к документам, чтобы их было легче находить и организовывать.',
+  'tags.create': 'Создать тег',
+  'tags.update': 'Обновить тег',
+  'tags.delete': 'Удалить тег',
+  'tags.delete.confirm.title': 'Удалить тег',
+  'tags.delete.confirm.message':
+    'Вы уверены, что хотите удалить тег «{{ name }}»? Удаление тега уберёт его из всех документов.',
+  'tags.delete.confirm.confirm-button': 'Удалить',
+  'tags.delete.confirm.cancel-button': 'Отмена',
+  'tags.delete.success': 'Тег успешно удалён',
+  'tags.create.success': 'Тег "{{ name }}" успешно создан.',
+  'tags.update.success': 'Тег "{{ name }}" успешно обновлён.',
+  'tags.form.name.label': 'Название',
+  'tags.form.name.placeholder': 'Например: Договоры',
+  'tags.form.name.required': 'Введите название тега',
+  'tags.form.name.max-length': 'Название тега должно быть короче 64 символов',
+  'tags.form.color.label': 'Цвет',
+  'tags.form.color.required': 'Введите цвет',
+  'tags.form.color.invalid': 'Цвет в hex-формате указан неверно.',
+  'tags.form.description.label': 'Описание',
+  'tags.form.description.optional': '(необязательно)',
+  'tags.form.description.placeholder': 'Например: Все договоры, подписанные компанией',
+  'tags.form.description.max-length': 'Описание должно быть короче 256 символов',
+  'tags.form.no-description': 'Нет описания',
+  'tags.table.headers.tag': 'Тег',
+  'tags.table.headers.description': 'Описание',
+  'tags.table.headers.documents': 'Документы',
+  'tags.table.headers.created': 'Создан',
+  'tags.table.headers.actions': 'Действия',
+  'tags.picker.search-placeholder': 'Искать теги...',
+  'tags.picker.filter-placeholder': 'Фильтровать теги...',
+  'tags.picker.create-new-with-name': 'Создать новый тег "{{ name }}"',
+  'tags.picker.create-new': 'Создать новый тег',
+  'document-views.create': 'Создать представление',
+  'document-views.save-as-view': 'Сохранить запрос как представление',
+  'document-views.update': 'Обновить представление',
+  'document-views.delete': 'Удалить представление',
+  'document-views.delete.confirm.title': 'Удалить представление',
+  'document-views.delete.confirm.message': 'Вы уверены, что хотите удалить это представление?',
+  'document-views.delete.confirm.confirm-button': 'Удалить',
+  'document-views.delete.confirm.cancel-button': 'Отмена',
+  'document-views.delete.success': 'Представление успешно удалено',
+  'document-views.create.success': 'Представление «{{ name }}» успешно создано.',
+  'document-views.update.success': 'Представление «{{ name }}» успешно обновлено.',
+  'document-views.form.name.label': 'Название',
+  'document-views.form.name.placeholder': 'Напр. Входящие',
+  'document-views.form.name.required': 'Введите название представления',
+  'document-views.form.name.max-length':
+    'Название представления должно содержать менее 100 символов',
+  'document-views.form.query.label': 'Запрос',
+  'document-views.form.query.placeholder': 'Напр. tag:inbox AND -tag:archived',
+  'document-views.form.query.required': 'Введите запрос',
+  'document-views.form.query.max-length': 'Запрос должен содержать менее 500 символов',
+  'document-views.form.query.hint':
+    'Используйте тот же синтаксис, что и в строке поиска документов. Напр. tag:inbox, has:tags, before:2024-01-01',
+  'document-views.form.description.label': 'Описание',
+  'document-views.form.description.optional': '(необязательно)',
+  'document-views.form.description.placeholder': 'Напр. Документы, ожидающие обработки',
+  'document-views.form.description.max-length': 'Описание должно содержать менее 256 символов',
+  'document-views.actions.menu': 'Действия представления',
+  'document-views.view.no-documents':
+    'Ни один документ не соответствует запросу этого представления.',
+  'document-views.view.not-found': 'Представление не найдено.',
+  'api-errors.document_views.already_exists':
+    'Представление с таким именем уже существует в этой организации',
+  'api-errors.document_views.not_found': 'Представление не найдено',
+
+  // Tagging rules
+
+  'tagging-rules.field.name': 'имя документа',
+  'tagging-rules.field.content': 'содержимое документа',
+  'tagging-rules.operator.equals': 'равно',
+  'tagging-rules.operator.not-equals': 'не равно',
+  'tagging-rules.operator.contains': 'содержит',
+  'tagging-rules.operator.not-contains': 'не содержит',
+  'tagging-rules.operator.starts-with': 'начинается с',
+  'tagging-rules.operator.ends-with': 'заканчивается на',
+  'tagging-rules.list.title': 'Правила тегирования',
+  'tagging-rules.list.description':
+    'Управляйте правилами тегирования вашей организации для автоматической установки тегов документам на основе заданных вами условий.',
+  'tagging-rules.list.demo-warning':
+    'Примечание: Так как это демо-окружение (без сервера), правила тегирования не будут применяться к новым документам.',
+  'tagging-rules.list.no-tagging-rules.title': 'Нет правил тегирования',
+  'tagging-rules.list.no-tagging-rules.description':
+    'Создайте правило тегирования для автоматической установки тегов добавляемым документам на основе заданных вами условий.',
+  'tagging-rules.list.no-tagging-rules.create-tagging-rule': 'Создать правило тегирования',
+  'tagging-rules.list.card.no-conditions': 'Нет условий',
+  'tagging-rules.list.card.one-condition': '1 условие',
+  'tagging-rules.list.card.conditions': '{{ count }} условий',
+  'tagging-rules.list.card.delete': 'Удалить правило',
+  'tagging-rules.list.card.edit': 'Редактировать правило',
+  'tagging-rules.create.title': 'Создать правило тегирования',
+  'tagging-rules.create.success': 'Правило тегирования успешно создано',
+  'tagging-rules.create.error': 'Не удалось создать правило тегирования',
+  'tagging-rules.create.submit': 'Создать правило',
+  'tagging-rules.form.name.label': 'Название',
+  'tagging-rules.form.name.placeholder': 'Например: Добавляет тег к счетам',
+  'tagging-rules.form.name.min-length': 'Введите название для правила',
+  'tagging-rules.form.name.max-length': 'Название должно быть короче 64 символов',
+  'tagging-rules.form.description.label': 'Описание',
+  'tagging-rules.form.description.placeholder':
+    'Например: Добавляет тег к документам со словом "счёт" в названии',
+  'tagging-rules.form.description.max-length': 'Описание должно быть короче 256 символов',
+  'tagging-rules.form.conditions.label': 'Условия',
+  'tagging-rules.form.conditions.description':
+    'Определите условия, которые должны быть выполнены для применения правила. Отсутствие условий означает, что правило будет применяться ко всем документам',
+  'tagging-rules.form.conditions.add-condition': 'Добавить условие',
+  'tagging-rules.form.conditions.connector.when': 'Когда',
+  'tagging-rules.form.conditions.connector.and': 'и',
+  'tagging-rules.form.conditions.connector.or': 'или',
+  'tagging-rules.condition-match-mode.all': 'Все условия должны совпадать',
+  'tagging-rules.condition-match-mode.any': 'Любое условие должно совпадать',
+  'tagging-rules.form.conditions.no-conditions.title': 'Нет условий',
+  'tagging-rules.form.conditions.no-conditions.description':
+    'Вы не добавили ни одного условия. Это правило будет добавлять теги ко всем документам.',
+  'tagging-rules.form.conditions.no-conditions.confirm': 'Применить правило без условий',
+  'tagging-rules.form.conditions.no-conditions.cancel': 'Отмена',
+  'tagging-rules.form.conditions.value.placeholder': 'Например: счёт',
+  'tagging-rules.form.conditions.value.min-length': 'Введите значение для условия',
+  'tagging-rules.form.tags.label': 'Теги',
+  'tagging-rules.form.tags.description':
+    'Выберите теги, которые будут добавлены к подходящим документам.',
+  'tagging-rules.form.tags.min-length': 'Требуется хотя бы один тег',
+  'tagging-rules.form.tags.add-tag': 'Создать тег',
+  'tagging-rules.update.title': 'Обновить правило тегирования',
+  'tagging-rules.update.error': 'Не удалось обновить правило тегирования',
+  'tagging-rules.update.submit': 'Обновить правило',
+  'tagging-rules.update.cancel': 'Отмена',
+  'tagging-rules.apply.button': 'Применить к существующим документам',
+  'tagging-rules.apply.confirm.title': 'Применить правило к существующим документам?',
+  'tagging-rules.apply.confirm.description':
+    'Это проверит все существующие документы в вашей организации и добавит теги, где условия совпадают. Обработка будет происходить в фоновом режиме.',
+  'tagging-rules.apply.confirm.button': 'Применить правило',
+  'tagging-rules.apply.success': 'Применение правила запущено в фоновом режиме',
+  'tagging-rules.apply.error': 'Не удалось запустить применение правила',
+  'tagging-rules.apply.processing': 'Запуск...',
+
+  // Intake emails
+
+  'intake-emails.title': 'Email для импорта',
+  'intake-emails.description':
+    'Email-адреса для сохранения документов в Papra. Просто перешлите письма на почтовый адрес для импорта, и их вложения будут добавлены в документы вашей организации.',
+  'intake-emails.disabled.title': 'Адреса для импорта отключены',
+  'intake-emails.disabled.description':
+    'Почтовые адреса для импорта отключены на этом сервере. Пожалуйста, свяжитесь с администратором, чтобы включить их. Подробнее в {{ documentation }}.',
+  'intake-emails.disabled.documentation': 'документации',
+  'intake-emails.info':
+    'Будут обрабатываться только включённые адреса для импорта от разрешённых отправителей. Вы можете включить или отключить адреса для импорта в любое время.',
+  'intake-emails.empty.title': 'Нет адресов для импорта',
+  'intake-emails.empty.description':
+    'Создайте адрес для импорта, чтобы получать вложения из писем.',
+  'intake-emails.empty.generate': 'Создать email для импорта',
+  'intake-emails.count':
+    '{{ count }} {{ count, =1:адрес, [2-4]:адреса, адресов }} в этой организации',
+  'intake-emails.new': 'Новый адрес для импорта',
+  'intake-emails.disabled-label': '(Отключён)',
+  'intake-emails.no-origins': 'Нет разрешённых адресов отправителей',
+  'intake-emails.allowed-origins': 'Разрешено от {{ count }} {{ count, =1:адреса, адресов }}',
+  'intake-emails.actions.enable': 'Включить',
+  'intake-emails.actions.disable': 'Отключить',
+  'intake-emails.actions.manage-origins': 'Управление адресами отправителей',
+  'intake-emails.actions.delete': 'Удалить',
+  'intake-emails.delete.confirm.title': 'Удалить адрес для импорта?',
+  'intake-emails.delete.confirm.message':
+    'Вы уверены, что хотите удалить этот адрес для импорта? Это действие нельзя отменить.',
+  'intake-emails.delete.confirm.confirm-button': 'Удалить адрес для импорта',
+  'intake-emails.delete.confirm.cancel-button': 'Отмена',
+  'intake-emails.delete.success': 'Адрес для импорта удалён',
+  'intake-emails.create.success': 'Адрес для импорта создан',
+  'intake-emails.update.success.enabled': 'Адрес для импорта включён',
+  'intake-emails.update.success.disabled': 'Адрес для импорта отключён',
+  'intake-emails.allowed-origins.title': 'Разрешённые отправители',
+  'intake-emails.allowed-origins.description':
+    'Будут обрабатываться только письма, отправленные на {{ email }} от этих отправителей. Если отправители не указаны, все письма будут отклонены.',
+  'intake-emails.allowed-origins.add.label': 'Добавить разрешенный email отправителя',
+  'intake-emails.allowed-origins.add.placeholder': 'Например: ada@papra.app',
+  'intake-emails.allowed-origins.add.button': 'Добавить',
+  'intake-emails.allowed-origins.delete.label': 'Удалить разрешённого отправителя',
+  'intake-emails.actions.more': 'Дополнительные действия',
+  'intake-emails.allowed-origins.add.error.exists':
+    'Этот email уже есть в разрешённых отправителях для этого email для импорта',
+
+  // API keys
+
+  'api-keys.permissions.select-all': 'Выбрать всё',
+  'api-keys.permissions.deselect-all': 'Снять выделение',
+  'api-keys.permissions.organizations.title': 'Организации',
+  'api-keys.permissions.organizations.organizations:create': 'Создание организаций',
+  'api-keys.permissions.organizations.organizations:read': 'Чтение организаций',
+  'api-keys.permissions.organizations.organizations:update': 'Изменение организаций',
+  'api-keys.permissions.organizations.organizations:delete': 'Удаление организаций',
+  'api-keys.permissions.documents.title': 'Документы',
+  'api-keys.permissions.documents.documents:create': 'Создание документов',
+  'api-keys.permissions.documents.documents:read': 'Чтение документов',
+  'api-keys.permissions.documents.documents:update': 'Изменение документов',
+  'api-keys.permissions.documents.documents:delete': 'Удаление документов',
+  'api-keys.permissions.tags.title': 'Теги',
+  'api-keys.permissions.tags.tags:create': 'Создание тегов',
+  'api-keys.permissions.tags.tags:read': 'Чтение тегов',
+  'api-keys.permissions.tags.tags:update': 'Изменение тегов',
+  'api-keys.permissions.tags.tags:delete': 'Удаление тегов',
+  'api-keys.permissions.custom-properties.title': 'Пользовательские свойства',
+  'api-keys.permissions.custom-properties.custom-properties:create':
+    'Создавать пользовательские свойства',
+  'api-keys.permissions.custom-properties.custom-properties:read':
+    'Читать пользовательские свойства',
+  'api-keys.permissions.custom-properties.custom-properties:update':
+    'Обновлять пользовательские свойства',
+  'api-keys.permissions.custom-properties.custom-properties:delete':
+    'Удалять пользовательские свойства',
+  'api-keys.create.title': 'Создание API ключа',
+  'api-keys.create.description': 'Создайте новый API ключ для доступа к API Papra.',
+  'api-keys.create.success': 'API ключ успешно создан.',
+  'api-keys.create.back': 'Назад к API ключам',
+  'api-keys.create.form.name.label': 'Название',
+  'api-keys.create.form.name.placeholder': 'Например: Мой API ключ',
+  'api-keys.create.form.name.required': 'Введите название для API ключа',
+  'api-keys.create.form.permissions.label': 'Разрешения',
+  'api-keys.create.form.permissions.required': 'Выберите хотя бы одно разрешение',
+  'api-keys.create.form.submit': 'Создать API ключ',
+  'api-keys.create.created.title': 'API ключ создан',
+  'api-keys.create.created.description':
+    'API ключ успешно создан. Сохраните его в безопасном месте, так как он больше не будет отображаться.',
+  'api-keys.list.title': 'API ключи',
+  'api-keys.list.description': 'Управляйте своими API ключами здесь.',
+  'api-keys.list.create': 'Создать API ключ',
+  'api-keys.list.empty.title': 'Нет API ключей',
+  'api-keys.list.empty.description': 'Создайте API ключ для доступа к API Papra.',
+  'api-keys.list.card.created': 'Создан',
+  'api-keys.delete.success': 'API ключ успешно удалён',
+  'api-keys.delete.confirm.title': 'Удалить API ключ',
+  'api-keys.delete.confirm.message':
+    'Вы уверены, что хотите удалить этот API ключ? Это действие нельзя отменить.',
+  'api-keys.delete.confirm.confirm-button': 'Удалить',
+  'api-keys.delete.confirm.cancel-button': 'Отмена',
+
+  // Webhooks
+
+  'webhooks.list.title': 'Webhooks',
+  'webhooks.list.description': 'Управление вебхуками вашей организации',
+  'webhooks.list.empty.title': 'Нет вебхуков',
+  'webhooks.list.empty.description': 'Создайте ваш первый вебхук для получения событий',
+  'webhooks.list.create': 'Создать вебхук',
+  'webhooks.list.card.last-triggered': 'Последний вызов',
+  'webhooks.list.card.never': 'Никогда',
+  'webhooks.list.card.created': 'Создан',
+  'webhooks.create.title': 'Создать вебхук',
+  'webhooks.create.description': 'Создайте новый вебхук для получения событий',
+  'webhooks.create.success': 'Вебхук успешно создан',
+  'webhooks.create.back': 'Назад',
+  'webhooks.create.form.submit': 'Создать вебхук',
+  'webhooks.create.form.name.label': 'Название вебхука',
+  'webhooks.create.form.name.placeholder': 'Введите название вебхука',
+  'webhooks.create.form.name.required': 'Название обязательно',
+  'webhooks.create.form.name.max-length': 'Название должно содержать не более 128 символов',
+  'webhooks.create.form.url.label': 'URL вебхука',
+  'webhooks.create.form.url.placeholder': 'Введите URL вебхука',
+  'webhooks.create.form.url.required': 'URL обязателен',
+  'webhooks.create.form.url.invalid': 'URL недействителен',
+  'webhooks.create.form.secret.label': 'Секрет',
+  'webhooks.create.form.secret.placeholder': 'Введите секрет вебхука',
+  'webhooks.create.form.events.label': 'События',
+  'webhooks.create.form.events.required': 'Требуется хотя бы одно событие',
+  'webhooks.update.title': 'Редактировать вебхук',
+  'webhooks.update.description': 'Обновите данные вашего вебхука',
+  'webhooks.update.success': 'Вебхук успешно обновлён',
+  'webhooks.update.submit': 'Обновить вебхук',
+  'webhooks.update.cancel': 'Отмена',
+  'webhooks.update.form.secret.placeholder': 'Введите новый секрет',
+  'webhooks.update.form.secret.placeholder-redacted': '[Скрытый секрет]',
+  'webhooks.update.form.rotate-secret.button': 'Обновить секрет',
+  'webhooks.delete.success': 'Вебхук успешно удалён',
+  'webhooks.delete.confirm.title': 'Удалить вебхук',
+  'webhooks.delete.confirm.message': 'Вы уверены, что хотите удалить этот вебхук?',
+  'webhooks.delete.confirm.confirm-button': 'Удалить',
+  'webhooks.delete.confirm.cancel-button': 'Отмена',
+
+  'webhooks.events.documents.title': 'События документов',
+  'webhooks.events.documents.document:created.description': 'Документ создан',
+  'webhooks.events.documents.document:deleted.description': 'Документ удалён',
+  'webhooks.events.documents.document:updated.description': 'Документ обновлён',
+  'webhooks.events.documents.document:tag:added.description': 'Тег добавлен к документу',
+  'webhooks.events.documents.document:tag:removed.description': 'Тег удалён из документа',
+
+  // Navigation
+
+  'layout.menu.home': 'Главная',
+  'layout.menu.documents': 'Документы',
+  'layout.menu.tags': 'Теги',
+  'layout.menu.custom-properties': 'Пользовательские свойства',
+  'layout.menu.tagging-rules': 'Правила тегирования',
+  'layout.menu.share-links': 'Ссылки для общего доступа',
+  'layout.menu.deleted-documents': 'Удалённые документы',
+  'layout.menu.organization-settings': 'Настройки',
+  'layout.menu.api-keys': 'API ключи',
+  'layout.menu.settings': 'Настройки',
+  'layout.menu.account': 'Аккаунт',
+  'layout.menu.general-settings': 'Общие настройки',
+  'layout.menu.usage': 'Использование',
+  'layout.menu.intake-emails': 'Email для импорта',
+  'layout.menu.webhooks': 'Webhooks',
+  'layout.menu.members': 'Участники',
+  'layout.menu.document-views': 'Представления',
+  'layout.menu.invitations': 'Приглашения',
+  'layout.menu.admin': 'Админка',
+
+  'layout.upgrade-cta.title': 'Нужно больше места?',
+  'layout.upgrade-cta.description':
+    'Получите в 10 раз больше хранилища + возможности командной работы',
+  'layout.upgrade-cta.button': 'Обновить сейчас',
+
+  'layout.theme.light': 'Светлая',
+  'layout.theme.dark': 'Тёмная',
+  'layout.theme.system': 'Системная',
+
+  'layout.theme-switcher.label': 'Переключатель темы',
+  'layout.language-switcher.label': 'Переключатель языка',
+
+  'layout.search.placeholder': 'Быстрый поиск',
+  'layout.menu.import-document': 'Импортировать документ',
+
+  'user-menu.trigger.label': 'Меню пользователя',
+  'user-menu.account-settings': 'Настройки аккаунта',
+  'user-menu.api-keys': 'API ключи',
+  'user-menu.invitations': 'Приглашения',
+  'user-menu.language': 'Язык',
+  'user-menu.theme': 'Тема',
+  'user-menu.about': 'Информация',
+  'user-menu.logout': 'Выйти',
+
+  // Command palette
+
+  'command-palette.search.placeholder': 'Ищите команды или документы',
+  'command-palette.no-results': 'Ничего не найдено',
+  'command-palette.sections.documents': 'Документы',
+  'command-palette.sections.theme': 'Тема',
+  'command-palette.show-more-results':
+    'Показать ещё {{ count }} {{ count, =1:результат, [2-4]:результата, результатов }} для "{{ query }}"',
+
+  // API errors
+
+  'api-errors.api.timeout':
+    'Запрос занял слишком много времени и завершился таймаутом. Пожалуйста, попробуйте снова.',
+  'api-errors.document.already_exists': 'Документ уже существует',
+  'api-errors.document.size_too_large': 'Размер файла слишком большой',
+  'api-errors.intake-emails.already_exists': 'Адрес для импорта с этим адресом уже существует.',
+  'api-errors.intake_email.limit_reached':
+    'Достигнуто максимальное количество адресов для импорта в этой организации. Пожалуйста, обновите ваш план, чтобы создать больше адресов для импорта.',
+  'api-errors.user.max_organization_count_reached':
+    'Вы достигли максимального количества организаций, которые можете создать. Если вам нужно создать больше, пожалуйста, свяжитесь со службой поддержки.',
+  'api-errors.default': 'Произошла ошибка при обработке вашего запроса.',
+  'api-errors.organization.invitation_already_exists':
+    'Приглашение для этого email уже существует в этой организации.',
+  'api-errors.user.already_in_organization':
+    'Этот пользователь уже является участником этой организации.',
+  'api-errors.user.organization_invitation_limit_reached':
+    'Достигнуто максимальное количество приглашений на сегодня. Пожалуйста, попробуйте снова завтра.',
+  'api-errors.demo.not_available': 'Эта функция недоступна в демо',
+  'api-errors.tags.already_exists': 'Тег с таким именем уже существует в этой организации',
+  'api-errors.tags.organization_limit_reached':
+    'Достигнуто максимальное количество тегов для этой организации.',
+  'api-errors.internal.error':
+    'Произошла ошибка при обработке вашего запроса. Пожалуйста, попробуйте позже.',
+  'api-errors.auth.invalid_origin':
+    'Неверный origin приложения. Если вы используете Papra на собственном хостинге, убедитесь, что переменная окружения APP_BASE_URL соответствует вашему текущему URL. Для получения дополнительной информации см. https://docs.papra.app/resources/troubleshooting/#invalid-application-origin',
+  'api-errors.organization.max_members_count_reached':
+    'Достигнуто максимальное количество участников и ожидающих приглашений для этой организации. Пожалуйста, обновите ваш план, чтобы добавить больше участников.',
+  'api-errors.organization.has_active_subscription':
+    'Невозможно удалить организацию с активной подпиской. Пожалуйста, сначала отмените подписку, используя кнопку "Управление подпиской" выше.',
+  'api-errors.webhooks.ssrf_unsafe_url':
+    'Указанный URL не разрешён. URL-адреса вебхуков не должны указывать на частные или зарезервированные IP-адреса.',
+  'api-errors.users.still_owns_organizations':
+    'Этот пользователь по-прежнему владеет одной или несколькими организациями. Удалите эти организации перед удалением пользователя.',
+  'api-errors.plan_entitlements.already_exists':
+    'У этого пользователя уже есть привилегия этого типа.',
+  'api-errors.plan_entitlements.not_found': 'Привилегия плана не найдена.',
+  'api-errors.plan_entitlements.not_eligible':
+    'Этот пользователь не имеет права на эту привилегию.',
+  'api-errors.users.cannot_delete_self':
+    'Вы не можете удалить собственную учётную запись из панели администратора.',
+  // Better auth api errors
+  'api-errors.USER_NOT_FOUND': 'Пользователь не найден',
+  'api-errors.FAILED_TO_CREATE_USER': 'Не удалось создать пользователя',
+  'api-errors.FAILED_TO_CREATE_SESSION': 'Не удалось создать сессию',
+  'api-errors.FAILED_TO_UPDATE_USER': 'Не удалось обновить пользователя',
+  'api-errors.FAILED_TO_GET_SESSION': 'Не удалось получить сессию',
+  'api-errors.INVALID_PASSWORD': 'Неверный пароль',
+  'api-errors.INVALID_EMAIL': 'Неверный email',
+  'api-errors.INVALID_EMAIL_OR_PASSWORD': 'Неверный email или пароль, или аккаунт не существует.',
+  'api-errors.SOCIAL_ACCOUNT_ALREADY_LINKED': 'Аккаунт в соцсети уже привязан',
+  'api-errors.PROVIDER_NOT_FOUND': 'Провайдер не найден',
+  'api-errors.INVALID_TOKEN': 'Неверный токен',
+  'api-errors.ID_TOKEN_NOT_SUPPORTED': 'ID токен не поддерживается',
+  'api-errors.FAILED_TO_GET_USER_INFO': 'Не удалось получить информацию о пользователе',
+  'api-errors.USER_EMAIL_NOT_FOUND': 'Email пользователя не найден',
+  'api-errors.EMAIL_NOT_VERIFIED': 'Email не подтверждён',
+  'api-errors.PASSWORD_TOO_SHORT': 'Пароль слишком короткий',
+  'api-errors.PASSWORD_TOO_LONG': 'Пароль слишком длинный',
+  'api-errors.USER_ALREADY_EXISTS': 'Пользователь с этим email уже существует',
+  'api-errors.EMAIL_CAN_NOT_BE_UPDATED': 'Email не может быть обновлён',
+  'api-errors.CREDENTIAL_ACCOUNT_NOT_FOUND': 'Учётная запись не найдена',
+  'api-errors.SESSION_EXPIRED': 'Сессия истекла',
+  'api-errors.FAILED_TO_UNLINK_LAST_ACCOUNT': 'Не удалось отвязать последний аккаунт',
+  'api-errors.ACCOUNT_NOT_FOUND': 'Аккаунт не найден',
+  'api-errors.USER_ALREADY_HAS_PASSWORD': 'У пользователя уже есть пароль',
+  'api-errors.INVALID_CODE': 'Предоставленный код недействителен или истёк',
+  'api-errors.OTP_NOT_ENABLED': 'Двухфакторная аутентификация не включена для этого аккаунта',
+  'api-errors.OTP_HAS_EXPIRED': 'Код двухфакторной аутентификации истёк',
+  'api-errors.TOTP_NOT_ENABLED': 'TOTP не включен для этого аккаунта',
+  'api-errors.TWO_FACTOR_NOT_ENABLED':
+    'Двухфакторная аутентификация не включена для этого аккаунта',
+  'api-errors.BACKUP_CODES_NOT_ENABLED': 'Резервные коды не включены для этого аккаунта',
+  'api-errors.INVALID_BACKUP_CODE':
+    'Предоставленный резервный код недействителен или уже использован',
+  'api-errors.TOO_MANY_ATTEMPTS_REQUEST_NEW_CODE':
+    'Слишком много попыток. Пожалуйста, запросите новый код.',
+  'api-errors.INVALID_TWO_FACTOR_COOKIE': 'Неверный cookie двухфакторной аутентификации',
+
+  // Not found
+
+  'not-found.title': '404 - Не найдено',
+  'not-found.description':
+    'Извините, страница, которую вы ищете, похоже, не существует. Пожалуйста, проверьте URL и попробуйте снова.',
+
+  // Demo
+
+  'demo.popup.description':
+    'Это демо-окружение, все данные сохраняются в локальное хранилище вашего браузера.',
+  'demo.popup.discord':
+    'Присоединяйтесь к {{ discordLink }}, чтобы получить поддержку, предложить функции или просто пообщаться.',
+  'demo.popup.discord-link-label': 'серверу Discord',
+  'demo.popup.reset': 'Сбросить демо-данные',
+  'demo.popup.hide': 'Скрыть',
+
+  // Color picker
+
+  'color-picker.hue': 'Оттенок',
+  'color-picker.saturation': 'Насыщенность',
+  'color-picker.lightness': 'Яркость',
+  'color-picker.select-color': 'Выбрать цвет',
+  'color-picker.select-a-color': 'Выберите цвет',
+  'color-picker.random-color': 'Случайный цвет',
+
+  // Subscriptions
+
+  'subscriptions.checkout-success.title': 'Платёж успешен!',
+  'subscriptions.checkout-success.description': 'Ваша подписка успешно активирована.',
+  'subscriptions.checkout-success.thank-you':
+    'Спасибо за обновление до Papra Plus. Теперь у вас есть доступ ко всем премиум-функциям.',
+  'subscriptions.checkout-success.go-to-organizations': 'Перейти к организациям',
+  'subscriptions.checkout-success.redirecting': 'Перенаправление через {{ count }} секунд...',
+
+  'subscriptions.checkout-cancel.title': 'Платёж отменен',
+  'subscriptions.checkout-cancel.description': 'Обновление подписки было отменено.',
+  'subscriptions.checkout-cancel.no-charges':
+    'С вашего аккаунта не было списано средств. Вы можете попробовать снова в любое время.',
+  'subscriptions.checkout-cancel.back-to-organizations': 'Назад к организациям',
+  'subscriptions.checkout-cancel.need-help': 'Нужна помощь?',
+  'subscriptions.checkout-cancel.contact-support': 'Связаться с поддержкой',
+
+  'subscriptions.upgrade-dialog.title': 'Обновить эту организацию',
+  'subscriptions.upgrade-dialog.description': 'Разблокируйте мощные функции для вашей организации',
+  'subscriptions.upgrade-dialog.contact-us': 'Свяжитесь с нами',
+  'subscriptions.upgrade-dialog.enterprise-plans':
+    'если вам нужны индивидуальные корпоративные планы.',
+  'subscriptions.upgrade-dialog.per-month': '/месяц',
+  'subscriptions.upgrade-dialog.billed-annually': '${{ price }} оплачивается ежегодно',
+  'subscriptions.upgrade-dialog.upgrade-now': 'Обновить сейчас',
+  'subscriptions.upgrade-dialog.promo-banner.title': 'Ограниченное предложение',
+  'subscriptions.upgrade-dialog.promo-banner.description':
+    'Получите {{ percent }}% скидки на все планы навсегда для каждой организации как одному из первых пользователей! Предложение истекает через {{ days, >1:{days} дней, =1:1 день, менее 1 дня }}.',
+
+  'subscriptions.plan.free.name': 'Бесплатный план',
+  'subscriptions.plan.plus.name': 'Plus',
+  'subscriptions.plan.pro.name': 'Pro',
+
+  'subscriptions.features.storage-size': 'Размер хранилища документов',
+  'subscriptions.features.members': 'Участники организации',
+  'subscriptions.features.members-count': '{{ count }} участников',
+  'subscriptions.features.email-intakes': 'Email для импорта',
+  'subscriptions.features.email-intakes-count-singular': '{{ count }} адрес',
+  'subscriptions.features.email-intakes-count-plural': '{{ count }} адресов',
+  'subscriptions.features.max-upload-size': 'Максимальный размер загружаемого файла',
+  'subscriptions.features.support': 'Поддержка',
+  'subscriptions.features.support-community': 'Поддержка сообщества',
+  'subscriptions.features.support-email': 'Поддержка по email',
+  'subscriptions.features.support-priority': 'Приоритетная поддержка',
+
+  'subscriptions.billing-interval.monthly': 'Ежемесячно',
+  'subscriptions.billing-interval.annual': 'Ежегодно',
+
+  'subscriptions.usage-warning.message':
+    'Вы использовали {{ percent }}% вашего хранилища документов. Рассмотрите возможность обновления плана для получения большего пространства.',
+  'subscriptions.usage-warning.upgrade-button': 'Обновить план',
+
+  // Admin
+
+  'admin.layout.header': 'Админка Papra',
+  'admin.layout.back-to-app': 'Назад к приложению',
+  'admin.layout.menu.analytics': 'Аналитика',
+  'admin.layout.menu.users': 'Пользователи',
+  'admin.layout.menu.organizations': 'Организации',
+
+  'admin.analytics.title': 'Панель управления',
+  'admin.analytics.description': 'Статистика и аналитика использования Papra.',
+  'admin.analytics.user-count': 'Количество пользователей',
+  'admin.analytics.organization-count': 'Количество организаций',
+  'admin.analytics.document-count': 'Количество документов',
+  'admin.analytics.documents-storage': 'Размер документов',
+  'admin.analytics.deleted-documents': 'Количество удалённых документов',
+  'admin.analytics.deleted-storage': 'Размер удалённых документов',
+
+  'admin.organizations.title': 'Управление организациями',
+  'admin.organizations.description': 'Управление и просмотр всех организаций в системе',
+  'admin.organizations.search-placeholder': 'Поиск по названию или ID...',
+  'admin.organizations.loading': 'Загрузка организаций...',
+  'admin.organizations.no-results': 'Организации по вашему запросу не найдены.',
+  'admin.organizations.empty': 'Организации не найдены.',
+  'admin.organizations.table.id': 'ID',
+  'admin.organizations.table.name': 'Название',
+  'admin.organizations.table.members': 'Участники',
+  'admin.organizations.table.created': 'Создана',
+  'admin.organizations.table.updated': 'Обновлена',
+  'admin.organizations.pagination.info':
+    'Показано с {{ start }} по {{ end }} из {{ total }} {{ total, =1:организации, организаций }}',
+  'admin.organizations.pagination.page-info': 'Страница {{ current }} из {{ total }}',
+
+  'admin.organization-detail.title': 'Детали организации',
+  'admin.organization-detail.back': 'Назад к организациям',
+  'admin.organization-detail.loading.info': 'Загрузка информации об организации...',
+  'admin.organization-detail.loading.stats': 'Загрузка статистики...',
+  'admin.organization-detail.loading.intake-emails': 'Загрузка адресов для импорта...',
+  'admin.organization-detail.loading.webhooks': 'Загрузка вебхуков...',
+  'admin.organization-detail.loading.members': 'Загрузка участников...',
+  'admin.organization-detail.basic-info.title': 'Информация об организации',
+  'admin.organization-detail.basic-info.description': 'Основные сведения об организации',
+  'admin.organization-detail.basic-info.id': 'ID',
+  'admin.organization-detail.basic-info.name': 'Название',
+  'admin.organization-detail.basic-info.created': 'Создана',
+  'admin.organization-detail.basic-info.updated': 'Обновлена',
+  'admin.organization-detail.members.title': 'Участники ({{ count }})',
+  'admin.organization-detail.members.description': 'Пользователи, принадлежащие к этой организации',
+  'admin.organization-detail.members.empty': 'Участники не найдены',
+  'admin.organization-detail.members.table.user': 'Пользователь',
+  'admin.organization-detail.members.table.id': 'Id',
+  'admin.organization-detail.members.table.role': 'Роль',
+  'admin.organization-detail.members.table.joined': 'Присоединился',
+  'admin.organization-detail.intake-emails.title': 'Email для импорта ({{ count }})',
+  'admin.organization-detail.intake-emails.description':
+    'Адреса электронной почты для приема документов',
+  'admin.organization-detail.intake-emails.empty': 'Адреса для импорта не настроены',
+  'admin.organization-detail.intake-emails.status.enabled': 'Включено',
+  'admin.organization-detail.intake-emails.status.disabled': 'Отключено',
+  'admin.organization-detail.intake-emails.badge.active': 'Активно',
+  'admin.organization-detail.intake-emails.badge.inactive': 'Неактивно',
+  'admin.organization-detail.webhooks.title': 'Webhooks ({{ count }})',
+  'admin.organization-detail.webhooks.description': 'Настроенные адреса вебхуков',
+  'admin.organization-detail.webhooks.empty': 'Вебхуки не настроены',
+  'admin.organization-detail.webhooks.badge.active': 'Активно',
+  'admin.organization-detail.webhooks.badge.inactive': 'Неактивно',
+  'admin.organization-detail.stats.title': 'Статистика использования',
+  'admin.organization-detail.stats.description': 'Статистика документов и хранилища',
+  'admin.organization-detail.stats.active-documents': 'Активные документы',
+  'admin.organization-detail.stats.active-storage': 'Активное хранилище',
+  'admin.organization-detail.stats.deleted-documents': 'Удалённые документы',
+  'admin.organization-detail.stats.deleted-storage': 'Удалённое хранилище',
+  'admin.organization-detail.stats.total-documents': 'Всего документов',
+  'admin.organization-detail.stats.total-storage': 'Всего хранилище',
+
+  'admin.users.title': 'Управление пользователями',
+  'admin.users.description': 'Управление и просмотр всех пользователей в системе',
+  'admin.users.search-placeholder': 'Поиск по имени, email или ID...',
+  'admin.users.loading': 'Загрузка пользователей...',
+  'admin.users.no-results': 'Пользователи по вашему запросу не найдены.',
+  'admin.users.empty': 'Пользователи не найдены.',
+  'admin.users.table.user': 'Пользователь',
+  'admin.users.table.id': 'ID',
+  'admin.users.table.status': 'Статус',
+  'admin.users.table.status.verified': 'Подтверждён',
+  'admin.users.table.status.unverified': 'Не подтверждён',
+  'admin.users.table.orgs': 'Организаций',
+  'admin.users.table.created': 'Создан',
+  'admin.users.pagination.info':
+    'Показано с {{ start }} по {{ end }} из {{ total }} {{ total, =1:пользователя, пользователей }}',
+  'admin.users.pagination.page-info': 'Страница {{ current }} из {{ total }}',
+
+  'admin.user-detail.back': 'Назад к пользователям',
+  'admin.user-detail.loading': 'Загрузка пользователя...',
+  'admin.user-detail.unnamed': 'Пользователь без имени',
+  'admin.user-detail.basic-info.title': 'Информация о пользователе',
+  'admin.user-detail.basic-info.description':
+    'Основные сведения о пользователе и информация об аккаунте',
+  'admin.user-detail.basic-info.user-id': 'ID пользователя',
+  'admin.user-detail.basic-info.email': 'Email',
+  'admin.user-detail.basic-info.name': 'Имя',
+  'admin.user-detail.basic-info.name-empty': '-',
+  'admin.user-detail.basic-info.email-verified': 'Email подтверждён',
+  'admin.user-detail.basic-info.email-verified.yes': 'Да',
+  'admin.user-detail.basic-info.email-verified.no': 'Нет',
+  'admin.user-detail.basic-info.max-organizations': 'Макс. организаций',
+  'admin.user-detail.basic-info.max-organizations.unlimited': 'Неограничено',
+  'admin.user-detail.basic-info.created': 'Создан',
+  'admin.user-detail.basic-info.updated': 'Последнее обновление',
+  'admin.user-detail.roles.title': 'Роли и разрешения',
+  'admin.user-detail.roles.description': 'Роли пользователя и уровни доступа',
+  'admin.user-detail.roles.empty': 'Роли не назначены',
+  'admin.user-detail.organizations.title': 'Организации ({{ count }})',
+  'admin.user-detail.organizations.description':
+    'Организации, к которым принадлежит этот пользователь',
+  'admin.user-detail.organizations.empty': 'Не является участником какой-либо организации',
+  'admin.user-detail.organizations.table.id': 'ID',
+  'admin.user-detail.organizations.table.name': 'Название',
+  'admin.user-detail.organizations.table.created': 'Создана',
+  'admin.user-detail.plan-entitlements.title': 'Привилегии плана',
+  'admin.user-detail.plan-entitlements.description':
+    'Привилегии, повышающие план организаций, которыми владеет этот пользователь',
+  'admin.user-detail.plan-entitlements.empty': 'Нет привилегий плана',
+  'admin.user-detail.plan-entitlements.table.type': 'Тип',
+  'admin.user-detail.plan-entitlements.table.source': 'Источник',
+  'admin.user-detail.plan-entitlements.table.granted': 'Предоставлено',
+  'admin.user-detail.plan-entitlements.table.expires': 'Истекает',
+  'admin.user-detail.plan-entitlements.never-expires': 'Никогда',
+  'admin.user-detail.plan-entitlements.expired': 'Истёк',
+  'admin.user-detail.plan-entitlements.grant.button': 'Предоставить привилегию',
+  'admin.user-detail.plan-entitlements.grant.title': 'Предоставить привилегию плана',
+  'admin.user-detail.plan-entitlements.grant.description':
+    'Предоставьте этому пользователю привилегию плана, при необходимости с датой истечения.',
+  'admin.user-detail.plan-entitlements.grant.type-label': 'Тип привилегии',
+  'admin.user-detail.plan-entitlements.grant.expiration.toggle': 'Установить срок действия',
+  'admin.user-detail.plan-entitlements.grant.expiration.pick-date': 'Выберите дату',
+  'admin.user-detail.plan-entitlements.grant.submit': 'Предоставить привилегию',
+  'admin.user-detail.plan-entitlements.grant.cancel': 'Отмена',
+  'admin.user-detail.plan-entitlements.grant.success': 'Привилегия успешно предоставлена.',
+  'admin.user-detail.plan-entitlements.revoke.button': 'Отозвать',
+  'admin.user-detail.plan-entitlements.revoke.confirm.title': 'Отозвать привилегию?',
+  'admin.user-detail.plan-entitlements.revoke.confirm.message':
+    'Пользователь потеряет преимущества плана, предоставленные этой привилегией.',
+  'admin.user-detail.plan-entitlements.revoke.confirm.confirm-button': 'Отозвать привилегию',
+  'admin.user-detail.plan-entitlements.revoke.confirm.cancel-button': 'Отмена',
+  'admin.user-detail.plan-entitlements.revoke.success': 'Привилегия успешно отозвана.',
+  'admin.user-detail.delete.title': 'Удалить пользователя',
+  'admin.user-detail.delete.description':
+    'Безвозвратно удаляет эту учётную запись пользователя. Это затронет его членство в организациях, сеансы, настройки двухфакторной аутентификации и другие данные аутентификации. Организации, которыми он по-прежнему владеет, необходимо сначала удалить или передать.',
+  'admin.user-detail.delete.button': 'Удалить пользователя',
+  'admin.user-detail.delete.self-warning':
+    'Вы не можете удалить собственную учётную запись из панели администратора.',
+  'admin.user-detail.delete.confirm.title': 'Удалить пользователя?',
+  'admin.user-detail.delete.confirm.message':
+    'Это действие нельзя отменить. Введите адрес электронной почты пользователя ниже для подтверждения.',
+  'admin.user-detail.delete.confirm.confirm-button': 'Удалить пользователя',
+  'admin.user-detail.delete.confirm.cancel-button': 'Отмена',
+  'admin.user-detail.delete.success': 'Пользователь успешно удалён.',
+
+  // Common / Shared
+
+  'common.confirm-modal.type-to-confirm': 'Введите "{{ text }}", чтобы подтвердить',
+  'common.tables.rows-per-page': 'Строк на странице',
+  'common.tables.pagination-info': 'Страница {{ currentPage }} из {{ totalPages }}',
+  'common.tables.first-page': 'Перейти на первую страницу',
+  'common.tables.previous-page': 'Перейти на предыдущую страницу',
+  'common.tables.next-page': 'Перейти на следующую страницу',
+  'common.tables.last-page': 'Перейти на последнюю страницу',
+  'common.back-to-home': 'Назад на главную',
+
+  // About page
+
+  'about.title': 'Информация про Papra',
+  'about.version': 'Версия',
+  'about.git-commit': 'Git Commit',
+  'about.commit-date': 'Дата коммита',
+  'about.description':
+    'Papra — это система управления документами с открытым исходным кодом, которая помогает вам архивировать, организовывать, тегировать и управлять вашими документами.',
+  'about.links.title': 'Ссылки',
+  'about.links.documentation': 'Документация',
+  'about.links.documentation-description': 'Руководства пользователя и справочник API',
+  'about.links.github': 'GitHub',
+  'about.links.github-description': 'Исходный код и баг-трекер',
+  'about.links.discord': 'Сообщество Discord',
+  'about.links.discord-description': 'Присоединяйтесь к нашему сообществу',
+  'about.links.sponsor': 'Спонсировать',
+  'about.links.sponsor-description': 'Поддержите разработку Papra',
+
+  'config.server-unreachable.title': 'Сервер недоступен',
+  'config.server-unreachable.description':
+    'Сервер недоступен. Если вы размещаете его самостоятельно, убедитесь, что сервер запущен и правильно настроен. Дополнительную информацию можно найти в консоли.',
+  'config.server-unreachable.retry': 'Повторить попытку',
+  'config.server-unreachable.retry-error.title': 'Сервер всё ещё недоступен',
+  'config.server-unreachable.retry-error.description':
+    'Сервер по-прежнему недоступен, повторите попытку позже.',
+
+  'coming-soon.title': 'Скоро',
+  'coming-soon.description': 'Эта функция скоро появится, загляните позже.',
+
+  'socials.bluesky': 'Bluesky',
+  'socials.mastodon': 'Mastodon',
+  'socials.x': 'X',
+  'socials.reddit': 'Reddit',
+  'socials.linkedin': 'LinkedIn',
+};

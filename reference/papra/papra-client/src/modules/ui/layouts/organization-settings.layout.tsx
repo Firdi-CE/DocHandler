@@ -1,0 +1,74 @@
+import type { ParentComponent } from 'solid-js';
+import { A, useParams } from '@solidjs/router';
+import { useI18n } from '@/modules/i18n/i18n.provider';
+import { SideNav } from '@/modules/ui/components/sidenav';
+import { Button } from '../components/button';
+import { SidenavLayout } from './sidenav.layout';
+import { UserSettingsDropdown } from '@/modules/users/components/user-settings.component';
+
+export const OrganizationSettingsLayout: ParentComponent = (props) => {
+  const params = useParams();
+  const { t } = useI18n();
+
+  const getNavigationItems = () => [
+    {
+      items: [
+        {
+          label: t('layout.menu.general-settings'),
+          href: `/organizations/${params.organizationId}/settings`,
+          icon: 'i-tabler-settings',
+        },
+        {
+          label: t('layout.menu.auto-tagging'),
+          href: `/organizations/${params.organizationId}/settings/auto-tagging`,
+          icon: 'i-tabler-tag',
+        },
+        {
+          label: t('layout.menu.usage'),
+          href: `/organizations/${params.organizationId}/settings/usage`,
+          icon: 'i-tabler-chart-bar',
+        },
+        {
+          label: t('layout.menu.intake-emails'),
+          href: `/organizations/${params.organizationId}/settings/intake-emails`,
+          icon: 'i-tabler-mail',
+        },
+        {
+          label: t('layout.menu.webhooks'),
+          href: `/organizations/${params.organizationId}/settings/webhooks`,
+          icon: 'i-tabler-webhook',
+        },
+      ],
+    },
+  ];
+
+  return (
+    <SidenavLayout
+      sideNav={() => (
+        <SideNav
+          mainMenu={getNavigationItems()}
+          header={() => (
+            <div class="pl-6 py-3 border-b border-b-border flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                class="text-muted-foreground"
+                as={A}
+                href={`/organizations/${params.organizationId}`}
+              >
+                <div class="i-tabler-arrow-left size-5" />
+              </Button>
+              <h1 class="text-base font-bold">{t('organization.settings.title')}</h1>
+            </div>
+          )}
+        />
+      )}
+      children={props.children}
+      header={() => (
+        <div class="flex items-center justify-end w-full flex-1">
+          <UserSettingsDropdown />
+        </div>
+      )}
+    />
+  );
+};
