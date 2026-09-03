@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Custom Properties — Admin</title>
+  <link rel="stylesheet" href="/theme.css">
+  <style>
+    body { padding: 2rem; }
+    .card { max-width: 900px; margin: auto; }
+    .form-row { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+    .form-row input, .form-row select { flex: 1; min-width: 160px; }
+    .form-row button { background: var(--steel); color: white; border: none; border-radius: 6px; padding: 10px 20px; cursor: pointer; font-weight: 700; }
+    .form-row button:hover { background: var(--steel-hover); }
+    table { width: 100%; border-collapse: collapse; }
+    th { text-align: left; padding: 0.75rem 0.5rem; border-bottom: 1px solid var(--border); font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted); }
+    td { padding: 0.75rem 0.5rem; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
+    .status-msg { padding: 0.75rem; border-radius: 8px; margin-bottom: 1rem; display: none; }
+    .status-msg.success { display: block; background: var(--green-bg); border: 1px solid var(--green-border); color: var(--green-text); }
+    .status-msg.error { display: block; background: var(--red-bg); border: 1px solid var(--red-border); color: var(--red-text); }
+    .btn-edit { background: #854F0B; color: white; border: none; border-radius: 6px; padding: 4px 12px; cursor: pointer; font-weight: 600; font-size: 0.8rem; }
+    .btn-edit:hover { background: #6c3f08; }
+    .btn-delete { background: #A32D2D; color: white; border: none; border-radius: 6px; padding: 4px 12px; cursor: pointer; font-weight: 600; font-size: 0.8rem; }
+    .btn-delete:hover { background: #872424; }
+    .btn-options { background: var(--steel); color: white; border: none; border-radius: 6px; padding: 4px 12px; cursor: pointer; font-weight: 600; font-size: 0.8rem; }
+    .btn-options:hover { background: var(--steel-hover); }
+    .modal .btn-save { background: var(--steel); color: white; }
+    .status-badge { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 0.75rem; font-weight: 700; }
+    .status-badge.active { background: var(--green-bg); color: var(--green-text); }
+    .status-badge.inactive { background: #E5E7EB; color: #374151; }
+    .type-badge { display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; background: var(--bg-muted); color: var(--text-muted); }
+    .option-row { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem; }
+    .option-row input { flex: 1; }
+    .option-row .btn-remove-option { background: none; border: none; color: #A32D2D; cursor: pointer; font-weight: 700; font-size: 1.1rem; padding: 0 6px; }
+    .btn-add-option { background: var(--bg-muted); border: 1px solid var(--border-strong); border-radius: 6px; padding: 6px 14px; cursor: pointer; font-weight: 600; font-size: 0.85rem; margin-bottom: 1rem; }
+  </style>
+</head>
+<body class="full-bleed">
+
+<div class="app-shell">
+  <aside class="app-sidebar">
+    <div class="sidebar-logo">
+      <img src="/assets/logo.png" alt="Pilar Energi">
+      <span>DocHandler</span>
+    </div>
+    <nav class="sidebar-nav">
+      <a class="sidebar-link" href="/dashboard.html">Documents</a>
+      <a class="sidebar-link" href="/dashboard.html?view=upload">Upload</a>
+      <a class="sidebar-link" href="/profile.html">Profile</a>
+
+      <div id="adminNavGroup">
+        <button class="sidebar-group-toggle open" id="adminGroupToggle" onclick="toggleSidebarGroup('adminSubmenu', this)">
+          Admin <span class="chevron">&#9660;</span>
+        </button>
+        <div class="sidebar-submenu open" id="adminSubmenu">
+          <a class="sidebar-link" href="/admin.html">Overview</a>
+          <a class="sidebar-link" href="/admin/users.html">Users</a>
+          <a class="sidebar-link" href="/admin/projects.html">Projects</a>
+          <a class="sidebar-link" href="/admin/document-types.html">Document Types</a>
+          <a class="sidebar-link active" href="/admin/custom-properties.html">Custom Properties</a>
+          <a class="sidebar-link" href="/admin/approvals.html">Approvals</a>
+          <a class="sidebar-link" href="/admin/integrations.html">Integrations</a>
+          <a class="sidebar-link" href="/admin/audit-log.html">Audit Log</a>
+        </div>
+      </div>
+    </nav>
+  </aside>
+
+  <div class="app-main">
+    <div class="app-header">
+      <h2 style="color:var(--navy);font-size:1.1rem;">Custom Properties</h2>
+      <div class="header-user">
+        <button onclick="logout()">Sign out</button>
+      </div>
+    </div>
+
+    <div class="app-content">
+      <div class="card">
+        <div id="statusMessage" class="status-msg"></div>
+
+        <p style="margin-bottom:1.5rem;color:var(--text-muted);font-size:0.85rem;">
+          Define typed fields (text, number, date, yes/no, or a dropdown list) that can hold extra
+          information on a document, like an invoice number or a contract expiry date. Values aren't
+          wired into the upload form yet — this page defines what fields exist first.
+        </p>
+
+        <h3 style="margin-bottom:1rem;">Create New Property</h3>
+        <div class="form-row">
+          <input type="text" id="propName" placeholder="Name (e.g. Invoice Number)">
+          <input type="text" id="propKey" placeholder="Key (e.g. invoice_number)">
+          <select id="propType">
+            <option value="text">Text</option>
+            <option value="number">Number</option>
+            <option value="date">Date</option>
+            <option value="boolean">Yes/No</option>
+            <option value="select">Dropdown list</option>
+          </select>
+          <select id="propDepartment"><option value="">No department (global)</option></select>
+          <input type="text" id="propDescription" placeholder="Description (optional)">
+          <button onclick="createProperty()">Create</button>
+        </div>
+
+        <h3 style="margin-bottom:1rem;">Existing Properties</h3>
+        <table>
+          <thead><tr><th>Name</th><th>Key</th><th>Type</th><th>Department</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody id="propsBody">
+            <tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--text-muted);">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Property Modal -->
+<div class="modal-overlay" id="editModal">
+  <div class="modal">
+    <h3>Edit Property</h3>
+    <label for="editName">Name:</label>
+    <input type="text" id="editName" placeholder="Property name">
+    <label for="editKey">Key:</label>
+    <input type="text" id="editKey" placeholder="Property key">
+    <label for="editType">Type:</label>
+    <select id="editType">
+      <option value="text">Text</option>
+      <option value="number">Number</option>
+      <option value="date">Date</option>
+      <option value="boolean">Yes/No</option>
+      <option value="select">Dropdown list</option>
+    </select>
+    <label for="editDepartment">Department:</label>
+    <select id="editDepartment"><option value="">No department (global)</option></select>
+    <label for="editDescription">Description:</label>
+    <input type="text" id="editDescription" placeholder="Description">
+    <label for="editActive">Status:</label>
+    <select id="editActive">
+      <option value="true">Active</option>
+      <option value="false">Inactive</option>
+    </select>
+    <div class="btn-group">
+      <button class="btn-save" onclick="saveEdit()">Save</button>
+      <button class="btn-cancel" onclick="closeEditModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Select Options Modal -->
+<div class="modal-overlay" id="optionsModal">
+  <div class="modal" style="max-width:500px;">
+    <h3 id="optionsModalTitle">Dropdown Options</h3>
+    <p style="margin-bottom:1rem;color:var(--text-muted);font-size:0.85rem;">
+      The list of values someone can pick from for this property.
+    </p>
+    <div id="optionRows"></div>
+    <button class="btn-add-option" onclick="addOptionRow()">+ Add Option</button>
+    <div class="btn-group">
+      <button class="btn-save" onclick="saveOptions()">Save Options</button>
+      <button class="btn-cancel" onclick="closeOptionsModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const API_BASE = '';
+  const token = localStorage.getItem('token');
+  if (!token) window.location.href = '/login.html?reason=expired';
+
+  // Gate: only Executive and Admin roles can access admin pages
+  (async () => {
+    try {
+      const res = await fetch('/auth/me', { headers: { 'Authorization': 'Bearer ' + token } });
+      if (res.status === 401) { window.location.href = '/login.html?reason=expired'; return; }
+      const user = await res.json();
+      if (user.role !== 'Executive' && user.role !== 'Admin') {
+        window.location.href = '/dashboard.html';
+      }
+    } catch (e) { /* non-fatal, backend will enforce via 403 */ }
+  })();
+
+  let editPropId = null;
+  let currentOptionsPropId = null;
+  let departmentsCache = [];
+
+  function showStatus(msg, type) {
+    const el = document.getElementById('statusMessage');
+    el.textContent = msg; el.className = 'status-msg ' + type;
+    el.style.display = 'block';
+    setTimeout(() => el.style.display = 'none', 3000);
+  }
+
+  function logout() {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    window.location.href = '/login.html';
+  }
+
+  function toggleSidebarGroup(submenuId, toggleBtn) {
+    const submenu = document.getElementById(submenuId);
+    const isOpen = submenu.classList.toggle('open');
+    toggleBtn.classList.toggle('open', isOpen);
+  }
+
+  function slugify(text) {
+    return text.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+  }
+
+  // Auto-fill the key from the name, but only while the user hasn't typed their own key yet
+  let keyManuallyEdited = false;
+  document.getElementById('propKey').addEventListener('input', () => { keyManuallyEdited = true; });
+  document.getElementById('propName').addEventListener('input', (e) => {
+    if (!keyManuallyEdited) document.getElementById('propKey').value = slugify(e.target.value);
+  });
+
+  async function loadDepartments() {
+    try {
+      const res = await fetch(API_BASE + '/departments', { headers: { 'Authorization': 'Bearer ' + token } });
+      departmentsCache = await res.json();
+      const opts = departmentsCache.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+      document.getElementById('propDepartment').innerHTML = '<option value="">No department (global)</option>' + opts;
+      document.getElementById('editDepartment').innerHTML = '<option value="">No department (global)</option>' + opts;
+    } catch (e) { /* non-fatal, department dropdown just stays empty */ }
+  }
+
+  function typeLabel(type) {
+    return { text: 'Text', number: 'Number', date: 'Date', boolean: 'Yes/No', select: 'Dropdown' }[type] || type;
+  }
+
+  async function loadProperties() {
+    try {
+      const res = await fetch(API_BASE + '/admin/custom-properties', {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      if (res.status === 401) { logout(); return; }
+      if (res.status === 403) { window.location.href = '/dashboard.html'; return; }
+      const props = await res.json();
+      const tbody = document.getElementById('propsBody');
+      if (props.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:2rem;color:#888;">No custom properties yet.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = props.map(p => `
+        <tr>
+          <td><strong>${p.name}</strong>${p.description ? '<br><span style="color:var(--text-muted);font-size:0.8rem;">' + p.description + '</span>' : ''}</td>
+          <td><code>${p.key}</code></td>
+          <td><span class="type-badge">${typeLabel(p.type)}</span>${p.type === 'select' ? ' <span style="color:var(--text-muted);font-size:0.8rem;">(' + p.option_count + ' option' + (p.option_count === 1 ? '' : 's') + ')</span>' : ''}</td>
+          <td>${p.department_name || '—'}</td>
+          <td><span class="status-badge ${p.is_active ? 'active' : 'inactive'}">${p.is_active ? 'Active' : 'Inactive'}</span></td>
+          <td>
+            ${p.type === 'select' ? `<button class="btn-options" onclick="openOptionsModal(${p.id}, '${p.name.replace(/'/g, "\\'")}')">Options</button>` : ''}
+            <button class="btn-edit" onclick="openEditModal(${p.id})">Edit</button>
+            <button class="btn-delete" onclick="deleteProperty(${p.id}, '${p.name.replace(/'/g, "\\'")}')">Delete</button>
+          </td>
+        </tr>
+      `).join('');
+    } catch (e) {
+      document.getElementById('propsBody').innerHTML =
+        '<tr><td colspan="6" style="text-align:center;padding:2rem;color:#888;">Failed to load.</td></tr>';
+    }
+  }
+
+  async function createProperty() {
+    const name = document.getElementById('propName').value.trim();
+    const key = document.getElementById('propKey').value.trim();
+    const type = document.getElementById('propType').value;
+    const department_id = document.getElementById('propDepartment').value || null;
+    const description = document.getElementById('propDescription').value.trim() || null;
+    if (!name) { showStatus('Enter a property name.', 'error'); return; }
+    if (!key) { showStatus('Enter a property key.', 'error'); return; }
+
+    try {
+      const res = await fetch(API_BASE + '/admin/custom-properties', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, key, type, department_id, description })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showStatus('Custom property created!', 'success');
+        document.getElementById('propName').value = '';
+        document.getElementById('propKey').value = '';
+        document.getElementById('propDescription').value = '';
+        document.getElementById('propDepartment').value = '';
+        keyManuallyEdited = false;
+        loadProperties();
+      } else {
+        showStatus(data.error || 'Failed to create custom property.', 'error');
+      }
+    } catch (e) {
+      showStatus('Network error while creating custom property.', 'error');
+    }
+  }
+
+  async function openEditModal(id) {
+    editPropId = id;
+    try {
+      const res = await fetch(API_BASE + '/admin/custom-properties/' + id, {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      const p = await res.json();
+      if (!res.ok) { showStatus(p.error || 'Failed to load custom property.', 'error'); return; }
+      document.getElementById('editName').value = p.name;
+      document.getElementById('editKey').value = p.key;
+      document.getElementById('editType').value = p.type;
+      document.getElementById('editDepartment').value = p.department_id || '';
+      document.getElementById('editDescription').value = p.description || '';
+      document.getElementById('editActive').value = String(p.is_active);
+      document.getElementById('editModal').classList.add('open');
+    } catch (e) {
+      showStatus('Network error while loading custom property.', 'error');
+    }
+  }
+
+  function closeEditModal() {
+    document.getElementById('editModal').classList.remove('open');
+    editPropId = null;
+  }
+
+  async function saveEdit() {
+    const name = document.getElementById('editName').value.trim();
+    const key = document.getElementById('editKey').value.trim();
+    const type = document.getElementById('editType').value;
+    const department_id = document.getElementById('editDepartment').value || null;
+    const description = document.getElementById('editDescription').value.trim() || null;
+    const is_active = document.getElementById('editActive').value === 'true';
+    if (!name) { showStatus('Enter a property name.', 'error'); return; }
+    if (!key) { showStatus('Enter a property key.', 'error'); return; }
+
+    try {
+      const res = await fetch(API_BASE + '/admin/custom-properties/' + editPropId, {
+        method: 'PATCH',
+        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, key, type, department_id, description, is_active })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showStatus('Custom property updated!', 'success');
+        closeEditModal();
+        loadProperties();
+      } else {
+        showStatus(data.error || 'Failed to update custom property.', 'error');
+      }
+    } catch (e) {
+      showStatus('Network error while updating custom property.', 'error');
+    }
+  }
+
+  async function deleteProperty(id, name) {
+    if (!confirm(`Delete custom property "${name}"?\n\nAny values already stored for this property on documents will be deleted too. This cannot be undone.`)) return;
+
+    try {
+      const res = await fetch(API_BASE + '/admin/custom-properties/' + id, {
+        method: 'DELETE',
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showStatus('Custom property deleted.', 'success');
+        loadProperties();
+      } else {
+        showStatus(data.error || 'Failed to delete custom property.', 'error');
+      }
+    } catch (e) {
+      showStatus('Network error while deleting custom property.', 'error');
+    }
+  }
+
+  // --- Select Options ---
+
+  function optionRowHtml(value) {
+    value = value || '';
+    return `
+      <div class="option-row">
+        <input type="text" class="option-value" value="${value.replace(/"/g, '&quot;')}" placeholder="Option value">
+        <button class="btn-remove-option" onclick="this.closest('.option-row').remove()" title="Remove option">&times;</button>
+      </div>`;
+  }
+
+  function addOptionRow() {
+    document.getElementById('optionRows').insertAdjacentHTML('beforeend', optionRowHtml(''));
+  }
+
+  async function openOptionsModal(propId, propName) {
+    currentOptionsPropId = propId;
+    document.getElementById('optionsModalTitle').textContent = 'Dropdown Options — ' + propName;
+    const container = document.getElementById('optionRows');
+    container.innerHTML = '<p style="color:var(--text-muted);">Loading...</p>';
+    document.getElementById('optionsModal').classList.add('open');
+
+    try {
+      const res = await fetch(API_BASE + '/admin/custom-properties/' + propId, {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      const p = await res.json();
+      container.innerHTML = '';
+      if (!p.options || p.options.length === 0) {
+        addOptionRow();
+      } else {
+        p.options.forEach(o => container.insertAdjacentHTML('beforeend', optionRowHtml(o.value)));
+      }
+    } catch (e) {
+      container.innerHTML = '<p style="color:var(--red-text);">Failed to load options.</p>';
+    }
+  }
+
+  function closeOptionsModal() {
+    document.getElementById('optionsModal').classList.remove('open');
+    currentOptionsPropId = null;
+  }
+
+  async function saveOptions() {
+    const values = [...document.querySelectorAll('#optionRows .option-value')]
+      .map(input => input.value.trim())
+      .filter(v => v.length > 0);
+    const options = values.map(value => ({ value }));
+
+    try {
+      const res = await fetch(API_BASE + '/admin/custom-properties/' + currentOptionsPropId + '/options', {
+        method: 'PUT',
+        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ options })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showStatus('Options saved.', 'success');
+        closeOptionsModal();
+        loadProperties();
+      } else {
+        showStatus(data.error || 'Failed to save options.', 'error');
+      }
+    } catch (e) {
+      showStatus('Network error while saving options.', 'error');
+    }
+  }
+
+  loadDepartments();
+  loadProperties();
+</script>
+
+</body>
+</html>

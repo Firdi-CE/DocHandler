@@ -17,6 +17,16 @@ that doc) → Full-Text Search → Document Share Links → Ingestion Folders �
 Intake Emails (recommend redesigning, not porting) → API Keys/Webhooks/SDK
 (defer until a concrete need exists).
 
+**#1 Custom Properties — schema + admin CRUD done (2026-09-03).** Migration
+011 adds `custom_property_definitions`, `custom_property_select_options`,
+`document_custom_property_values` (same nullable-`department_id`-means-
+global pattern as `document_types`). Admin CRUD at
+`public/admin/custom-properties.html` + routes in `server.js`, sidebar nav
+link added across all admin pages. **Deliberately does not yet wire values
+into the upload form or document detail view** — there's nothing to enter
+until properties are defined, so schema+admin-UI had to land first; that
+wiring is the natural next patch when picked back up.
+
 ---
 
 ## Work Sites & Maintenance Lifecycle

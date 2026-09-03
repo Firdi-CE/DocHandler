@@ -1183,6 +1183,172 @@ app.put('/admin/document-types/:id/default-approvers', ensureAuthenticated, ensu
     }
 });
 
+// --- CUSTOM PROPERTIES ---
+// Item #1 of PAPRA_FEATURE_ROADMAP.md. Schema + admin CRUD only (migration
+// 011) -- same shape/conventions as DOCUMENT TYPES above. Wiring values
+// into the upload form / document detail view is a separate follow-up.
+
+const CUSTOM_PROPERTY_TYPES = ['text', 'number', 'date', 'boolean', 'select'];
+
+// List all custom property definitions, with department name and (for
+// select-type) option count.
+app.get('/admin/custom-properties', ensureAuthenticated, ensureAdmin, async (req, res) => {
+    try {
+        const result = await db.query(`
+            SELECT cpd.id, cpd.name, cpd.key, cpd.department_id, cpd.description, cpd.type,
+                   cpd.display_order, cpd.is_active, cpd.created_at,
+                   d.name AS department_name,
+                   COUNT(cpso.id)::int AS option_count
+            FROM custom_property_definitions cpd
+            LEFT JOIN departments d ON cpd.department_id = d.id
+            LEFT JOIN custom_property_select_options cpso ON cpso.property_definition_id = cpd.id
+            GROUP BY cpd.id, d.name
+            ORDER BY cpd.display_order ASC, cpd.name ASC
+        `);
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Create a new custom property definition
+app.post('/admin/custom-properties', ensureAuthenticated, ensureAdmin, async (req, res) => {
+    const { name, key, department_id, description, type, display_order } = req.body;
+    if (!name) return res.status(400).json({ error: 'Property name is required.' });
+    if (!key) return res.status(400).json({ error: 'Property key is required.' });
+    if (!CUSTOM_PROPERTY_TYPES.includes(type)) {
+        return res.status(400).json({ error: `Type must be one of: ${CUSTOM_PROPERTY_TYPES.join(', ')}.` });
+    }
+
+    try {
+        const result = await db.query(
+            `INSERT INTO custom_property_definitions (name, key, department_id, description, type, display_order)
+             VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+            [name, key, department_id || null, description || null, type, display_order || 0]
+        );
+        res.status(201).json(result.rows[0]);
+    } catch (err) {
+        if (err.code === '23505') { // unique_violation
+            return res.status(409).json({ error: 'A property with that key already exists for this department.' });
+        }
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Fetch a single custom property definition (with its select options, if any)
+app.get('/admin/custom-properties/:id', ensureAuthenticated, ensureAdmin, async (req, res) => {
+    const { id } = req.params;
+    try {
+        const defResult = await db.query(
+            `SELECT cpd.id, cpd.name, cpd.key, cpd.department_id, cpd.description, cpd.type,
+                    cpd.display_order, cpd.is_active, cpd.created_at,
+                    d.name AS department_name
+             FROM custom_property_definitions cpd
+             LEFT JOIN departments d ON cpd.department_id = d.id
+             WHERE cpd.id = $1`,
+            [id]
+        );
+        if (defResult.rows.length === 0) return res.status(404).json({ error: 'Custom property not found.' });
+
+        const optionsResult = await db.query(
+            'SELECT id, value, display_order FROM custom_property_select_options WHERE property_definition_id = $1 ORDER BY display_order ASC',
+            [id]
+        );
+        res.json({ ...defResult.rows[0], options: optionsResult.rows });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Update a custom property definition (name / key / department / description / type / display_order / active flag)
+app.patch('/admin/custom-properties/:id', ensureAuthenticated, ensureAdmin, async (req, res) => {
+    const { id } = req.params;
+    const { name, key, department_id, description, type, display_order, is_active } = req.body;
+    if (type !== undefined && !CUSTOM_PROPERTY_TYPES.includes(type)) {
+        return res.status(400).json({ error: `Type must be one of: ${CUSTOM_PROPERTY_TYPES.join(', ')}.` });
+    }
+
+    try {
+        const result = await db.query(
+            `UPDATE custom_property_definitions
+             SET name = COALESCE($1, name),
+                 key = COALESCE($2, key),
+                 department_id = $3,
+                 description = COALESCE($4, description),
+                 type = COALESCE($5, type),
+                 display_order = COALESCE($6, display_order),
+                 is_active = COALESCE($7, is_active)
+             WHERE id = $8 RETURNING *`,
+            [name || null, key || null, department_id !== undefined ? department_id : null,
+             description || null, type || null, display_order, is_active, id]
+        );
+        if (result.rows.length === 0) return res.status(404).json({ error: 'Custom property not found.' });
+        res.json(result.rows[0]);
+    } catch (err) {
+        if (err.code === '23505') {
+            return res.status(409).json({ error: 'A property with that key already exists for this department.' });
+        }
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Delete a custom property definition (cascades to its select options and any stored document values)
+app.delete('/admin/custom-properties/:id', ensureAuthenticated, ensureAdmin, async (req, res) => {
+    const { id } = req.params;
+    try {
+        const result = await db.query('DELETE FROM custom_property_definitions WHERE id = $1 RETURNING id', [id]);
+        if (result.rows.length === 0) return res.status(404).json({ error: 'Custom property not found.' });
+        res.json({ message: 'Custom property deleted successfully.' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Replace a select-type property's option list wholesale (delete + re-insert in a transaction,
+// same pattern as a document type's default approval chain). Body: { options: [{ value }] }
+app.put('/admin/custom-properties/:id/options', ensureAuthenticated, ensureAdmin, async (req, res) => {
+    const { id } = req.params;
+    const { options } = req.body;
+    if (!Array.isArray(options)) return res.status(400).json({ error: 'options must be an array.' });
+    if (options.some(o => !o.value || !o.value.trim())) {
+        return res.status(400).json({ error: 'Every option needs a non-empty value.' });
+    }
+
+    try {
+        await db.query('BEGIN');
+        const defCheck = await db.query('SELECT id, type FROM custom_property_definitions WHERE id = $1', [id]);
+        if (defCheck.rows.length === 0) {
+            await db.query('ROLLBACK');
+            return res.status(404).json({ error: 'Custom property not found.' });
+        }
+        if (defCheck.rows[0].type !== 'select') {
+            await db.query('ROLLBACK');
+            return res.status(400).json({ error: 'Options can only be set on a select-type property.' });
+        }
+
+        await db.query('DELETE FROM custom_property_select_options WHERE property_definition_id = $1', [id]);
+
+        for (let i = 0; i < options.length; i++) {
+            await db.query(
+                `INSERT INTO custom_property_select_options (property_definition_id, value, display_order)
+                 VALUES ($1, $2, $3)`,
+                [id, options[i].value.trim(), i]
+            );
+        }
+
+        await db.query('COMMIT');
+        const result = await db.query(
+            'SELECT id, value, display_order FROM custom_property_select_options WHERE property_definition_id = $1 ORDER BY display_order ASC',
+            [id]
+        );
+        res.json(result.rows);
+    } catch (err) {
+        await db.query('ROLLBACK');
+        console.error('Custom Property Options Update Error:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // --- WORK SITES & MAINTENANCE LIFECYCLE ---
 // Placeholder-role feature (see roles.js + BACKLOG.md). Site CRUD is admin
 // only, same as project CRUD above; status changes are opened up to the
