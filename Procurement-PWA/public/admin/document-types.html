@@ -141,7 +141,7 @@
   const token = localStorage.getItem('token');
   if (!token) window.location.href = '/login.html?reason=expired';
 
-  const APPROVER_ROLES = ['Staff', 'Supervisor', 'Manager', 'Executive', 'Admin'];
+  const APPROVER_ROLES = ['Staff', 'Supervisor', 'Manager', 'HSE', 'Executive', 'Admin'];
 
   // Gate: only Executive and Admin roles can access admin pages
   (async () => {

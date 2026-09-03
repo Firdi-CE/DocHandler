@@ -106,6 +106,21 @@ Remaining open item: VP's exact access scope (defaulted to full `Executive`
 — see `roles.js`) wasn't confirmed and could be revisited later if a
 narrower VP tier turns out to matter in practice.
 
+**Follow-up (2026-09-03):** `HSE` added to the document-types admin page's
+`APPROVER_ROLES` dropdown (`public/admin/document-types.html`), so document
+types can now route a chain level to "whoever holds the HSE role in this
+department" as a default approver, same as any other role. No backend
+change needed — `document_type_default_approvers` resolution was already
+role-agnostic (`WHERE department_id = $1 AND role = $2`). One caveat worth
+knowing: that resolution requires an HSE-role user to actually have
+`department_id` set to the document type's department. Since HSE reports to
+the President Director rather than sitting under one of the 4 Directors'
+departments on the org chart, an HSE user's `department_id` assignment may
+need to be set deliberately (e.g. to whichever department a given document
+type belongs to, or duplicated across departments) for this to resolve —
+not a code bug, just something to check when actually wiring up an
+HSE-approved document type.
+
 ---
 
 ## Other deferred items
