@@ -17,15 +17,33 @@ that doc) → Full-Text Search → Document Share Links → Ingestion Folders �
 Intake Emails (recommend redesigning, not porting) → API Keys/Webhooks/SDK
 (defer until a concrete need exists).
 
-**#1 Custom Properties — schema + admin CRUD done (2026-09-03).** Migration
-011 adds `custom_property_definitions`, `custom_property_select_options`,
+**#1 Custom Properties — fully done (2026-09-03).** Migration 011 adds
+`custom_property_definitions`, `custom_property_select_options`,
 `document_custom_property_values` (same nullable-`department_id`-means-
 global pattern as `document_types`). Admin CRUD at
 `public/admin/custom-properties.html` + routes in `server.js`, sidebar nav
-link added across all admin pages. **Deliberately does not yet wire values
-into the upload form or document detail view** — there's nothing to enter
-until properties are defined, so schema+admin-UI had to land first; that
-wiring is the natural next patch when picked back up.
+link added across all admin pages.
+
+Values are now wired in too: `GET /custom-properties?departmentId=X`
+(any authenticated user, not admin-only) drives dynamic fields on the
+upload form once a department is picked — same department dropdown
+already used for recipient filtering, no document-type selector needed
+since properties are scoped by department, not type. Wired into **both**
+upload paths (`/upload` multipart and `/documents/drive-attach` JSON) via
+a shared `saveDocumentCustomPropertyValues()` helper, best-effort/never-
+fails-the-upload, same pattern as default-approval-chain auto-creation.
+A "Properties" button on every document row opens a modal
+(`GET`/`PUT /documents/:id/custom-properties`) to view or edit values
+after the fact — gated by the same `checkDocumentAccess()` used
+everywhere else a single document is accessed, so visibility and edit
+rights are the same rule.
+
+Noted in passing, not fixed (out of scope): `document_type_id` is accepted
+by `/upload` server-side and has full admin CRUD, but no frontend upload
+form anywhere actually has a document-type selector — that selector was
+apparently never built. Doesn't block Custom Properties (scoped by
+department, not type) but worth knowing before Tagging Rules (#3) if any
+rule condition wants to key off document type.
 
 ---
 

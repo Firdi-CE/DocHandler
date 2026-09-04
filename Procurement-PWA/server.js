@@ -170,6 +170,42 @@ app.get('/departments', ensureAuthenticated, async (req, res) => {
     }
 });
 
+// Active custom property definitions applicable to a department (global +
+// that department's own), for rendering the dynamic upload-form fields.
+// Unlike /admin/custom-properties, this is available to any authenticated
+// user -- everyone uploading needs to see what fields to fill in, not just
+// admins. Read-only; defining properties stays admin-only.
+app.get('/custom-properties', ensureAuthenticated, async (req, res) => {
+    const { departmentId } = req.query;
+    try {
+        const defsRes = await db.query(
+            `SELECT id, name, key, description, type, display_order
+             FROM custom_property_definitions
+             WHERE is_active = true AND (department_id IS NULL OR department_id = $1)
+             ORDER BY display_order ASC, name ASC`,
+            [departmentId || null]
+        );
+        const defs = defsRes.rows;
+        const selectDefIds = defs.filter(d => d.type === 'select').map(d => d.id);
+        let optionsByDef = new Map();
+        if (selectDefIds.length > 0) {
+            const optsRes = await db.query(
+                `SELECT id, property_definition_id, value FROM custom_property_select_options
+                 WHERE property_definition_id = ANY($1::int[]) ORDER BY display_order ASC`,
+                [selectDefIds]
+            );
+            optionsByDef = optsRes.rows.reduce((map, o) => {
+                if (!map.has(o.property_definition_id)) map.set(o.property_definition_id, []);
+                map.get(o.property_definition_id).push({ id: o.id, value: o.value });
+                return map;
+            }, new Map());
+        }
+        res.json(defs.map(d => ({ ...d, options: optionsByDef.get(d.id) || [] })));
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
 // API Endpoint to fetch users grouped by selected department for chained dependent options
 app.get('/users/by-department/:deptId', ensureAuthenticated, async (req, res) => {
     try {
@@ -216,7 +252,63 @@ async function checkDocumentAccess(doc, userId, userRole, deptId) {
     return doc.sender_id === userId || doc.recipient_id === userId || projCheck.rows.length > 0;
 }
 
-// Document versioning (see BACKLOG.md "Document versioning" +
+// Custom properties (see PAPRA_FEATURE_ROADMAP.md item #1, migration 011).
+// Shared save/upsert helper -- used by /upload, /documents/drive-attach,
+// and the standalone edit endpoint below, so all three agree on how a
+// raw {definitionId: value} map gets typed and stored. Best-effort, same
+// pattern as the default-approval-chain auto-creation: a bad/missing
+// value for one property is skipped with a warning rather than failing
+// the whole save.
+async function saveDocumentCustomPropertyValues({ documentId, valuesByDefinitionId }) {
+    const definitionIds = Object.keys(valuesByDefinitionId || {}).map(Number).filter(Number.isInteger);
+    if (definitionIds.length === 0) return;
+
+    const defsRes = await db.query(
+        `SELECT cpd.id, cpd.type, cpd.is_active
+         FROM custom_property_definitions cpd
+         WHERE cpd.id = ANY($1::int[])`,
+        [definitionIds]
+    );
+    const defsById = new Map(defsRes.rows.map(d => [d.id, d]));
+
+    for (const [defIdStr, rawValue] of Object.entries(valuesByDefinitionId || {})) {
+        const defId = Number(defIdStr);
+        const def = defsById.get(defId);
+        if (!def || !def.is_active) continue;
+        if (rawValue === null || rawValue === undefined || rawValue === '') continue;
+
+        const columns = { text_value: null, number_value: null, date_value: null, boolean_value: null, select_option_id: null };
+        try {
+            if (def.type === 'text') columns.text_value = String(rawValue);
+            else if (def.type === 'number') {
+                const n = Number(rawValue);
+                if (Number.isNaN(n)) { console.warn(`Skipping custom property ${defId} on document ${documentId}: "${rawValue}" is not a number.`); continue; }
+                columns.number_value = n;
+            } else if (def.type === 'date') columns.date_value = rawValue;
+            else if (def.type === 'boolean') columns.boolean_value = rawValue === true || rawValue === 'true';
+            else if (def.type === 'select') columns.select_option_id = Number(rawValue);
+            else continue;
+
+            await db.query(
+                `INSERT INTO document_custom_property_values
+                    (document_id, property_definition_id, text_value, number_value, date_value, boolean_value, select_option_id, updated_at)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP)
+                 ON CONFLICT (document_id, property_definition_id) DO UPDATE
+                    SET text_value = EXCLUDED.text_value,
+                        number_value = EXCLUDED.number_value,
+                        date_value = EXCLUDED.date_value,
+                        boolean_value = EXCLUDED.boolean_value,
+                        select_option_id = EXCLUDED.select_option_id,
+                        updated_at = CURRENT_TIMESTAMP`,
+                [documentId, defId, columns.text_value, columns.number_value, columns.date_value, columns.boolean_value, columns.select_option_id]
+            );
+        } catch (valErr) {
+            console.warn(`Skipping custom property ${defId} on document ${documentId}:`, valErr.message);
+        }
+    }
+}
+
+
 // migrations/009_document_versioning.sql). Validates a resubmission
 // request and computes where the new document sits in its version chain.
 // Shared by /upload and /documents/drive-attach so a corrected document
@@ -643,6 +735,20 @@ app.post('/upload', ensureAuthenticated, (req, res) => {
                     // Never fail the upload over chain auto-creation -- the document
                     // still exists and a chain can always be set manually afterward.
                     console.error(`Auto-chain creation failed for document ${newDocId} (upload still succeeded):`, chainErr.message);
+                }
+            }
+
+            // Custom property values -- best-effort, same reasoning as the
+            // auto-chain block above: a bad value shouldn't fail an
+            // otherwise-successful upload. Frontend sends a JSON string
+            // (multipart form fields are always strings) mapping
+            // definition id -> raw value.
+            if (req.body.customProperties) {
+                try {
+                    const parsed = JSON.parse(req.body.customProperties);
+                    await saveDocumentCustomPropertyValues({ documentId: newDocId, valuesByDefinitionId: parsed });
+                } catch (cpErr) {
+                    console.error(`Custom property save failed for document ${newDocId} (upload still succeeded):`, cpErr.message);
                 }
             }
 
@@ -1571,7 +1677,7 @@ app.get('/drive/files', ensureAuthenticated, async (req, res) => {
 // local files.
 app.post('/documents/drive-attach', ensureAuthenticated, async (req, res) => {
     try {
-        const { fileId, recipientId, projectId, siteId, departmentId, isUrgent, resubmitOf } = req.body;
+        const { fileId, recipientId, projectId, siteId, departmentId, isUrgent, resubmitOf, customProperties } = req.body;
         if (!fileId) return res.status(400).json({ message: 'fileId is required.' });
 
         const uploadedBy = req.user.id;
@@ -1612,6 +1718,14 @@ app.post('/documents/drive-attach', ensureAuthenticated, async (req, res) => {
 
         await auditLog(uploadedBy, resubmitOf ? `DOCUMENT_RESUBMIT:OF_${resubmitOf}` : 'DOCUMENT_DRIVE_ATTACH', newDocId);
 
+        if (customProperties) {
+            try {
+                await saveDocumentCustomPropertyValues({ documentId: newDocId, valuesByDefinitionId: customProperties });
+            } catch (cpErr) {
+                console.error(`Custom property save failed for document ${newDocId} (Drive attach still succeeded):`, cpErr.message);
+            }
+        }
+
         if (recipientId) {
             if (isUrgent) {
                 const userRes = await db.query('SELECT email, display_name FROM users WHERE id = $1', [recipientId]);
@@ -1639,6 +1753,92 @@ app.post('/documents/drive-attach', ensureAuthenticated, async (req, res) => {
         res.status(200).json({ message: 'Document shared from Drive!' });
     } catch (err) {
         console.error('Drive attach error:', err);
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// --- CUSTOM PROPERTY VALUES (per document) ---
+// View/edit a document's custom property values after upload. Same
+// visibility rule as everywhere else a single document is accessed
+// (checkDocumentAccess) governs both reading and editing here -- if you
+// can see the document, you can annotate it; there's no separate
+// finer-grained permission for this yet.
+
+app.get('/documents/:id/custom-properties', ensureAuthenticated, async (req, res) => {
+    const { id } = req.params;
+    try {
+        const docRes = await db.query('SELECT id, department_id, sender_id, recipient_id, project_id FROM documents WHERE id = $1', [id]);
+        if (docRes.rows.length === 0) return res.status(404).json({ message: 'Document not found.' });
+        const doc = docRes.rows[0];
+
+        const canAccess = await checkDocumentAccess(doc, req.user.id, req.user.role, req.user.department_id);
+        if (!canAccess) return res.status(403).json({ message: 'Unauthorized: You do not have access to this document.' });
+
+        const defsRes = await db.query(
+            `SELECT id, name, key, description, type, display_order
+             FROM custom_property_definitions
+             WHERE is_active = true AND (department_id IS NULL OR department_id = $1)
+             ORDER BY display_order ASC, name ASC`,
+            [doc.department_id]
+        );
+        const defs = defsRes.rows;
+        if (defs.length === 0) return res.json([]);
+
+        const defIds = defs.map(d => d.id);
+        const [optsRes, valsRes] = await Promise.all([
+            db.query(
+                `SELECT id, property_definition_id, value FROM custom_property_select_options
+                 WHERE property_definition_id = ANY($1::int[]) ORDER BY display_order ASC`,
+                [defIds]
+            ),
+            db.query(
+                `SELECT property_definition_id, text_value, number_value, date_value, boolean_value, select_option_id
+                 FROM document_custom_property_values
+                 WHERE document_id = $1 AND property_definition_id = ANY($2::int[])`,
+                [id, defIds]
+            ),
+        ]);
+        const optionsByDef = optsRes.rows.reduce((map, o) => {
+            if (!map.has(o.property_definition_id)) map.set(o.property_definition_id, []);
+            map.get(o.property_definition_id).push({ id: o.id, value: o.value });
+            return map;
+        }, new Map());
+        const valueByDef = new Map(valsRes.rows.map(v => [v.property_definition_id, v]));
+
+        res.json(defs.map(d => {
+            const v = valueByDef.get(d.id);
+            let value = null;
+            if (v) {
+                if (d.type === 'text') value = v.text_value;
+                else if (d.type === 'number') value = v.number_value;
+                else if (d.type === 'date') value = v.date_value;
+                else if (d.type === 'boolean') value = v.boolean_value;
+                else if (d.type === 'select') value = v.select_option_id;
+            }
+            return { ...d, options: optionsByDef.get(d.id) || [], value };
+        }));
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+app.put('/documents/:id/custom-properties', ensureAuthenticated, async (req, res) => {
+    const { id } = req.params;
+    const { values } = req.body;
+    if (!values || typeof values !== 'object') return res.status(400).json({ message: 'values must be an object mapping definition id to value.' });
+
+    try {
+        const docRes = await db.query('SELECT id, department_id, sender_id, recipient_id, project_id FROM documents WHERE id = $1', [id]);
+        if (docRes.rows.length === 0) return res.status(404).json({ message: 'Document not found.' });
+        const doc = docRes.rows[0];
+
+        const canAccess = await checkDocumentAccess(doc, req.user.id, req.user.role, req.user.department_id);
+        if (!canAccess) return res.status(403).json({ message: 'Unauthorized: You do not have access to this document.' });
+
+        await saveDocumentCustomPropertyValues({ documentId: id, valuesByDefinitionId: values });
+        res.json({ message: 'Custom property values saved.' });
+    } catch (err) {
+        console.error('Custom Property Values Save Error:', err);
         res.status(500).json({ message: err.message });
     }
 });

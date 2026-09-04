@@ -160,9 +160,13 @@
 
             <div class="filter-group" style="margin-bottom:1.1rem;">
               <label style="display:block;font-weight:600;margin-bottom:4px;font-size:0.9rem;">Department:</label>
-              <select id="uploadDeptDropdown" name="departmentId" onchange="loadUploadUsers()" required style="width:100%;">
+              <select id="uploadDeptDropdown" name="departmentId" onchange="loadUploadUsers(); loadUploadCustomProperties();" required style="width:100%;">
                 <option value="">-- Choose Dept --</option>
               </select>
+            </div>
+
+            <div class="filter-group" id="uploadCustomPropsGroup" style="margin-bottom:1.1rem;display:none;">
+              <div id="uploadCustomPropsContainer"></div>
             </div>
 
             <div class="filter-group" style="margin-bottom:1.1rem;">
@@ -207,6 +211,17 @@
     <div id="versionsList" style="max-height:340px;overflow-y:auto;margin-bottom:0.75rem;"></div>
     <div class="btn-group">
       <button class="btn-cancel" onclick="closeVersionsModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="customPropsModal">
+  <div class="modal" style="max-width:480px;">
+    <h3 id="customPropsModalTitle">Properties</h3>
+    <div id="customPropsList" style="max-height:340px;overflow-y:auto;margin-bottom:0.75rem;"></div>
+    <div class="btn-group">
+      <button class="btn-save" onclick="saveCustomProps()">Save</button>
+      <button class="btn-cancel" onclick="closeCustomPropsModal()">Close</button>
     </div>
   </div>
 </div>
@@ -568,6 +583,154 @@
     });
   }
 
+  // Custom properties (PAPRA_FEATURE_ROADMAP.md item #1). Fields are
+  // scoped by department -- global (department_id null) properties always
+  // show, plus whichever department is currently selected. Re-fetched and
+  // re-rendered every time the department dropdown changes.
+  function customPropertyFieldHtml(def) {
+    const inputId = 'cprop_' + def.id;
+    const labelHtml = `<label for="${inputId}" style="display:block;font-weight:600;margin-bottom:4px;font-size:0.85rem;">${escapeHtml(def.name)}${def.description ? ' <span style="font-weight:400;color:var(--text-muted);">(' + escapeHtml(def.description) + ')</span>' : ''}</label>`;
+    let inputHtml;
+    if (def.type === 'text') {
+      inputHtml = `<input type="text" id="${inputId}" data-cp-id="${def.id}" data-cp-type="text" style="width:100%;">`;
+    } else if (def.type === 'number') {
+      inputHtml = `<input type="number" id="${inputId}" data-cp-id="${def.id}" data-cp-type="number" step="any" style="width:100%;">`;
+    } else if (def.type === 'date') {
+      inputHtml = `<input type="date" id="${inputId}" data-cp-id="${def.id}" data-cp-type="date" style="width:100%;">`;
+    } else if (def.type === 'boolean') {
+      inputHtml = `<select id="${inputId}" data-cp-id="${def.id}" data-cp-type="boolean" style="width:100%;">
+        <option value="">-- Not set --</option>
+        <option value="true">Yes</option>
+        <option value="false">No</option>
+      </select>`;
+    } else if (def.type === 'select') {
+      const opts = (def.options || []).map(o => `<option value="${o.id}">${escapeHtml(o.value)}</option>`).join('');
+      inputHtml = `<select id="${inputId}" data-cp-id="${def.id}" data-cp-type="select" style="width:100%;">
+        <option value="">-- Choose --</option>${opts}
+      </select>`;
+    } else {
+      return ''; // unknown type -- skip rather than render something broken
+    }
+    return `<div style="margin-bottom:0.75rem;">${labelHtml}${inputHtml}</div>`;
+  }
+
+  async function loadUploadCustomProperties() {
+    const deptId = document.getElementById('uploadDeptDropdown').value;
+    const group = document.getElementById('uploadCustomPropsGroup');
+    const container = document.getElementById('uploadCustomPropsContainer');
+    if (!deptId) { group.style.display = 'none'; container.innerHTML = ''; return; }
+    try {
+      const res = await fetch(API_BASE + '/custom-properties?departmentId=' + deptId, {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      const defs = await res.json();
+      if (!res.ok || defs.length === 0) { group.style.display = 'none'; container.innerHTML = ''; return; }
+      container.innerHTML = defs.map(customPropertyFieldHtml).join('');
+      group.style.display = 'block';
+    } catch (e) { group.style.display = 'none'; container.innerHTML = ''; }
+  }
+
+  // Reads whatever's currently in the rendered custom-property fields into
+  // a {definitionId: value} map, skipping anything left blank/unset.
+  function collectUploadCustomPropertyValues() {
+    const values = {};
+    document.querySelectorAll('#uploadCustomPropsContainer [data-cp-id]').forEach(el => {
+      if (el.value === '' || el.value === null || el.value === undefined) return;
+      values[el.getAttribute('data-cp-id')] = el.value;
+    });
+    return values;
+  }
+
+  // --- Custom property values on an existing document (view/edit) ---
+
+  let currentCustomPropsDocId = null;
+
+  // Same field-rendering logic as customPropertyFieldHtml above, but
+  // pre-fills the current value -- this is the "editing an existing
+  // document's values" variant, not "entering fresh values on upload".
+  // Kept separate since the two forms populate from different data shapes
+  // (def.value is only present here).
+  function customPropertyEditFieldHtml(def) {
+    const inputId = 'ecprop_' + def.id;
+    const labelHtml = `<label for="${inputId}" style="display:block;font-weight:600;margin-bottom:4px;font-size:0.85rem;">${escapeHtml(def.name)}${def.description ? ' <span style="font-weight:400;color:var(--text-muted);">(' + escapeHtml(def.description) + ')</span>' : ''}</label>`;
+    const val = def.value === null || def.value === undefined ? '' : def.value;
+    let inputHtml;
+    if (def.type === 'text') {
+      inputHtml = `<input type="text" id="${inputId}" data-cp-id="${def.id}" data-cp-type="text" value="${escapeHtml(String(val))}" style="width:100%;">`;
+    } else if (def.type === 'number') {
+      inputHtml = `<input type="number" id="${inputId}" data-cp-id="${def.id}" data-cp-type="number" step="any" value="${val}" style="width:100%;">`;
+    } else if (def.type === 'date') {
+      const dateVal = val ? String(val).slice(0, 10) : '';
+      inputHtml = `<input type="date" id="${inputId}" data-cp-id="${def.id}" data-cp-type="date" value="${dateVal}" style="width:100%;">`;
+    } else if (def.type === 'boolean') {
+      inputHtml = `<select id="${inputId}" data-cp-id="${def.id}" data-cp-type="boolean" style="width:100%;">
+        <option value="" ${val === '' ? 'selected' : ''}>-- Not set --</option>
+        <option value="true" ${val === true ? 'selected' : ''}>Yes</option>
+        <option value="false" ${val === false ? 'selected' : ''}>No</option>
+      </select>`;
+    } else if (def.type === 'select') {
+      const opts = (def.options || []).map(o => `<option value="${o.id}" ${val === o.id ? 'selected' : ''}>${escapeHtml(o.value)}</option>`).join('');
+      inputHtml = `<select id="${inputId}" data-cp-id="${def.id}" data-cp-type="select" style="width:100%;">
+        <option value="">-- Choose --</option>${opts}
+      </select>`;
+    } else {
+      return '';
+    }
+    return `<div style="margin-bottom:0.75rem;">${labelHtml}${inputHtml}</div>`;
+  }
+
+  async function openCustomPropsModal(docId, filename) {
+    currentCustomPropsDocId = docId;
+    document.getElementById('customPropsModalTitle').textContent = 'Properties — ' + filename;
+    const container = document.getElementById('customPropsList');
+    container.innerHTML = '<p style="color:var(--text-muted);">Loading...</p>';
+    document.getElementById('customPropsModal').classList.add('open');
+
+    try {
+      const res = await fetch(API_BASE + '/documents/' + docId + '/custom-properties', {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      const defs = await res.json();
+      if (!res.ok) { container.innerHTML = '<p style="color:var(--red-text);">' + escapeHtml(defs.message || 'Failed to load properties.') + '</p>'; return; }
+      if (defs.length === 0) {
+        container.innerHTML = '<p style="color:var(--text-muted);">No custom properties defined for this document\'s department yet.</p>';
+        return;
+      }
+      container.innerHTML = defs.map(customPropertyEditFieldHtml).join('');
+    } catch (e) {
+      container.innerHTML = '<p style="color:var(--red-text);">Network error while loading properties.</p>';
+    }
+  }
+
+  function closeCustomPropsModal() {
+    document.getElementById('customPropsModal').classList.remove('open');
+    currentCustomPropsDocId = null;
+  }
+
+  async function saveCustomProps() {
+    const values = {};
+    document.querySelectorAll('#customPropsList [data-cp-id]').forEach(el => {
+      if (el.value === '' || el.value === null || el.value === undefined) return;
+      values[el.getAttribute('data-cp-id')] = el.value;
+    });
+
+    try {
+      const res = await fetch(API_BASE + '/documents/' + currentCustomPropsDocId + '/custom-properties', {
+        method: 'PUT',
+        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ values })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        closeCustomPropsModal();
+      } else {
+        alert(data.message || 'Failed to save properties.');
+      }
+    } catch (e) {
+      alert('Network error while saving properties.');
+    }
+  }
+
   function showUploadStatus(msg, type) {
     const el = document.getElementById('uploadStatusMessage');
     el.textContent = msg;
@@ -607,6 +770,7 @@
       siteId: document.getElementById('uploadSiteDropdown').value || null,
       departmentId: document.getElementById('uploadDeptDropdown').value || null,
       isUrgent: document.getElementById('urgentCheckbox').checked,
+      customProperties: collectUploadCustomPropertyValues(),
     };
     if (resubmitContext) body.resubmitOf = resubmitContext.originalId;
 
@@ -630,6 +794,8 @@
           document.getElementById('selectedDriveFileName').textContent = 'No file selected';
           document.getElementById('selectedDriveFileName').style.color = 'var(--text-muted)';
           setUploadSource('computer');
+          document.getElementById('uploadCustomPropsGroup').style.display = 'none';
+          document.getElementById('uploadCustomPropsContainer').innerHTML = '';
           resetUploadUI();
           showUploadStatus('', '');
           document.getElementById('uploadStatusMessage').className = 'status-msg';
@@ -661,6 +827,7 @@
     }
 
     const formData = new FormData(e.target);
+    formData.append('customProperties', JSON.stringify(collectUploadCustomPropertyValues()));
     const xhr = new XMLHttpRequest();
 
     xhr.upload.onprogress = (event) => {
@@ -695,6 +862,8 @@
         setTimeout(async () => {
           e.target.reset();
           resetUploadUI();
+          document.getElementById('uploadCustomPropsGroup').style.display = 'none';
+          document.getElementById('uploadCustomPropsContainer').innerHTML = '';
           showUploadStatus('', '');
           document.getElementById('uploadStatusMessage').className = 'status-msg';
           currentTab = landOnSent ? 'sent' : 'inbox';
@@ -876,6 +1045,7 @@
     // Req 4: Download button added alongside View
     let btns = `<button class="btn btn-view" onclick="viewDocument(${d.id}, '${d.filename.replace(/'/g, "\\'")}')">View</button>`;
     btns += ` <button class="btn btn-rename" style="background:var(--steel);color:white;" onclick="downloadDocument(${d.id})">Download</button>`;
+    btns += ` <button class="btn btn-rename" onclick="openCustomPropsModal(${d.id}, '${d.filename.replace(/'/g, "\\'")}')">Properties</button>`;
 
     if (canRename() && currentTab === 'inbox') {
       btns += ` <button class="btn btn-rename" onclick="openRename(${d.id},'${baseName.replace(/'/g, "\\'")}')">Rename</button>`;
@@ -994,6 +1164,8 @@
     clearResubmitState();
     document.getElementById('uploadForm').reset();
     resetUploadUI();
+    document.getElementById('uploadCustomPropsGroup').style.display = 'none';
+    document.getElementById('uploadCustomPropsContainer').innerHTML = '';
   }
 
   function clearResubmitState() {
