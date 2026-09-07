@@ -420,6 +420,92 @@ async function saveDocumentTags({ documentId, tagIds }) {
     }
 }
 
+// Adds tags to a document WITHOUT removing whatever's already there --
+// used by tagging rules, since a rule should layer on top of tags the
+// uploader already picked (or tags a previous rule already applied), not
+// wipe them. saveDocumentTags above is a wholesale replace and is the
+// wrong tool for this.
+async function addDocumentTags({ documentId, tagIds }) {
+    const cleanIds = [...new Set((tagIds || []).map(Number).filter(Number.isInteger))];
+    for (const tagId of cleanIds) {
+        try {
+            await db.query(
+                'INSERT INTO document_tags (document_id, tag_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+                [documentId, tagId]
+            );
+        } catch (tagErr) {
+            console.warn(`Skipping rule-applied tag ${tagId} on document ${documentId}:`, tagErr.message);
+        }
+    }
+}
+
+// Tagging Rules (PAPRA_FEATURE_ROADMAP.md item #3, migration 013).
+// Evaluates one condition against a document row. Deliberately small
+// field/operator set for this first pass -- see the migration's header
+// comment for how to extend it later.
+function evaluateTaggingRuleCondition(condition, doc) {
+    const { field, operator, value } = condition;
+    let actual;
+    if (field === 'filename') actual = doc.filename || '';
+    else if (field === 'department_id') actual = doc.department_id;
+    else if (field === 'project_id') actual = doc.project_id;
+    else if (field === 'site_id') actual = doc.site_id;
+    else return false;
+
+    if (field === 'filename') {
+        const a = String(actual).toLowerCase();
+        const v = String(value).toLowerCase();
+        return operator === 'contains' ? a.includes(v) : a === v;
+    }
+    // department/project/site are id comparisons -- only "equals" makes sense
+    return String(actual) === String(value);
+}
+
+function evaluateTaggingRule(rule, doc) {
+    if (!rule.conditions || rule.conditions.length === 0) return false; // a rule with no conditions matches nothing, not everything
+    const results = rule.conditions.map(c => evaluateTaggingRuleCondition(c, doc));
+    return rule.match_mode === 'any' ? results.some(Boolean) : results.every(Boolean);
+}
+
+// Applies every active tagging rule to a single document (called right
+// after upload/Drive-attach, same best-effort spot as custom properties
+// and tags). Fetches rules fresh each call rather than caching -- upload
+// volume doesn't remotely approach where that'd matter, and it guarantees
+// newly-created/edited rules take effect immediately.
+async function applyTaggingRulesToDocument(documentId) {
+    const docRes = await db.query('SELECT id, filename, department_id, project_id, site_id FROM documents WHERE id = $1', [documentId]);
+    if (docRes.rows.length === 0) return;
+    const doc = docRes.rows[0];
+
+    const rules = await loadActiveTaggingRulesWithConditionsAndActions();
+    const tagIdsToAdd = new Set();
+    for (const rule of rules) {
+        if (evaluateTaggingRule(rule, doc)) {
+            rule.actionTagIds.forEach(id => tagIdsToAdd.add(id));
+        }
+    }
+    if (tagIdsToAdd.size > 0) {
+        await addDocumentTags({ documentId, tagIds: [...tagIdsToAdd] });
+    }
+}
+
+async function loadActiveTaggingRulesWithConditionsAndActions() {
+    const rulesRes = await db.query('SELECT id, match_mode FROM tagging_rules WHERE is_active = true');
+    if (rulesRes.rows.length === 0) return [];
+    const ruleIds = rulesRes.rows.map(r => r.id);
+
+    const [condsRes, actionsRes] = await Promise.all([
+        db.query('SELECT rule_id, field, operator, value FROM tagging_rule_conditions WHERE rule_id = ANY($1::int[])', [ruleIds]),
+        db.query('SELECT rule_id, tag_id FROM tagging_rule_actions WHERE rule_id = ANY($1::int[])', [ruleIds]),
+    ]);
+
+    return rulesRes.rows.map(rule => ({
+        ...rule,
+        conditions: condsRes.rows.filter(c => c.rule_id === rule.id),
+        actionTagIds: actionsRes.rows.filter(a => a.rule_id === rule.id).map(a => a.tag_id),
+    }));
+}
+
 
 // migrations/009_document_versioning.sql). Validates a resubmission
 // request and computes where the new document sits in its version chain.
@@ -878,6 +964,16 @@ app.post('/upload', ensureAuthenticated, (req, res) => {
                 } catch (tagErr) {
                     console.error(`Tag save failed for document ${newDocId} (upload still succeeded):`, tagErr.message);
                 }
+            }
+
+            // Tagging rules -- runs after the uploader's own tag choices are
+            // saved, so rule-applied tags layer on top (addDocumentTags,
+            // not a replace). Same best-effort reasoning throughout this
+            // block: a rule misfiring should never fail the upload itself.
+            try {
+                await applyTaggingRulesToDocument(newDocId);
+            } catch (ruleErr) {
+                console.error(`Tagging rules failed for document ${newDocId} (upload still succeeded):`, ruleErr.message);
             }
 
             // --- NOTIFY RECIPIENT: urgent bypasses the digest and emails immediately;
@@ -1603,6 +1699,233 @@ app.put('/admin/custom-properties/:id/options', ensureAuthenticated, ensureAdmin
     }
 });
 
+// --- TAGGING RULES ---
+// Item #3 of PAPRA_FEATURE_ROADMAP.md, migration 013. Depends on Tags.
+// Admin-gated (unlike tags themselves) since a rule affects every future
+// upload and, via the retroactive-apply endpoint below, every existing
+// document that matches -- not something to leave open to any user.
+
+const TAGGING_RULE_FIELDS = ['filename', 'department_id', 'project_id', 'site_id'];
+const TAGGING_RULE_OPERATORS = ['contains', 'equals'];
+
+app.get('/admin/tagging-rules', ensureAuthenticated, ensureAdmin, async (req, res) => {
+    try {
+        const result = await db.query(`
+            SELECT tr.id, tr.name, tr.description, tr.match_mode, tr.is_active, tr.created_at,
+                   COUNT(DISTINCT trc.id)::int AS condition_count,
+                   COUNT(DISTINCT tra.id)::int AS action_count
+            FROM tagging_rules tr
+            LEFT JOIN tagging_rule_conditions trc ON trc.rule_id = tr.id
+            LEFT JOIN tagging_rule_actions tra ON tra.rule_id = tr.id
+            GROUP BY tr.id
+            ORDER BY tr.name ASC
+        `);
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/admin/tagging-rules', ensureAuthenticated, ensureAdmin, async (req, res) => {
+    const { name, description, match_mode } = req.body;
+    if (!name) return res.status(400).json({ error: 'Rule name is required.' });
+    if (match_mode && !['all', 'any'].includes(match_mode)) {
+        return res.status(400).json({ error: "match_mode must be 'all' or 'any'." });
+    }
+
+    try {
+        const result = await db.query(
+            `INSERT INTO tagging_rules (name, description, match_mode, created_by)
+             VALUES ($1, $2, $3, $4) RETURNING *`,
+            [name, description || null, match_mode || 'all', req.user.id]
+        );
+        res.status(201).json(result.rows[0]);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.get('/admin/tagging-rules/:id', ensureAuthenticated, ensureAdmin, async (req, res) => {
+    const { id } = req.params;
+    try {
+        const ruleRes = await db.query('SELECT * FROM tagging_rules WHERE id = $1', [id]);
+        if (ruleRes.rows.length === 0) return res.status(404).json({ error: 'Tagging rule not found.' });
+
+        const [condsRes, actionsRes] = await Promise.all([
+            db.query('SELECT id, field, operator, value FROM tagging_rule_conditions WHERE rule_id = $1 ORDER BY id', [id]),
+            db.query(
+                `SELECT tra.id, tra.tag_id, t.name as tag_name, t.color as tag_color
+                 FROM tagging_rule_actions tra JOIN tags t ON t.id = tra.tag_id
+                 WHERE tra.rule_id = $1 ORDER BY tra.id`,
+                [id]
+            ),
+        ]);
+        res.json({ ...ruleRes.rows[0], conditions: condsRes.rows, actions: actionsRes.rows });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.patch('/admin/tagging-rules/:id', ensureAuthenticated, ensureAdmin, async (req, res) => {
+    const { id } = req.params;
+    const { name, description, match_mode, is_active } = req.body;
+    if (match_mode !== undefined && !['all', 'any'].includes(match_mode)) {
+        return res.status(400).json({ error: "match_mode must be 'all' or 'any'." });
+    }
+
+    try {
+        const result = await db.query(
+            `UPDATE tagging_rules SET
+                name = COALESCE($1, name),
+                description = COALESCE($2, description),
+                match_mode = COALESCE($3, match_mode),
+                is_active = COALESCE($4, is_active)
+             WHERE id = $5 RETURNING *`,
+            [name || null, description !== undefined ? description : null, match_mode || null, is_active, id]
+        );
+        if (result.rows.length === 0) return res.status(404).json({ error: 'Tagging rule not found.' });
+        res.json(result.rows[0]);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.delete('/admin/tagging-rules/:id', ensureAuthenticated, ensureAdmin, async (req, res) => {
+    const { id } = req.params;
+    try {
+        const result = await db.query('DELETE FROM tagging_rules WHERE id = $1 RETURNING id', [id]);
+        if (result.rows.length === 0) return res.status(404).json({ error: 'Tagging rule not found.' });
+        res.json({ message: 'Tagging rule deleted.' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Replace a rule's condition list wholesale. Body: { conditions: [{ field, operator, value }] }
+app.put('/admin/tagging-rules/:id/conditions', ensureAuthenticated, ensureAdmin, async (req, res) => {
+    const { id } = req.params;
+    const { conditions } = req.body;
+    if (!Array.isArray(conditions)) return res.status(400).json({ error: 'conditions must be an array.' });
+    for (const c of conditions) {
+        if (!TAGGING_RULE_FIELDS.includes(c.field)) return res.status(400).json({ error: `Invalid field: ${c.field}` });
+        if (!TAGGING_RULE_OPERATORS.includes(c.operator)) return res.status(400).json({ error: `Invalid operator: ${c.operator}` });
+        if (c.value === undefined || c.value === null || String(c.value).trim() === '') {
+            return res.status(400).json({ error: 'Every condition needs a value.' });
+        }
+    }
+
+    try {
+        await db.query('BEGIN');
+        const ruleCheck = await db.query('SELECT id FROM tagging_rules WHERE id = $1', [id]);
+        if (ruleCheck.rows.length === 0) {
+            await db.query('ROLLBACK');
+            return res.status(404).json({ error: 'Tagging rule not found.' });
+        }
+
+        await db.query('DELETE FROM tagging_rule_conditions WHERE rule_id = $1', [id]);
+        for (const c of conditions) {
+            await db.query(
+                'INSERT INTO tagging_rule_conditions (rule_id, field, operator, value) VALUES ($1, $2, $3, $4)',
+                [id, c.field, c.operator, String(c.value).trim()]
+            );
+        }
+        await db.query('COMMIT');
+
+        const result = await db.query('SELECT id, field, operator, value FROM tagging_rule_conditions WHERE rule_id = $1 ORDER BY id', [id]);
+        res.json(result.rows);
+    } catch (err) {
+        await db.query('ROLLBACK');
+        console.error('Tagging Rule Conditions Update Error:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Replace a rule's action (tags-to-apply) list wholesale. Body: { tagIds: [...] }
+app.put('/admin/tagging-rules/:id/actions', ensureAuthenticated, ensureAdmin, async (req, res) => {
+    const { id } = req.params;
+    const { tagIds } = req.body;
+    if (!Array.isArray(tagIds)) return res.status(400).json({ error: 'tagIds must be an array.' });
+
+    try {
+        await db.query('BEGIN');
+        const ruleCheck = await db.query('SELECT id FROM tagging_rules WHERE id = $1', [id]);
+        if (ruleCheck.rows.length === 0) {
+            await db.query('ROLLBACK');
+            return res.status(404).json({ error: 'Tagging rule not found.' });
+        }
+
+        const cleanIds = [...new Set(tagIds.map(Number).filter(Number.isInteger))];
+        await db.query('DELETE FROM tagging_rule_actions WHERE rule_id = $1', [id]);
+        for (const tagId of cleanIds) {
+            await db.query('INSERT INTO tagging_rule_actions (rule_id, tag_id) VALUES ($1, $2)', [id, tagId]);
+        }
+        await db.query('COMMIT');
+
+        const result = await db.query(
+            `SELECT tra.id, tra.tag_id, t.name as tag_name, t.color as tag_color
+             FROM tagging_rule_actions tra JOIN tags t ON t.id = tra.tag_id
+             WHERE tra.rule_id = $1 ORDER BY tra.id`,
+            [id]
+        );
+        res.json(result.rows);
+    } catch (err) {
+        await db.query('ROLLBACK');
+        console.error('Tagging Rule Actions Update Error:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Retroactively apply one rule to every existing document. Runs
+// synchronously in a paginated loop (matches Papra's
+// applyTaggingRuleToExistingDocuments batching pattern) rather than a
+// background job -- DocHandler doesn't have a generic job queue yet, and
+// this is an infrequent admin-triggered action, not something running on
+// every request.
+app.post('/admin/tagging-rules/:id/apply-retroactive', ensureAuthenticated, ensureAdmin, async (req, res) => {
+    const { id } = req.params;
+    const BATCH_SIZE = 100;
+
+    try {
+        const ruleRes = await db.query('SELECT id, match_mode, is_active FROM tagging_rules WHERE id = $1', [id]);
+        if (ruleRes.rows.length === 0) return res.status(404).json({ error: 'Tagging rule not found.' });
+
+        const [condsRes, actionsRes] = await Promise.all([
+            db.query('SELECT field, operator, value FROM tagging_rule_conditions WHERE rule_id = $1', [id]),
+            db.query('SELECT tag_id FROM tagging_rule_actions WHERE rule_id = $1', [id]),
+        ]);
+        const rule = { ...ruleRes.rows[0], conditions: condsRes.rows };
+        const actionTagIds = actionsRes.rows.map(a => a.tag_id);
+        if (actionTagIds.length === 0) return res.status(400).json({ error: 'This rule has no tags to apply yet.' });
+
+        let offset = 0;
+        let matchedCount = 0;
+        let scannedCount = 0;
+        // eslint-disable-next-line no-constant-condition
+        while (true) {
+            const batchRes = await db.query(
+                'SELECT id, filename, department_id, project_id, site_id FROM documents ORDER BY id LIMIT $1 OFFSET $2',
+                [BATCH_SIZE, offset]
+            );
+            if (batchRes.rows.length === 0) break;
+
+            for (const doc of batchRes.rows) {
+                scannedCount++;
+                if (evaluateTaggingRule(rule, doc)) {
+                    await addDocumentTags({ documentId: doc.id, tagIds: actionTagIds });
+                    matchedCount++;
+                }
+            }
+
+            offset += BATCH_SIZE;
+        }
+
+        res.json({ message: `Applied to ${matchedCount} of ${scannedCount} document(s).`, matchedCount, scannedCount });
+    } catch (err) {
+        console.error('Tagging Rule Retroactive Apply Error:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // --- WORK SITES & MAINTENANCE LIFECYCLE ---
 // Placeholder-role feature (see roles.js + BACKLOG.md). Site CRUD is admin
 // only, same as project CRUD above; status changes are opened up to the
@@ -1880,6 +2203,12 @@ app.post('/documents/drive-attach', ensureAuthenticated, async (req, res) => {
             } catch (tagErr) {
                 console.error(`Tag save failed for document ${newDocId} (Drive attach still succeeded):`, tagErr.message);
             }
+        }
+
+        try {
+            await applyTaggingRulesToDocument(newDocId);
+        } catch (ruleErr) {
+            console.error(`Tagging rules failed for document ${newDocId} (Drive attach still succeeded):`, ruleErr.message);
         }
 
         if (recipientId) {

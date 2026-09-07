@@ -74,6 +74,42 @@ exist as API routes only. Worth adding a small admin page later if stray
 or duplicate-ish tags start accumulating and need cleanup; skipped for now
 to keep this patch scoped to the core feature.
 
+**#3 Tagging Rules — done (2026-09-03).** Migration 013 adds
+`tagging_rules` + `tagging_rule_conditions` + `tagging_rule_actions`,
+depends on Tags. Unlike Tags, rules ARE fully admin-gated (`ensureAdmin`
+on every route) — a rule affects every future upload and, via retroactive
+apply, every existing document, so this isn't left open to any user.
+
+Condition field set deliberately smaller than Papra's for this first
+pass: `filename` (contains/equals) and `department_id`/`project_id`/
+`site_id` (equals only, matched by ID). Custom-property-based conditions
+were a nice-to-have in the roadmap, not a requirement — can be added as a
+new `field` value later without a schema change, since conditions are
+already generic field/operator/value rows.
+
+`evaluateTaggingRule()` runs a rule's conditions against a document with
+`all`/`any` match-mode logic; `applyTaggingRulesToDocument()` runs every
+active rule after upload (both `/upload` and `/documents/drive-attach`,
+after the uploader's own tag/property choices are saved) via a new
+`addDocumentTags()` helper that **adds** tags without removing existing
+ones — layering on top rather than replacing, since a rule shouldn't undo
+what the uploader or a previous rule already set.
+
+Retroactive apply (`POST /admin/tagging-rules/:id/apply-retroactive`) runs
+synchronously in a paginated loop (100 docs/batch, mirrors Papra's
+`applyTaggingRuleToExistingDocuments` batching) rather than a background
+job — DocHandler doesn't have a generic job queue yet, and this is an
+infrequent admin-triggered action, not something worth building queue
+infrastructure for yet. Worth revisiting if document volume grows enough
+that this becomes slow.
+
+Admin UI at `public/admin/tagging-rules.html` (list, create, edit modal
+with a condition-row builder and tag-checkbox action picker, "Apply Now"
+button), nav link added across all 10 admin/dashboard pages — **which
+also caught and fixed a pre-existing gap**: `document-types.html` itself
+had never gotten the Custom Properties nav link when that feature shipped,
+so it was missing that link the whole time. Fixed in the same patch.
+
 ---
 
 ## Work Sites & Maintenance Lifecycle

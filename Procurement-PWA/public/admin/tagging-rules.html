@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tagging Rules — Admin</title>
+  <link rel="stylesheet" href="/theme.css">
+  <style>
+    body { padding: 2rem; }
+    .card { max-width: 900px; margin: auto; }
+    .form-row { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+    .form-row input, .form-row select { flex: 1; min-width: 160px; }
+    .form-row button { background: var(--steel); color: white; border: none; border-radius: 6px; padding: 10px 20px; cursor: pointer; font-weight: 700; }
+    .form-row button:hover { background: var(--steel-hover); }
+    table { width: 100%; border-collapse: collapse; }
+    th { text-align: left; padding: 0.75rem 0.5rem; border-bottom: 1px solid var(--border); font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted); }
+    td { padding: 0.75rem 0.5rem; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
+    .status-msg { padding: 0.75rem; border-radius: 8px; margin-bottom: 1rem; display: none; }
+    .status-msg.success { display: block; background: var(--green-bg); border: 1px solid var(--green-border); color: var(--green-text); }
+    .status-msg.error { display: block; background: var(--red-bg); border: 1px solid var(--red-border); color: var(--red-text); }
+    .btn-edit { background: #854F0B; color: white; border: none; border-radius: 6px; padding: 4px 12px; cursor: pointer; font-weight: 600; font-size: 0.8rem; }
+    .btn-edit:hover { background: #6c3f08; }
+    .btn-delete { background: #A32D2D; color: white; border: none; border-radius: 6px; padding: 4px 12px; cursor: pointer; font-weight: 600; font-size: 0.8rem; }
+    .btn-delete:hover { background: #872424; }
+    .btn-apply { background: var(--steel); color: white; border: none; border-radius: 6px; padding: 4px 12px; cursor: pointer; font-weight: 600; font-size: 0.8rem; }
+    .btn-apply:hover { background: var(--steel-hover); }
+    .status-badge { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 0.75rem; font-weight: 700; }
+    .status-badge.active { background: var(--green-bg); color: var(--green-text); }
+    .status-badge.inactive { background: #E5E7EB; color: #374151; }
+    .condition-row, .action-row { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem; }
+    .condition-row select, .condition-row input { flex: 1; }
+    .btn-remove-row { background: none; border: none; color: #A32D2D; cursor: pointer; font-weight: 700; font-size: 1.1rem; padding: 0 6px; }
+    .btn-add-row { background: var(--bg-muted); border: 1px solid var(--border-strong); border-radius: 6px; padding: 6px 14px; cursor: pointer; font-weight: 600; font-size: 0.85rem; margin-bottom: 1rem; }
+    .modal { max-width: 560px; }
+  </style>
+</head>
+<body class="full-bleed">
+
+<div class="app-shell">
+  <aside class="app-sidebar">
+    <div class="sidebar-logo">
+      <img src="/assets/logo.png" alt="Pilar Energi">
+      <span>DocHandler</span>
+    </div>
+    <nav class="sidebar-nav">
+      <a class="sidebar-link" href="/dashboard.html">Documents</a>
+      <a class="sidebar-link" href="/dashboard.html?view=upload">Upload</a>
+      <a class="sidebar-link" href="/profile.html">Profile</a>
+
+      <div id="adminNavGroup">
+        <button class="sidebar-group-toggle open" id="adminGroupToggle" onclick="toggleSidebarGroup('adminSubmenu', this)">
+          Admin <span class="chevron">&#9660;</span>
+        </button>
+        <div class="sidebar-submenu open" id="adminSubmenu">
+          <a class="sidebar-link" href="/admin.html">Overview</a>
+          <a class="sidebar-link" href="/admin/users.html">Users</a>
+          <a class="sidebar-link" href="/admin/projects.html">Projects</a>
+          <a class="sidebar-link" href="/admin/document-types.html">Document Types</a>
+          <a class="sidebar-link" href="/admin/custom-properties.html">Custom Properties</a>
+          <a class="sidebar-link active" href="/admin/tagging-rules.html">Tagging Rules</a>
+          <a class="sidebar-link" href="/admin/approvals.html">Approvals</a>
+          <a class="sidebar-link" href="/admin/integrations.html">Integrations</a>
+          <a class="sidebar-link" href="/admin/audit-log.html">Audit Log</a>
+        </div>
+      </div>
+    </nav>
+  </aside>
+
+  <div class="app-main">
+    <div class="app-header">
+      <h2 style="color:var(--navy);font-size:1.1rem;">Tagging Rules</h2>
+      <div class="header-user">
+        <button onclick="logout()">Sign out</button>
+      </div>
+    </div>
+
+    <div class="app-content">
+      <div class="card">
+        <div id="statusMessage" class="status-msg"></div>
+
+        <p style="margin-bottom:1.5rem;color:var(--text-muted);font-size:0.85rem;">
+          Automatically apply tags to documents that match a set of conditions — filename contains
+          something, or belongs to a particular department/project/site. Rules run on every new
+          upload; use "Apply Now" to run a rule against documents that already exist.
+        </p>
+
+        <h3 style="margin-bottom:1rem;">Create New Rule</h3>
+        <div class="form-row">
+          <input type="text" id="ruleName" placeholder="Rule name (e.g. Tag Invoices)">
+          <select id="ruleMatchMode">
+            <option value="all">Match ALL conditions</option>
+            <option value="any">Match ANY condition</option>
+          </select>
+          <button onclick="createRule()">Create</button>
+        </div>
+
+        <h3 style="margin-bottom:1rem;">Existing Rules</h3>
+        <table>
+          <thead><tr><th>Name</th><th>Match</th><th>Conditions</th><th>Tags Applied</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody id="rulesBody">
+            <tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--text-muted);">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Rule Modal (conditions + actions) -->
+<div class="modal-overlay" id="editModal">
+  <div class="modal">
+    <h3 id="editModalTitle">Edit Rule</h3>
+
+    <label for="editName">Name:</label>
+    <input type="text" id="editName" placeholder="Rule name">
+    <label for="editDescription">Description:</label>
+    <input type="text" id="editDescription" placeholder="Description (optional)">
+    <label for="editMatchMode">Match mode:</label>
+    <select id="editMatchMode">
+      <option value="all">Match ALL conditions</option>
+      <option value="any">Match ANY condition</option>
+    </select>
+    <label for="editActive">Status:</label>
+    <select id="editActive">
+      <option value="true">Active</option>
+      <option value="false">Inactive</option>
+    </select>
+
+    <h4 style="margin:1rem 0 0.5rem;">If a document matches...</h4>
+    <div id="conditionRows"></div>
+    <button class="btn-add-row" onclick="addConditionRow()">+ Add Condition</button>
+
+    <h4 style="margin:1rem 0 0.5rem;">...apply these tags:</h4>
+    <div id="actionTagsContainer" style="margin-bottom:1rem;"></div>
+
+    <div class="btn-group">
+      <button class="btn-save" onclick="saveRuleEdit()">Save</button>
+      <button class="btn-cancel" onclick="closeEditModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const API_BASE = '';
+  const token = localStorage.getItem('token');
+  if (!token) window.location.href = '/login.html?reason=expired';
+
+  // Gate: only Executive and Admin roles can access admin pages
+  (async () => {
+    try {
+      const res = await fetch('/auth/me', { headers: { 'Authorization': 'Bearer ' + token } });
+      if (res.status === 401) { window.location.href = '/login.html?reason=expired'; return; }
+      const user = await res.json();
+      if (user.role !== 'Executive' && user.role !== 'Admin') {
+        window.location.href = '/dashboard.html';
+      }
+    } catch (e) { /* non-fatal, backend will enforce via 403 */ }
+  })();
+
+  let editRuleId = null;
+  let allTagsCache = [];
+
+  const FIELD_LABELS = { filename: 'Filename', department_id: 'Department', project_id: 'Project', site_id: 'Site' };
+
+  function showStatus(msg, type) {
+    const el = document.getElementById('statusMessage');
+    el.textContent = msg; el.className = 'status-msg ' + type;
+    el.style.display = 'block';
+    setTimeout(() => el.style.display = 'none', 3500);
+  }
+
+  function logout() {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    window.location.href = '/login.html';
+  }
+
+  function toggleSidebarGroup(submenuId, toggleBtn) {
+    const submenu = document.getElementById(submenuId);
+    const isOpen = submenu.classList.toggle('open');
+    toggleBtn.classList.toggle('open', isOpen);
+  }
+
+  async function loadAllTags() {
+    try {
+      const res = await fetch(API_BASE + '/tags', { headers: { 'Authorization': 'Bearer ' + token } });
+      allTagsCache = await res.json();
+    } catch (e) { allTagsCache = []; }
+  }
+
+  async function loadRules() {
+    try {
+      const res = await fetch(API_BASE + '/admin/tagging-rules', { headers: { 'Authorization': 'Bearer ' + token } });
+      if (res.status === 401) { logout(); return; }
+      if (res.status === 403) { window.location.href = '/dashboard.html'; return; }
+      const rules = await res.json();
+      const tbody = document.getElementById('rulesBody');
+      if (rules.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:2rem;color:#888;">No tagging rules yet.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = rules.map(r => `
+        <tr>
+          <td><strong>${r.name}</strong>${r.description ? '<br><span style="color:var(--text-muted);font-size:0.8rem;">' + r.description + '</span>' : ''}</td>
+          <td>${r.match_mode === 'any' ? 'Any' : 'All'}</td>
+          <td>${r.condition_count}</td>
+          <td>${r.action_count}</td>
+          <td><span class="status-badge ${r.is_active ? 'active' : 'inactive'}">${r.is_active ? 'Active' : 'Inactive'}</span></td>
+          <td>
+            <button class="btn-apply" onclick="applyRetroactive(${r.id}, '${r.name.replace(/'/g, "\\'")}')">Apply Now</button>
+            <button class="btn-edit" onclick="openEditModal(${r.id})">Edit</button>
+            <button class="btn-delete" onclick="deleteRule(${r.id}, '${r.name.replace(/'/g, "\\'")}')">Delete</button>
+          </td>
+        </tr>
+      `).join('');
+    } catch (e) {
+      document.getElementById('rulesBody').innerHTML =
+        '<tr><td colspan="6" style="text-align:center;padding:2rem;color:#888;">Failed to load.</td></tr>';
+    }
+  }
+
+  async function createRule() {
+    const name = document.getElementById('ruleName').value.trim();
+    const match_mode = document.getElementById('ruleMatchMode').value;
+    if (!name) { showStatus('Enter a rule name.', 'error'); return; }
+
+    try {
+      const res = await fetch(API_BASE + '/admin/tagging-rules', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, match_mode })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showStatus('Rule created — add conditions and tags via Edit.', 'success');
+        document.getElementById('ruleName').value = '';
+        loadRules();
+        openEditModal(data.id);
+      } else {
+        showStatus(data.error || 'Failed to create rule.', 'error');
+      }
+    } catch (e) {
+      showStatus('Network error while creating rule.', 'error');
+    }
+  }
+
+  async function deleteRule(id, name) {
+    if (!confirm(`Delete tagging rule "${name}"?\n\nThis only removes the rule — tags it already applied to documents stay in place. This cannot be undone.`)) return;
+    try {
+      const res = await fetch(API_BASE + '/admin/tagging-rules/' + id, { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + token } });
+      const data = await res.json();
+      if (res.ok) { showStatus('Rule deleted.', 'success'); loadRules(); }
+      else { showStatus(data.error || 'Failed to delete rule.', 'error'); }
+    } catch (e) { showStatus('Network error while deleting rule.', 'error'); }
+  }
+
+  async function applyRetroactive(id, name) {
+    if (!confirm(`Apply "${name}" to every existing document now?\n\nThis adds tags to any document that already matches — it won't remove tags from documents that don't match.`)) return;
+    try {
+      const res = await fetch(API_BASE + '/admin/tagging-rules/' + id + '/apply-retroactive', {
+        method: 'POST', headers: { 'Authorization': 'Bearer ' + token }
+      });
+      const data = await res.json();
+      if (res.ok) showStatus(data.message, 'success');
+      else showStatus(data.error || 'Failed to apply rule.', 'error');
+    } catch (e) { showStatus('Network error while applying rule.', 'error'); }
+  }
+
+  // --- Edit modal: rule fields + conditions + actions ---
+
+  function conditionRowHtml(cond) {
+    cond = cond || { field: 'filename', operator: 'contains', value: '' };
+    const fieldOpts = Object.entries(FIELD_LABELS).map(([val, label]) =>
+      `<option value="${val}" ${cond.field === val ? 'selected' : ''}>${label}</option>`).join('');
+    return `
+      <div class="condition-row">
+        <select class="cond-field">${fieldOpts}</select>
+        <select class="cond-operator">
+          <option value="contains" ${cond.operator === 'contains' ? 'selected' : ''}>contains</option>
+          <option value="equals" ${cond.operator === 'equals' ? 'selected' : ''}>equals</option>
+        </select>
+        <input type="text" class="cond-value" value="${(cond.value || '').replace(/"/g, '&quot;')}" placeholder="Value (department/project/site: use its ID)">
+        <button class="btn-remove-row" onclick="this.closest('.condition-row').remove()" title="Remove condition">&times;</button>
+      </div>`;
+  }
+
+  function addConditionRow() {
+    document.getElementById('conditionRows').insertAdjacentHTML('beforeend', conditionRowHtml());
+  }
+
+  function renderActionTagCheckboxes(selectedTagIds) {
+    const container = document.getElementById('actionTagsContainer');
+    if (allTagsCache.length === 0) {
+      container.innerHTML = '<p style="color:var(--text-muted);font-size:0.85rem;">No tags exist yet — create one from any document\'s "Tags" button first.</p>';
+      return;
+    }
+    container.innerHTML = allTagsCache.map(t => `
+      <label style="display:inline-flex;align-items:center;gap:4px;margin-right:12px;margin-bottom:6px;font-weight:400;">
+        <input type="checkbox" class="action-tag-checkbox" value="${t.id}" ${selectedTagIds.includes(t.id) ? 'checked' : ''} style="width:auto;">
+        ${t.name}
+      </label>
+    `).join('');
+  }
+
+  async function openEditModal(id) {
+    editRuleId = id;
+    await loadAllTags();
+    try {
+      const res = await fetch(API_BASE + '/admin/tagging-rules/' + id, { headers: { 'Authorization': 'Bearer ' + token } });
+      const r = await res.json();
+      if (!res.ok) { showStatus(r.error || 'Failed to load rule.', 'error'); return; }
+
+      document.getElementById('editModalTitle').textContent = 'Edit Rule — ' + r.name;
+      document.getElementById('editName').value = r.name;
+      document.getElementById('editDescription').value = r.description || '';
+      document.getElementById('editMatchMode').value = r.match_mode;
+      document.getElementById('editActive').value = String(r.is_active);
+
+      const condContainer = document.getElementById('conditionRows');
+      condContainer.innerHTML = r.conditions.length === 0
+        ? conditionRowHtml()
+        : r.conditions.map(conditionRowHtml).join('');
+
+      renderActionTagCheckboxes(r.actions.map(a => a.tag_id));
+
+      document.getElementById('editModal').classList.add('open');
+    } catch (e) {
+      showStatus('Network error while loading rule.', 'error');
+    }
+  }
+
+  function closeEditModal() {
+    document.getElementById('editModal').classList.remove('open');
+    editRuleId = null;
+  }
+
+  async function saveRuleEdit() {
+    const name = document.getElementById('editName').value.trim();
+    const description = document.getElementById('editDescription').value.trim() || null;
+    const match_mode = document.getElementById('editMatchMode').value;
+    const is_active = document.getElementById('editActive').value === 'true';
+    if (!name) { showStatus('Enter a rule name.', 'error'); return; }
+
+    const conditions = [...document.querySelectorAll('#conditionRows .condition-row')].map(row => ({
+      field: row.querySelector('.cond-field').value,
+      operator: row.querySelector('.cond-operator').value,
+      value: row.querySelector('.cond-value').value.trim(),
+    })).filter(c => c.value.length > 0);
+
+    const tagIds = [...document.querySelectorAll('.action-tag-checkbox:checked')].map(cb => Number(cb.value));
+
+    try {
+      const [ruleRes, condRes, actionRes] = await Promise.all([
+        fetch(API_BASE + '/admin/tagging-rules/' + editRuleId, {
+          method: 'PATCH',
+          headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, description, match_mode, is_active })
+        }),
+        fetch(API_BASE + '/admin/tagging-rules/' + editRuleId + '/conditions', {
+          method: 'PUT',
+          headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ conditions })
+        }),
+        fetch(API_BASE + '/admin/tagging-rules/' + editRuleId + '/actions', {
+          method: 'PUT',
+          headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tagIds })
+        }),
+      ]);
+
+      if (ruleRes.ok && condRes.ok && actionRes.ok) {
+        showStatus('Rule saved!', 'success');
+        closeEditModal();
+        loadRules();
+      } else {
+        const failed = [ruleRes, condRes, actionRes].find(r => !r.ok);
+        const data = await failed.json();
+        showStatus(data.error || 'Failed to save some part of the rule.', 'error');
+      }
+    } catch (e) {
+      showStatus('Network error while saving rule.', 'error');
+    }
+  }
+
+  loadRules();
+</script>
+
+</body>
+</html>
