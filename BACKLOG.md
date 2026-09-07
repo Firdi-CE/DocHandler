@@ -110,6 +110,57 @@ also caught and fixed a pre-existing gap**: `document-types.html` itself
 had never gotten the Custom Properties nav link when that feature shipped,
 so it was missing that link the whole time. Fixed in the same patch.
 
+**#4 OCR / Content Extraction — done (2026-09-03).** Migration 014 adds
+`content_text`/`content_extraction_status` to `documents`. New
+`contentExtraction.js` module: native text extraction (`.txt`/`.md`/`.csv`
+read directly, `.pdf` via `pdf-parse`) tried first, `tesseract.js` OCR as
+a fallback for images and text-less (scanned) PDFs — resolving the
+previously-tabled OCR tooling decision. Wired into `/upload` only,
+fire-and-forget (not awaited in the request path, since OCR can take
+seconds). **Direct-upload only — Google Drive-attached documents are not
+covered**, since extracting from those would require downloading via the
+Drive API first; noted as a real gap, not silently skipped.
+
+Three real bugs were found and fixed via actual smoke-testing against the
+libraries as-installed (not assumed from memory) — worth recording since
+none of these would have been obvious from reading the code alone:
+
+1. **`pdf-parse` v2 broke its API entirely** from v1's default-function
+   export to a `PDFParse` class (`new PDFParse({ data: buffer }).getText()`).
+   `package.json` had no prior pin so `npm install` would've grabbed v2;
+   the original code was written against the v1 shape and would have
+   failed on every single PDF upload. Fixed after generating a real test
+   PDF and hitting `pdfParse is not a function`.
+
+2. **`tesseract.js`'s `createWorker()` can crash the entire Node process**,
+   not just fail the one OCR call. If the language-data fetch to
+   `cdn.jsdelivr.net` fails for any reason (firewall, outage, DNS), the
+   default behavior is an unhandled `'error'` event — which Node treats as
+   fatal — rather than a rejected promise. Confirmed by triggering it in
+   this sandbox (blocked CDN access) and watching it kill the process even
+   inside a try/catch. Fixed with a required `errorHandler` option.
+
+3. **Even with the crash fixed, a failed worker load hangs forever**
+   rather than rejecting. Added an explicit 45s timeout wrapping both
+   `createWorker()` and `recognize()` (confirmed `createWorker()` itself is
+   what hangs, not `recognize()`) so a stuck OCR attempt resolves to
+   `{ text: null, method: 'error' }` in bounded time instead of leaking
+   forever. One residual limitation, documented in code: if the CDN fetch
+   never resolves or rejects at all (vs. failing cleanly), that specific
+   worker thread leaks for the process's lifetime — bounded per failed
+   attempt, not unbounded per request, and doesn't crash/hang the server,
+   but accumulates under *sustained* CDN unreachability.
+
+**Real follow-up worth prioritizing, not hypothetical**: bundle the
+`eng.traineddata` file locally (`tesseract.js` supports a local `langPath`)
+so OCR has zero runtime dependency on an external CDN. This sandbox
+couldn't reach `cdn.jsdelivr.net` at all — if DocHandler's real deployment
+server is similarly firewalled (plausible for an internal corporate tool),
+OCR would silently never work without this, always falling through to the
+timeout/error path. Skipped in this pass only because it means shipping a
+~15MB data file through the patch-based workflow, which needs a
+deliberate decision rather than a silent addition to a patch.
+
 ---
 
 ## Work Sites & Maintenance Lifecycle

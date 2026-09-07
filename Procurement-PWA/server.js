@@ -8,6 +8,7 @@ const multer = require('multer');
 const auth = require('./auth'); // Imports JWT auth helpers
 const db = require('./db');         // Imports PostgreSQL connection pool from db.js
 const roles = require('./roles');   // Centralized role/capability config (see roles.js)
+const { extractDocumentContent } = require('./contentExtraction'); // OCR + native text extraction (item #4)
 const driveService = require('./driveService'); // Google Drive integration (see driveService.js)
 const { sendMail } = require('./utils/mailer');
 const { runDigest } = require('./utils/digest');
@@ -975,6 +976,18 @@ app.post('/upload', ensureAuthenticated, (req, res) => {
             } catch (ruleErr) {
                 console.error(`Tagging rules failed for document ${newDocId} (upload still succeeded):`, ruleErr.message);
             }
+
+            // Content extraction (native text / OCR fallback, item #4).
+            // Deliberately NOT awaited -- tesseract OCR can take several
+            // seconds and the upload response shouldn't wait on it. Runs
+            // fully async, updates the row whenever it finishes.
+            // Direct-upload only for now (see contentExtraction.js's
+            // header comment on the Drive-attach gap).
+            extractDocumentContent(filePath, filename)
+                .then(({ text, method }) =>
+                    db.query('UPDATE documents SET content_text = $1, content_extraction_status = $2 WHERE id = $3', [text, method, newDocId])
+                )
+                .catch(err => console.error(`Content extraction failed for document ${newDocId}:`, err.message));
 
             // --- NOTIFY RECIPIENT: urgent bypasses the digest and emails immediately;
             //     everything else queues for the next digest run. ---
