@@ -45,6 +45,35 @@ apparently never built. Doesn't block Custom Properties (scoped by
 department, not type) but worth knowing before Tagging Rules (#3) if any
 rule condition wants to key off document type.
 
+**#2 Tags — fully done (2026-09-03).** Migration 012 adds `tags` +
+`document_tags` (many-to-many). Unlike Custom Properties and Document
+Types, tags are **not** admin-gated to create — any authenticated user can
+create one inline via find-or-create (`POST /tags` returns the existing
+tag if the name already exists, case/whitespace-insensitive). Renaming or
+deleting an existing tag IS admin-gated (`PATCH`/`DELETE /tags/:id`),
+since either affects every document that already carries it. Tags are
+global, not department-scoped — no equivalent open question to Custom
+Properties' department-vs-global one, since Papra's tags aren't
+org-scoped in a way that maps to DocHandler's departments either.
+
+Wired in fully: a tag picker (chip input, type-and-press-Enter or "Add")
+on the upload form, feeding into both upload paths via a shared
+`saveDocumentTags()` helper, same best-effort pattern as custom property
+values. `my-inbox`/`my-outbox` now aggregate each document's tags inline
+(`json_agg` subquery) so chips render under the filename with zero extra
+round-trips. A tag filter dropdown was added alongside the existing
+project/site/sender/file-type filters (`tagId` query param, populated from
+only the tags actually in use in that scope, same pattern as the
+file-type filter). A "Tags" button on every row opens an edit modal
+(`PUT /documents/:id/tags`, `checkDocumentAccess`-gated like Custom
+Properties) — reuses the already-loaded row data instead of an extra
+fetch when opening.
+
+No dedicated "Manage Tags" admin page was built this pass — rename/delete
+exist as API routes only. Worth adding a small admin page later if stray
+or duplicate-ish tags start accumulating and need cleanup; skipped for now
+to keep this patch scoped to the core feature.
+
 ---
 
 ## Work Sites & Maintenance Lifecycle

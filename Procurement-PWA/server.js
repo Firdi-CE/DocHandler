@@ -206,7 +206,102 @@ app.get('/custom-properties', ensureAuthenticated, async (req, res) => {
     }
 });
 
-// API Endpoint to fetch users grouped by selected department for chained dependent options
+// --- TAGS ---
+// Item #2 of PAPRA_FEATURE_ROADMAP.md, migration 012. Unlike custom
+// properties/document types, tags are NOT admin-gated to create -- any
+// authenticated user can create one inline while tagging a document.
+// Renaming/deleting an existing tag IS admin-gated (affects every
+// document that already carries it) -- see roles.isAdminPanelRole() via
+// ensureAdmin.
+
+function normalizeTagName(name) {
+    return String(name || '').trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+// List all tags, for populating tag pickers/filters.
+app.get('/tags', ensureAuthenticated, async (req, res) => {
+    try {
+        const result = await db.query('SELECT id, name, color, description FROM tags ORDER BY name ASC');
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// Find-or-create: if a tag with this name (case/whitespace-insensitive)
+// already exists, return it instead of erroring -- lets the frontend
+// treat "type a new tag name and hit enter" as always safe to call.
+app.post('/tags', ensureAuthenticated, async (req, res) => {
+    const { name, color } = req.body;
+    const normalized = normalizeTagName(name);
+    if (!normalized) return res.status(400).json({ message: 'Tag name is required.' });
+    if (color && !/^#[0-9A-Fa-f]{6}$/.test(color)) {
+        return res.status(400).json({ message: 'Color must be a hex value like #2E6DA4.' });
+    }
+
+    try {
+        const existing = await db.query('SELECT id, name, color, description FROM tags WHERE normalized_name = $1', [normalized]);
+        if (existing.rows.length > 0) return res.status(200).json(existing.rows[0]);
+
+        const result = await db.query(
+            `INSERT INTO tags (name, normalized_name, color, created_by) VALUES ($1, $2, $3, $4)
+             RETURNING id, name, color, description`,
+            [name.trim(), normalized, color || null, req.user.id]
+        );
+        res.status(201).json(result.rows[0]);
+    } catch (err) {
+        if (err.code === '23505') {
+            // Race: two requests created the same normalized name at once -- fetch and return the winner.
+            const existing = await db.query('SELECT id, name, color, description FROM tags WHERE normalized_name = $1', [normalized]);
+            if (existing.rows.length > 0) return res.status(200).json(existing.rows[0]);
+        }
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// Rename/recolor an existing tag. Admin-gated -- renaming affects every
+// document that carries this tag.
+app.patch('/tags/:id', ensureAuthenticated, ensureAdmin, async (req, res) => {
+    const { id } = req.params;
+    const { name, color, description } = req.body;
+    if (color && !/^#[0-9A-Fa-f]{6}$/.test(color)) {
+        return res.status(400).json({ message: 'Color must be a hex value like #2E6DA4.' });
+    }
+
+    try {
+        const normalized = name !== undefined ? normalizeTagName(name) : null;
+        if (name !== undefined && !normalized) return res.status(400).json({ message: 'Tag name is required.' });
+
+        const result = await db.query(
+            `UPDATE tags SET
+                name = COALESCE($1, name),
+                normalized_name = COALESCE($2, normalized_name),
+                color = COALESCE($3, color),
+                description = COALESCE($4, description)
+             WHERE id = $5 RETURNING id, name, color, description`,
+            [name ? name.trim() : null, normalized, color || null, description !== undefined ? description : null, id]
+        );
+        if (result.rows.length === 0) return res.status(404).json({ message: 'Tag not found.' });
+        res.json(result.rows[0]);
+    } catch (err) {
+        if (err.code === '23505') return res.status(409).json({ message: 'A tag with that name already exists.' });
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// Delete a tag entirely (cascades to document_tags, removing it from every document). Admin-gated.
+app.delete('/tags/:id', ensureAuthenticated, ensureAdmin, async (req, res) => {
+    const { id } = req.params;
+    try {
+        const result = await db.query('DELETE FROM tags WHERE id = $1 RETURNING id', [id]);
+        if (result.rows.length === 0) return res.status(404).json({ message: 'Tag not found.' });
+        res.json({ message: 'Tag deleted.' });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+
 app.get('/users/by-department/:deptId', ensureAuthenticated, async (req, res) => {
     try {
         const { deptId } = req.params;
@@ -308,6 +403,23 @@ async function saveDocumentCustomPropertyValues({ documentId, valuesByDefinition
     }
 }
 
+// Tags: replace a document's tag set at upload time. Same shape as the
+// standalone PUT /documents/:id/tags edit endpoint (find-or-create isn't
+// needed here -- the frontend already resolved tag names to ids via
+// POST /tags before submitting the upload form), factored out so both
+// upload paths and the edit endpoint don't duplicate the delete+reinsert.
+async function saveDocumentTags({ documentId, tagIds }) {
+    const cleanIds = [...new Set((tagIds || []).map(Number).filter(Number.isInteger))];
+    await db.query('DELETE FROM document_tags WHERE document_id = $1', [documentId]);
+    for (const tagId of cleanIds) {
+        try {
+            await db.query('INSERT INTO document_tags (document_id, tag_id) VALUES ($1, $2)', [documentId, tagId]);
+        } catch (tagErr) {
+            console.warn(`Skipping tag ${tagId} on document ${documentId}:`, tagErr.message);
+        }
+    }
+}
+
 
 // migrations/009_document_versioning.sql). Validates a resubmission
 // request and computes where the new document sits in its version chain.
@@ -376,6 +488,10 @@ app.get('/documents/my-outbox', ensureAuthenticated, async (req, res) => {
             queryParams.push('%.' + req.query.fileType.replace(/^\./, ''));
             conditions.push(`d.filename ILIKE $${queryParams.length}`);
         }
+        if (req.query.tagId) {
+            queryParams.push(req.query.tagId);
+            conditions.push(`EXISTS (SELECT 1 FROM document_tags dt WHERE dt.document_id = d.id AND dt.tag_id = $${queryParams.length})`);
+        }
         conditions.push(LATEST_VERSION_ONLY_CLAUSE);
         const whereClause = `WHERE ${conditions.join(' AND ')}`;
 
@@ -395,7 +511,9 @@ app.get('/documents/my-outbox', ensureAuthenticated, async (req, res) => {
                    (SELECT u2.display_name FROM approval_chain_steps s2 JOIN users u2 ON u2.id = s2.approver_id
                       WHERE s2.document_id = d.id AND s2.level = d.current_level) as chain_next_approver_name,
                    (SELECT s3.approver_id FROM approval_chain_steps s3
-                      WHERE s3.document_id = d.id AND s3.level = d.current_level) as chain_next_approver_id
+                      WHERE s3.document_id = d.id AND s3.level = d.current_level) as chain_next_approver_id,
+                   (SELECT COALESCE(json_agg(json_build_object('id', t.id, 'name', t.name, 'color', t.color) ORDER BY t.name), '[]')
+                      FROM document_tags dt JOIN tags t ON t.id = dt.tag_id WHERE dt.document_id = d.id) as tags
             FROM documents d
             LEFT JOIN projects p ON d.project_id = p.id
             LEFT JOIN users recipient ON d.recipient_id = recipient.id
@@ -752,6 +870,16 @@ app.post('/upload', ensureAuthenticated, (req, res) => {
                 }
             }
 
+            // Tags -- same best-effort reasoning as custom properties above.
+            if (req.body.tagIds) {
+                try {
+                    const parsedTagIds = JSON.parse(req.body.tagIds);
+                    await saveDocumentTags({ documentId: newDocId, tagIds: parsedTagIds });
+                } catch (tagErr) {
+                    console.error(`Tag save failed for document ${newDocId} (upload still succeeded):`, tagErr.message);
+                }
+            }
+
             // --- NOTIFY RECIPIENT: urgent bypasses the digest and emails immediately;
             //     everything else queues for the next digest run. ---
             if (recipientId) {
@@ -876,6 +1004,10 @@ app.get('/documents/my-inbox', ensureAuthenticated, async (req, res) => {
             queryParams.push('%.' + req.query.fileType.replace(/^\./, ''));
             conditions.push(`d.filename ILIKE $${queryParams.length}`);
         }
+        if (req.query.tagId) {
+            queryParams.push(req.query.tagId);
+            conditions.push(`EXISTS (SELECT 1 FROM document_tags dt WHERE dt.document_id = d.id AND dt.tag_id = $${queryParams.length})`);
+        }
         conditions.push(LATEST_VERSION_ONLY_CLAUSE);
 
         const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
@@ -895,7 +1027,9 @@ app.get('/documents/my-inbox', ensureAuthenticated, async (req, res) => {
                    (SELECT u2.display_name FROM approval_chain_steps s2 JOIN users u2 ON u2.id = s2.approver_id
                       WHERE s2.document_id = d.id AND s2.level = d.current_level) as chain_next_approver_name,
                    (SELECT s3.approver_id FROM approval_chain_steps s3
-                      WHERE s3.document_id = d.id AND s3.level = d.current_level) as chain_next_approver_id
+                      WHERE s3.document_id = d.id AND s3.level = d.current_level) as chain_next_approver_id,
+                   (SELECT COALESCE(json_agg(json_build_object('id', t.id, 'name', t.name, 'color', t.color) ORDER BY t.name), '[]')
+                      FROM document_tags dt JOIN tags t ON t.id = dt.tag_id WHERE dt.document_id = d.id) as tags
             FROM documents d
             LEFT JOIN projects p ON d.project_id = p.id
             LEFT JOIN users u_sender ON d.sender_id = u_sender.id
@@ -932,7 +1066,7 @@ app.get('/documents/inbox-filter-options', ensureAuthenticated, async (req, res)
         conditions.push(LATEST_VERSION_ONLY_CLAUSE);
         const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
 
-        const [projectsRes, sendersRes, typesRes, sitesRes] = await Promise.all([
+        const [projectsRes, sendersRes, typesRes, sitesRes, tagsRes] = await Promise.all([
             db.query(
                 `SELECT DISTINCT p.id, p.name FROM documents d JOIN projects p ON d.project_id = p.id ${whereClause} ORDER BY p.name`,
                 queryParams
@@ -949,13 +1083,20 @@ app.get('/documents/inbox-filter-options', ensureAuthenticated, async (req, res)
                 `SELECT DISTINCT s.id, s.site_name FROM documents d JOIN work_sites s ON d.site_id = s.id ${whereClause} ORDER BY s.site_name`,
                 queryParams
             ),
+            db.query(
+                `SELECT DISTINCT t.id, t.name, t.color FROM documents d
+                 JOIN document_tags dt ON dt.document_id = d.id JOIN tags t ON t.id = dt.tag_id
+                 ${whereClause} ORDER BY t.name`,
+                queryParams
+            ),
         ]);
 
         res.json({
             projects: projectsRes.rows,
             senders: sendersRes.rows,
             fileTypes: typesRes.rows.map(r => r.ext).filter(Boolean),
-            sites: sitesRes.rows
+            sites: sitesRes.rows,
+            tags: tagsRes.rows
         });
     } catch (err) {
         console.error('Inbox Filter Options Error:', err);
@@ -971,7 +1112,7 @@ app.get('/documents/outbox-filter-options', ensureAuthenticated, async (req, res
         const whereClause = `WHERE d.sender_id = $1 AND ${LATEST_VERSION_ONLY_CLAUSE}`;
         const queryParams = [req.user.id];
 
-        const [projectsRes, recipientsRes, typesRes, sitesRes] = await Promise.all([
+        const [projectsRes, recipientsRes, typesRes, sitesRes, tagsRes] = await Promise.all([
             db.query(
                 `SELECT DISTINCT p.id, p.name FROM documents d JOIN projects p ON d.project_id = p.id ${whereClause} ORDER BY p.name`,
                 queryParams
@@ -988,13 +1129,20 @@ app.get('/documents/outbox-filter-options', ensureAuthenticated, async (req, res
                 `SELECT DISTINCT s.id, s.site_name FROM documents d JOIN work_sites s ON d.site_id = s.id ${whereClause} ORDER BY s.site_name`,
                 queryParams
             ),
+            db.query(
+                `SELECT DISTINCT t.id, t.name, t.color FROM documents d
+                 JOIN document_tags dt ON dt.document_id = d.id JOIN tags t ON t.id = dt.tag_id
+                 ${whereClause} ORDER BY t.name`,
+                queryParams
+            ),
         ]);
 
         res.json({
             projects: projectsRes.rows,
             recipients: recipientsRes.rows,
             fileTypes: typesRes.rows.map(r => r.ext).filter(Boolean),
-            sites: sitesRes.rows
+            sites: sitesRes.rows,
+            tags: tagsRes.rows
         });
     } catch (err) {
         console.error('Outbox Filter Options Error:', err);
@@ -1677,7 +1825,7 @@ app.get('/drive/files', ensureAuthenticated, async (req, res) => {
 // local files.
 app.post('/documents/drive-attach', ensureAuthenticated, async (req, res) => {
     try {
-        const { fileId, recipientId, projectId, siteId, departmentId, isUrgent, resubmitOf, customProperties } = req.body;
+        const { fileId, recipientId, projectId, siteId, departmentId, isUrgent, resubmitOf, customProperties, tagIds } = req.body;
         if (!fileId) return res.status(400).json({ message: 'fileId is required.' });
 
         const uploadedBy = req.user.id;
@@ -1723,6 +1871,14 @@ app.post('/documents/drive-attach', ensureAuthenticated, async (req, res) => {
                 await saveDocumentCustomPropertyValues({ documentId: newDocId, valuesByDefinitionId: customProperties });
             } catch (cpErr) {
                 console.error(`Custom property save failed for document ${newDocId} (Drive attach still succeeded):`, cpErr.message);
+            }
+        }
+
+        if (tagIds) {
+            try {
+                await saveDocumentTags({ documentId: newDocId, tagIds });
+            } catch (tagErr) {
+                console.error(`Tag save failed for document ${newDocId} (Drive attach still succeeded):`, tagErr.message);
             }
         }
 
@@ -1839,6 +1995,43 @@ app.put('/documents/:id/custom-properties', ensureAuthenticated, async (req, res
         res.json({ message: 'Custom property values saved.' });
     } catch (err) {
         console.error('Custom Property Values Save Error:', err);
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// Replace a document's tag set wholesale (same "you can see it, you can
+// annotate it" rule as custom property values -- checkDocumentAccess
+// gates both reading and writing).
+app.put('/documents/:id/tags', ensureAuthenticated, async (req, res) => {
+    const { id } = req.params;
+    const { tagIds } = req.body;
+    if (!Array.isArray(tagIds)) return res.status(400).json({ message: 'tagIds must be an array.' });
+
+    try {
+        const docRes = await db.query('SELECT id, department_id, sender_id, recipient_id, project_id FROM documents WHERE id = $1', [id]);
+        if (docRes.rows.length === 0) return res.status(404).json({ message: 'Document not found.' });
+        const doc = docRes.rows[0];
+
+        const canAccess = await checkDocumentAccess(doc, req.user.id, req.user.role, req.user.department_id);
+        if (!canAccess) return res.status(403).json({ message: 'Unauthorized: You do not have access to this document.' });
+
+        const cleanIds = [...new Set(tagIds.map(Number).filter(Number.isInteger))];
+
+        await db.query('BEGIN');
+        await db.query('DELETE FROM document_tags WHERE document_id = $1', [id]);
+        for (const tagId of cleanIds) {
+            await db.query('INSERT INTO document_tags (document_id, tag_id) VALUES ($1, $2)', [id, tagId]);
+        }
+        await db.query('COMMIT');
+
+        const result = await db.query(
+            `SELECT t.id, t.name, t.color FROM document_tags dt JOIN tags t ON t.id = dt.tag_id WHERE dt.document_id = $1 ORDER BY t.name`,
+            [id]
+        );
+        res.json(result.rows);
+    } catch (err) {
+        await db.query('ROLLBACK');
+        console.error('Document Tags Update Error:', err);
         res.status(500).json({ message: err.message });
     }
 });

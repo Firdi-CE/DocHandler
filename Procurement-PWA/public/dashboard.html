@@ -74,6 +74,9 @@
           <select id="fileTypeFilter" onchange="filterDocs()">
             <option value="">All File Types</option>
           </select>
+          <select id="tagFilter" onchange="filterDocs()">
+            <option value="">All Tags</option>
+          </select>
           <button class="btn-clear-filters" onclick="clearFilters()">Clear</button>
         </div>
 
@@ -170,6 +173,15 @@
             </div>
 
             <div class="filter-group" style="margin-bottom:1.1rem;">
+              <label style="display:block;font-weight:600;margin-bottom:4px;font-size:0.9rem;">Tags (optional):</label>
+              <div id="uploadTagChips" style="margin-bottom:6px;"></div>
+              <div style="display:flex;gap:0.5rem;">
+                <input type="text" id="uploadTagInput" placeholder="Type a tag name..." style="flex:1;" onkeydown="if(event.key==='Enter'){event.preventDefault();addUploadTag();}">
+                <button type="button" onclick="addUploadTag()">Add</button>
+              </div>
+            </div>
+
+            <div class="filter-group" style="margin-bottom:1.1rem;">
               <label style="display:block;font-weight:600;margin-bottom:4px;font-size:0.9rem;">Recipient (PIC):</label>
               <select id="uploadPicDropdown" name="recipientId" required style="width:100%;">
                 <option value="">-- Choose Dept first --</option>
@@ -222,6 +234,21 @@
     <div class="btn-group">
       <button class="btn-save" onclick="saveCustomProps()">Save</button>
       <button class="btn-cancel" onclick="closeCustomPropsModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="tagsModal">
+  <div class="modal" style="max-width:420px;">
+    <h3 id="tagsModalTitle">Tags</h3>
+    <div id="tagsModalChips" style="margin-bottom:0.75rem;"></div>
+    <div style="display:flex;gap:0.5rem;margin-bottom:0.75rem;">
+      <input type="text" id="tagsModalInput" placeholder="Type a tag name..." style="flex:1;" onkeydown="if(event.key==='Enter'){event.preventDefault();addTagToModal();}">
+      <button type="button" onclick="addTagToModal()">Add</button>
+    </div>
+    <div class="btn-group">
+      <button class="btn-save" onclick="saveTagsModal()">Save</button>
+      <button class="btn-cancel" onclick="closeTagsModal()">Close</button>
     </div>
   </div>
 </div>
@@ -371,6 +398,7 @@
     } catch (e) {}
 
     await loadDocs();
+    loadAllTagsCache();
   }
 
   initDashboard();
@@ -731,6 +759,116 @@
     }
   }
 
+  // --- Tags (PAPRA_FEATURE_ROADMAP.md item #2) ---
+  // Shared find-or-create tag picker, used by both the upload form and the
+  // post-upload "Tags" edit modal. allTagsCache is loaded once at
+  // dashboard init and appended to locally whenever a brand-new tag gets
+  // created, so repeated typos of the same new tag name within one
+  // session resolve to the same tag without hitting the server twice.
+
+  let allTagsCache = [];
+  async function loadAllTagsCache() {
+    try {
+      const res = await fetch(API_BASE + '/tags', { headers: { 'Authorization': 'Bearer ' + token } });
+      allTagsCache = await res.json();
+    } catch (e) { allTagsCache = []; }
+  }
+
+  async function resolveOrCreateTag(rawName) {
+    const name = (rawName || '').trim();
+    if (!name) return null;
+    const existing = allTagsCache.find(t => t.name.toLowerCase() === name.toLowerCase());
+    if (existing) return existing;
+    try {
+      const res = await fetch(API_BASE + '/tags', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name })
+      });
+      const tag = await res.json();
+      if (res.ok) { allTagsCache.push(tag); return tag; }
+      alert(tag.message || 'Failed to create tag.');
+    } catch (e) { alert('Network error while creating tag.'); }
+    return null;
+  }
+
+  function tagChipHtml(tag, onRemoveAttr) {
+    return `<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;font-size:0.75rem;font-weight:600;margin-right:6px;margin-bottom:6px;background:${tag.color || 'var(--bg-muted)'};color:${tag.color ? '#fff' : 'var(--text-secondary)'};">${escapeHtml(tag.name)}<button type="button" onclick="${onRemoveAttr}" style="background:none;border:none;color:inherit;cursor:pointer;font-weight:700;padding:0;line-height:1;">&times;</button></span>`;
+  }
+
+  // Upload form tag picker
+  let uploadSelectedTags = [];
+  function renderUploadTagChips() {
+    document.getElementById('uploadTagChips').innerHTML = uploadSelectedTags.map(t => tagChipHtml(t, `removeUploadTag(${t.id})`)).join('');
+  }
+  function removeUploadTag(tagId) {
+    uploadSelectedTags = uploadSelectedTags.filter(t => t.id !== tagId);
+    renderUploadTagChips();
+  }
+  async function addUploadTag() {
+    const input = document.getElementById('uploadTagInput');
+    const tag = await resolveOrCreateTag(input.value);
+    if (tag && !uploadSelectedTags.some(t => t.id === tag.id)) {
+      uploadSelectedTags.push(tag);
+      renderUploadTagChips();
+    }
+    input.value = '';
+  }
+
+  // Post-upload "Tags" edit modal
+  let modalSelectedTags = [];
+  let currentTagsModalDocId = null;
+  function renderTagsModalChips() {
+    document.getElementById('tagsModalChips').innerHTML = modalSelectedTags.map(t => tagChipHtml(t, `removeModalTag(${t.id})`)).join('');
+  }
+  function removeModalTag(tagId) {
+    modalSelectedTags = modalSelectedTags.filter(t => t.id !== tagId);
+    renderTagsModalChips();
+  }
+  async function addTagToModal() {
+    const input = document.getElementById('tagsModalInput');
+    const tag = await resolveOrCreateTag(input.value);
+    if (tag && !modalSelectedTags.some(t => t.id === tag.id)) {
+      modalSelectedTags.push(tag);
+      renderTagsModalChips();
+    }
+    input.value = '';
+  }
+  function openTagsModal(docId, filename) {
+    currentTagsModalDocId = docId;
+    document.getElementById('tagsModalTitle').textContent = 'Tags — ' + filename;
+    document.getElementById('tagsModalInput').value = '';
+    // Reuse the tags already returned inline by the inbox/outbox list
+    // query (see renderTagChips) instead of an extra round-trip.
+    const doc = allDocs.find(d => d.id === docId);
+    modalSelectedTags = doc && Array.isArray(doc.tags) ? [...doc.tags] : [];
+    renderTagsModalChips();
+    document.getElementById('tagsModal').classList.add('open');
+  }
+  function closeTagsModal() {
+    document.getElementById('tagsModal').classList.remove('open');
+    currentTagsModalDocId = null;
+    modalSelectedTags = [];
+  }
+  async function saveTagsModal() {
+    try {
+      const res = await fetch(API_BASE + '/documents/' + currentTagsModalDocId + '/tags', {
+        method: 'PUT',
+        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tagIds: modalSelectedTags.map(t => t.id) })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        closeTagsModal();
+        loadDocs(); // refresh so the row's tag chips reflect the change
+      } else {
+        alert(data.message || 'Failed to save tags.');
+      }
+    } catch (e) {
+      alert('Network error while saving tags.');
+    }
+  }
+
   function showUploadStatus(msg, type) {
     const el = document.getElementById('uploadStatusMessage');
     el.textContent = msg;
@@ -771,6 +909,7 @@
       departmentId: document.getElementById('uploadDeptDropdown').value || null,
       isUrgent: document.getElementById('urgentCheckbox').checked,
       customProperties: collectUploadCustomPropertyValues(),
+      tagIds: uploadSelectedTags.map(t => t.id),
     };
     if (resubmitContext) body.resubmitOf = resubmitContext.originalId;
 
@@ -796,6 +935,9 @@
           setUploadSource('computer');
           document.getElementById('uploadCustomPropsGroup').style.display = 'none';
           document.getElementById('uploadCustomPropsContainer').innerHTML = '';
+          uploadSelectedTags = [];
+          document.getElementById('uploadTagChips').innerHTML = '';
+          document.getElementById('uploadTagInput').value = '';
           resetUploadUI();
           showUploadStatus('', '');
           document.getElementById('uploadStatusMessage').className = 'status-msg';
@@ -828,6 +970,7 @@
 
     const formData = new FormData(e.target);
     formData.append('customProperties', JSON.stringify(collectUploadCustomPropertyValues()));
+    formData.append('tagIds', JSON.stringify(uploadSelectedTags.map(t => t.id)));
     const xhr = new XMLHttpRequest();
 
     xhr.upload.onprogress = (event) => {
@@ -864,6 +1007,9 @@
           resetUploadUI();
           document.getElementById('uploadCustomPropsGroup').style.display = 'none';
           document.getElementById('uploadCustomPropsContainer').innerHTML = '';
+          uploadSelectedTags = [];
+          document.getElementById('uploadTagChips').innerHTML = '';
+          document.getElementById('uploadTagInput').value = '';
           showUploadStatus('', '');
           document.getElementById('uploadStatusMessage').className = 'status-msg';
           currentTab = landOnSent ? 'sent' : 'inbox';
@@ -933,9 +1079,11 @@
     const siteId = document.getElementById('siteFilter').value;
     const personId = document.getElementById('senderFilter').value;
     const fileType = document.getElementById('fileTypeFilter').value;
+    const tagId = document.getElementById('tagFilter').value;
     if (projectId) params.set('projectId', projectId);
     if (siteId) params.set('siteId', siteId);
     if (fileType) params.set('fileType', fileType);
+    if (tagId) params.set('tagId', tagId);
     if (personId) params.set(currentTab === 'inbox' ? 'senderId' : 'recipientId', personId);
 
     const url = `${API_BASE}${endpoint}?${params.toString()}`;
@@ -1023,6 +1171,12 @@
       fileTypeFilter.innerHTML = '<option value="">All File Types</option>' +
         data.fileTypes.map(ext => `<option value="${escapeHtml(ext)}">${escapeHtml(ext.toUpperCase())}</option>`).join('');
       fileTypeFilter.value = currentTypeVal;
+
+      const tagFilter = document.getElementById('tagFilter');
+      const currentTagVal = tagFilter.value;
+      tagFilter.innerHTML = '<option value="">All Tags</option>' +
+        (data.tags || []).map(t => `<option value="${t.id}">${escapeHtml(t.name)}</option>`).join('');
+      tagFilter.value = currentTagVal;
     } catch (e) { /* non-fatal — filters just show base options */ }
   }
 
@@ -1046,6 +1200,7 @@
     let btns = `<button class="btn btn-view" onclick="viewDocument(${d.id}, '${d.filename.replace(/'/g, "\\'")}')">View</button>`;
     btns += ` <button class="btn btn-rename" style="background:var(--steel);color:white;" onclick="downloadDocument(${d.id})">Download</button>`;
     btns += ` <button class="btn btn-rename" onclick="openCustomPropsModal(${d.id}, '${d.filename.replace(/'/g, "\\'")}')">Properties</button>`;
+    btns += ` <button class="btn btn-rename" onclick="openTagsModal(${d.id}, '${d.filename.replace(/'/g, "\\'")}')">Tags</button>`;
 
     if (canRename() && currentTab === 'inbox') {
       btns += ` <button class="btn btn-rename" onclick="openRename(${d.id},'${baseName.replace(/'/g, "\\'")}')">Rename</button>`;
@@ -1166,6 +1321,9 @@
     resetUploadUI();
     document.getElementById('uploadCustomPropsGroup').style.display = 'none';
     document.getElementById('uploadCustomPropsContainer').innerHTML = '';
+    uploadSelectedTags = [];
+    document.getElementById('uploadTagChips').innerHTML = '';
+    document.getElementById('uploadTagInput').value = '';
   }
 
   function clearResubmitState() {
@@ -1240,6 +1398,16 @@
 
   function renderAll() { renderTable(allDocs); }
 
+  // Small colored chips under the filename, from the `tags` array the
+  // inbox/outbox queries already aggregate per document (no extra
+  // round-trip needed just to display them).
+  function renderTagChips(tags) {
+    if (!tags || tags.length === 0) return '';
+    return '<div style="margin-top:4px;">' + tags.map(t =>
+      `<span style="display:inline-block;padding:1px 8px;border-radius:999px;font-size:0.68rem;font-weight:600;margin-right:4px;margin-top:2px;background:${t.color || 'var(--bg-muted)'};color:${t.color ? '#fff' : 'var(--text-secondary)'};">${escapeHtml(t.name)}</span>`
+    ).join('') + '</div>';
+  }
+
   function renderTable(docs) {
     const tbody = document.getElementById('docTableBody');
     if (docs.length === 0) {
@@ -1255,7 +1423,7 @@
         ? (d.sender_name || d.sender_email || '—')
         : (d.recipient_name || d.recipient_email || '—');
       return `<tr>
-        <td><strong style="font-size:0.8rem;word-break:break-all;">${d.is_urgent ? '🔴 ' : ''}${d.filename}</strong></td>
+        <td><strong style="font-size:0.8rem;word-break:break-all;">${d.is_urgent ? '🔴 ' : ''}${d.filename}</strong>${renderTagChips(d.tags)}</td>
         <td style="font-size:0.8rem;">${d.project_name || '—'}</td>
         <td style="font-size:0.8rem;">${personCol}</td>
         <td style="font-size:0.75rem;color:var(--text-muted);">${formatTimestamp(d.created_at)}</td>
@@ -1277,6 +1445,7 @@
     document.getElementById('siteFilter').value = '';
     document.getElementById('senderFilter').value = '';
     document.getElementById('fileTypeFilter').value = '';
+    document.getElementById('tagFilter').value = '';
     filterDocs();
   }
 
