@@ -161,6 +161,51 @@ timeout/error path. Skipped in this pass only because it means shipping a
 ~15MB data file through the patch-based workflow, which needs a
 deliberate decision rather than a silent addition to a patch.
 
+**#5 Full-Text Search — done (2026-09-03).** Migration 015 adds a
+`GENERATED ALWAYS AS ... STORED` `tsvector` column (`search_vector`) +
+GIN index on `documents`. Postgres's native full-text search turned out
+simpler to stand up than replicating Papra's SQLite FTS5 virtual table —
+a generated column keeps itself in sync automatically on every
+INSERT/UPDATE, no separate sync trigger needed at all. Weighted:
+filename ('A') > content_text ('B') > notes ('C').
+
+This migration was tested against a real Postgres 16 instance (installed
+in the sandbox specifically for this), not just written and assumed
+correct — same standard applied to the OCR module above. That testing
+caught one real, launch-blocking bug and confirmed several things that
+easily could have been wrong:
+
+- **Filenames don't tokenize the way you'd expect.** Postgres's default
+  text search parser treats `Invoice_2026_Q3.pdf` as a single token, not
+  separate words — meaning a search for "invoice" would never have
+  matched a filename containing it, silently defeating the single most
+  common search case despite filename being weighted highest. Confirmed
+  by directly inspecting `to_tsvector()` output before and after the fix
+  (replacing `_`/`-`/`.` with spaces before tokenizing).
+- Confirmed (not assumed) that `websearch_to_tsquery` never throws on
+  malformed input (unterminated quotes, stray punctuation, empty string)
+  — it degrades to an empty tsquery, which safely matches zero rows
+  rather than erroring or, worse, matching every document.
+- Ran the actual search query — full joins, tag aggregation, ranking,
+  snippet generation, and `buildInboxScopeClause`'s visibility logic all
+  together — against seeded data including a document belonging to
+  unrelated users, and confirmed a scoped user's search correctly
+  excludes it even when the filename would otherwise match. Access
+  control and search matching interact in exactly one query here; wrong
+  parameter indexing would have been an easy way to accidentally leak
+  documents.
+
+`GET /documents/search?q=...` reuses `buildInboxScopeClause()` for
+visibility (its Staff-role branch already checks both sender and
+recipient, so it was already "everything visible to me" rather than a
+single direction) rather than duplicating that logic. Frontend: a search
+box above the Inbox/Sent tabs, reusing the exact same pagination
+state/controls (`currentPage`/`rowsPerPage`/`renderPagination`) by having
+`loadDocs()` delegate to `loadSearchResults()` when in search mode — so
+next/prev/rows-per-page all work for free. Results show both sender and
+recipient (search spans both directions) plus a `ts_headline`-generated
+snippet showing matched context.
+
 ---
 
 ## Work Sites & Maintenance Lifecycle

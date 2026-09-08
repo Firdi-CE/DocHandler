@@ -1078,6 +1078,75 @@ function buildInboxScopeClause(userRole, userId, deptId) {
     return { conditions, queryParams };
 }
 
+// Full-text search (PAPRA_FEATURE_ROADMAP.md item #5, migration 015).
+// Searches across every document the user can see -- both sent and
+// received, unlike my-inbox/my-outbox which are direction-specific --
+// reusing buildInboxScopeClause's visibility logic since its "else"
+// branch (Staff) already checks both sender_id and recipient_id, i.e.
+// it's already "everything visible to me" rather than one direction.
+app.get('/documents/search', ensureAuthenticated, async (req, res) => {
+    const q = (req.query.q || '').trim();
+    if (!q) return res.status(400).json({ message: 'A search query is required.' });
+
+    try {
+        const userId = req.user.id;
+        const userRole = req.user.role;
+        const deptId = req.user.department_id;
+
+        const page = Math.max(parseInt(req.query.page) || 1, 1);
+        const limit = Math.min(Math.max(parseInt(req.query.limit) || 20, 1), 100);
+        const offset = (page - 1) * limit;
+
+        const scope = buildInboxScopeClause(userRole, userId, deptId);
+        const conditions = [...scope.conditions];
+        const queryParams = [...scope.queryParams];
+
+        // websearch_to_tsquery never throws on malformed input (quotes,
+        // stray punctuation, etc.) -- confirmed against a real Postgres
+        // instance, not assumed -- it just degrades to an empty tsquery,
+        // which safely matches zero rows rather than erroring or (worse)
+        // matching everything. So no extra input sanitization is needed
+        // beyond the empty-string check above.
+        queryParams.push(q);
+        const qParamIdx = queryParams.length;
+        conditions.push(`d.search_vector @@ websearch_to_tsquery('english', $${qParamIdx})`);
+        conditions.push(LATEST_VERSION_ONLY_CLAUSE);
+
+        const whereClause = `WHERE ${conditions.join(' AND ')}`;
+
+        const countResult = await db.query(`SELECT COUNT(*)::int as total FROM documents d ${whereClause}`, queryParams);
+        const total = countResult.rows[0].total;
+
+        const limitIdx = queryParams.length + 1;
+        const offsetIdx = queryParams.length + 2;
+        const dataQuery = `
+            SELECT d.*, p.name as project_name,
+                   u_sender.display_name as sender_name, u_sender.email as sender_email,
+                   u_recipient.display_name as recipient_name, u_recipient.email as recipient_email,
+                   dept.name as department_name,
+                   ts_rank(d.search_vector, websearch_to_tsquery('english', $${qParamIdx})) as rank,
+                   ts_headline('english', coalesce(d.content_text, ''), websearch_to_tsquery('english', $${qParamIdx}),
+                       'MaxFragments=1, MaxWords=30, MinWords=10') as snippet,
+                   (SELECT COALESCE(json_agg(json_build_object('id', t.id, 'name', t.name, 'color', t.color) ORDER BY t.name), '[]')
+                      FROM document_tags dt JOIN tags t ON t.id = dt.tag_id WHERE dt.document_id = d.id) as tags
+            FROM documents d
+            LEFT JOIN projects p ON d.project_id = p.id
+            LEFT JOIN users u_sender ON d.sender_id = u_sender.id
+            LEFT JOIN users u_recipient ON d.recipient_id = u_recipient.id
+            LEFT JOIN departments dept ON d.department_id = dept.id
+            ${whereClause}
+            ORDER BY rank DESC, d.created_at DESC
+            LIMIT $${limitIdx} OFFSET $${offsetIdx}
+        `;
+        const result = await db.query(dataQuery, [...queryParams, limit, offset]);
+
+        res.json({ documents: result.rows, total, page, limit, totalPages: Math.ceil(total / limit) });
+    } catch (err) {
+        console.error('Document Search Error:', err);
+        res.status(500).json({ message: err.message });
+    }
+});
+
 app.get('/documents/my-inbox', ensureAuthenticated, async (req, res) => {
     try {
         const userId = req.user.id;

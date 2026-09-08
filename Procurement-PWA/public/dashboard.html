@@ -61,6 +61,17 @@
           <button class="tab-btn" id="tabSent" onclick="switchTab('sent')">Sent</button>
         </div>
 
+        <!-- Full-text search (PAPRA_FEATURE_ROADMAP.md item #5). Searches
+             filenames, OCR'd/extracted document text, and notes across
+             everything visible to the user, independent of the
+             Inbox/Sent tabs above. -->
+        <div class="filter-bar" style="margin-bottom:0.75rem;">
+          <input type="text" id="searchInput" placeholder="Search documents (filenames, content, notes)..."
+                 style="flex:2;min-width:240px;" onkeydown="if(event.key==='Enter'){event.preventDefault();performSearch();}">
+          <button onclick="performSearch()">Search</button>
+          <button id="clearSearchBtn" onclick="clearSearch()" style="display:none;">Back to Inbox/Sent</button>
+        </div>
+
         <div class="filter-bar" id="filterBar">
           <label>Filter:</label>
           <select id="projectFilter" onchange="filterDocs()">
@@ -356,6 +367,8 @@
   // Req 4: server-side pagination state
   let currentPage = 1;
   let rowsPerPage = 10;
+  let searchMode = false;
+  let searchQuery = '';
   let totalRecords = 0;
   let totalPages = 1;
   let filterOptionsLoadedFor = null; // tracks which tab's filter options are currently loaded
@@ -1074,6 +1087,8 @@
   }
 
   async function loadDocs() {
+    if (searchMode) return loadSearchResults();
+
     const endpoint = currentTab === 'inbox' ? '/documents/my-inbox' : '/documents/my-outbox';
     const params = new URLSearchParams({ page: currentPage, limit: rowsPerPage });
     const projectId = document.getElementById('projectFilter').value;
@@ -1106,6 +1121,82 @@
       document.getElementById('docTableBody').innerHTML =
         '<tr><td colspan="6" class="empty-state"><p>Failed to load.</p></td></tr>';
     }
+  }
+
+  // --- Full-text search (PAPRA_FEATURE_ROADMAP.md item #5) ---
+  // Reuses the exact same pagination state/controls as Inbox/Sent
+  // (currentPage, rowsPerPage, totalRecords, totalPages, renderPagination)
+  // by having loadDocs() delegate here when searchMode is on -- so
+  // next/prev/rows-per-page all work for free without separate wiring.
+
+  async function loadSearchResults() {
+    const params = new URLSearchParams({ q: searchQuery, page: currentPage, limit: rowsPerPage });
+    try {
+      const res = await fetch(`${API_BASE}/documents/search?${params.toString()}`, {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      if (res.status === 401) { window.location.href = '/login.html?reason=expired'; return; }
+      const data = await res.json();
+      if (!res.ok) {
+        document.getElementById('docTableBody').innerHTML =
+          `<tr><td colspan="6" class="empty-state"><p>${escapeHtml(data.message || 'Search failed.')}</p></td></tr>`;
+        return;
+      }
+      allDocs = data.documents || [];
+      totalRecords = data.total || 0;
+      totalPages = data.totalPages || 1;
+      currentPage = data.page || currentPage;
+      renderAll();
+      renderPagination();
+    } catch (e) {
+      document.getElementById('docTableBody').innerHTML =
+        '<tr><td colspan="6" class="empty-state"><p>Search failed.</p></td></tr>';
+    }
+  }
+
+  function performSearch() {
+    const q = document.getElementById('searchInput').value.trim();
+    if (!q) return;
+    searchMode = true;
+    searchQuery = q;
+    currentPage = 1;
+    document.getElementById('pageTitle').textContent = 'Search Results';
+    document.getElementById('thFromTo').textContent = 'From / To';
+    document.getElementById('filterBar').style.display = 'none';
+    document.getElementById('clearSearchBtn').style.display = 'inline-block';
+    loadDocs();
+  }
+
+  function clearSearch() {
+    searchMode = false;
+    searchQuery = '';
+    currentPage = 1;
+    document.getElementById('searchInput').value = '';
+    document.getElementById('clearSearchBtn').style.display = 'none';
+    document.getElementById('filterBar').style.display = 'flex';
+    document.getElementById('pageTitle').textContent = currentTab === 'inbox' ? 'My Inbox' : 'Sent';
+    document.getElementById('thFromTo').textContent = currentTab === 'inbox' ? 'Sender' : 'Recipient';
+    loadDocs();
+  }
+
+  // Search results show both sender and recipient (unlike Inbox/Sent,
+  // which are direction-specific) since search spans everything visible
+  // to the user regardless of direction, plus a matched-text snippet
+  // (ts_headline from the backend) so the user can see *why* a result
+  // matched, not just that it did.
+  function renderSearchRow(d) {
+    const ext = d.filename.includes('.') ? '.' + d.filename.split('.').pop() : '';
+    const baseName = d.filename.replace(ext, '');
+    const fromTo = `<div style="font-size:0.8rem;">From: ${escapeHtml(d.sender_name || d.sender_email || '—')}</div><div style="font-size:0.8rem;">To: ${escapeHtml(d.recipient_name || d.recipient_email || '—')}</div>`;
+    const snippet = d.snippet ? `<div style="font-size:0.78rem;color:var(--text-muted);margin-top:4px;font-style:italic;">…${d.snippet}…</div>` : '';
+    return `<tr>
+      <td><strong style="font-size:0.8rem;word-break:break-all;">${d.is_urgent ? '🔴 ' : ''}${d.filename}</strong>${renderTagChips(d.tags)}${snippet}</td>
+      <td style="font-size:0.8rem;">${d.project_name || '—'}</td>
+      <td>${fromTo}</td>
+      <td style="font-size:0.75rem;color:var(--text-muted);">${formatTimestamp(d.created_at)}</td>
+      <td>${getStatusBadge(d.status)}</td>
+      <td>${buildActionButtons(d, baseName)}</td>
+    </tr>`;
   }
 
   // Req 4: pagination controls — rows-per-page, prev/next, and the summary text
@@ -1397,7 +1488,18 @@
     return `<span class="ts" title="${fullLabel}">${display}</span>`;
   }
 
-  function renderAll() { renderTable(allDocs); }
+  function renderAll() {
+    if (searchMode) {
+      const tbody = document.getElementById('docTableBody');
+      if (allDocs.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" class="empty-state"><p>No documents match "${escapeHtml(searchQuery)}".</p></td></tr>`;
+        return;
+      }
+      tbody.innerHTML = allDocs.map(renderSearchRow).join('');
+      return;
+    }
+    renderTable(allDocs);
+  }
 
   // Small colored chips under the filename, from the `tags` array the
   // inbox/outbox queries already aggregate per document (no extra
