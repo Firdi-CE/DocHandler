@@ -206,6 +206,44 @@ next/prev/rows-per-page all work for free. Results show both sender and
 recipient (search spans both directions) plus a `ts_headline`-generated
 snippet showing matched context.
 
+**#6 Document Share Links — done (2026-09-03).** Migration 016 adds
+`document_share_links` (token, optional password hash+salt, optional
+expiry, enabled flag, access tracking). Password hashing uses Node's
+built-in `crypto.scrypt` rather than adding a new dependency (bcrypt etc.)
+— this codebase has no existing local-password precedent to match either
+way (auth is Google OAuth only), so there was no convention to follow.
+Smoke-tested the hash/verify roundtrip and confirmed a wrong password
+correctly fails before wiring it in.
+
+Refactored `/documents/:id/download`'s file-serving logic (local disk vs.
+Drive-attached) into a shared `streamDocumentFile()` helper, since the
+public share routes needed the exact same logic — reduces the risk of
+the two paths silently diverging later, and is a smaller change than it
+sounds since it's pure extraction, no behavior change to the existing
+route (verified via `node --check` and a re-read of the diff).
+
+Public routes (`GET`/`POST /share/:token`, deliberately unauthenticated —
+that's the point) check enabled/expiry before serving, and show a
+password-prompt HTML page (not JSON) when a link is password-protected,
+since this is a page a person opens in a browser, not an API consumer.
+Verified the actual lookup query against seeded active/expired/disabled
+rows in a real Postgres instance before wiring it into the route.
+
+Management routes (`GET`/`POST /documents/:id/share-links`,
+`DELETE .../share-links/:linkId`) are gated by `checkDocumentAccess`, same
+as tags and custom properties — **worth being explicit that this means
+something different here than it does for those two**: a share link
+bypasses login and RBAC entirely for anyone holding the URL, so "if you
+can see it, you can act on it" is a more consequential permission for
+sharing than for tagging. Kept consistent with the existing access model
+rather than introducing a narrower permission tier just for this feature;
+flagged here as a deliberate call, not an oversight, in case it's worth
+revisiting later (e.g. restricting link creation to Manager+ roles).
+
+Frontend: a "Share" button per document row opens a modal listing active
+links (copyable URL, status, view count, revoke) and a form to create a
+new one (optional expiry dropdown, optional password field).
+
 ---
 
 ## Work Sites & Maintenance Lifecycle

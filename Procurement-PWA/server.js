@@ -8,6 +8,7 @@ const multer = require('multer');
 const auth = require('./auth'); // Imports JWT auth helpers
 const db = require('./db');         // Imports PostgreSQL connection pool from db.js
 const roles = require('./roles');   // Centralized role/capability config (see roles.js)
+const crypto = require('crypto');   // Used for share-link tokens + password hashing (item #6, no local password precedent existed to follow)
 const { extractDocumentContent } = require('./contentExtraction'); // OCR + native text extraction (item #4)
 const driveService = require('./driveService'); // Google Drive integration (see driveService.js)
 const { sendMail } = require('./utils/mailer');
@@ -624,6 +625,195 @@ app.get('/documents/my-outbox', ensureAuthenticated, async (req, res) => {
 });
 
 // --- Req 4: DOWNLOAD (forces attachment, same access rules as /stream) ---
+// Shared file-streaming logic for both the authenticated download route
+// and the public share-link routes below (item #6) -- handles both
+// locally-stored files and Drive-attached documents the same way, so the
+// two callers can't silently diverge on how a file actually gets served.
+async function streamDocumentFile(doc, res) {
+    if (doc.drive_attachment_id) {
+        const meta = await driveService.getFileMetadata(doc.drive_attachment_id);
+        const stream = await driveService.getFileStream(doc.drive_attachment_id);
+        res.setHeader('Content-Disposition', `attachment; filename="${doc.filename}"`);
+        if (meta.mimeType) res.setHeader('Content-Type', meta.mimeType);
+        stream.pipe(res);
+        return;
+    }
+    const filePath = path.join(__dirname, 'uploads', doc.filename);
+    if (!fs.existsSync(filePath)) {
+        res.status(404).json({ message: 'Physical file missing from server.' });
+        return;
+    }
+    res.setHeader('Content-Disposition', `attachment; filename="${doc.filename}"`);
+    fs.createReadStream(filePath).pipe(res);
+}
+
+// Document Share Links (item #6, migration 016). Password hashing via
+// Node's built-in crypto.scrypt -- see migration comment for why no new
+// dependency (bcrypt etc.) was added just for this.
+function hashSharePassword(password) {
+    const salt = crypto.randomBytes(16).toString('hex');
+    const hash = crypto.scryptSync(password, salt, 64).toString('hex');
+    return { hash, salt };
+}
+function verifySharePassword(password, hash, salt) {
+    const candidate = crypto.scryptSync(password, salt, 64).toString('hex');
+    const a = Buffer.from(candidate, 'hex');
+    const b = Buffer.from(hash, 'hex');
+    if (a.length !== b.length) return false; // different length also means wrong password, but must still be checked before timingSafeEqual (it throws on mismatched lengths)
+    return crypto.timingSafeEqual(a, b);
+}
+
+function sharePasswordFormHtml(token, errorMessage) {
+    return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Password Required — DocHandler</title>
+<link rel="stylesheet" href="/theme.css"></head>
+<body style="display:flex;align-items:center;justify-content:center;height:100vh;background:var(--bg-muted);">
+  <form method="POST" action="/share/${token}" style="background:white;padding:2rem;border-radius:12px;max-width:360px;width:100%;box-shadow:0 2px 12px rgba(0,0,0,0.1);">
+    <h3 style="margin-bottom:1rem;color:var(--navy);">This link is password-protected</h3>
+    ${errorMessage ? `<p style="color:var(--red-text);margin-bottom:0.75rem;">${errorMessage}</p>` : ''}
+    <input type="password" name="password" placeholder="Enter password" required style="width:100%;margin-bottom:1rem;padding:8px;">
+    <button type="submit" style="width:100%;background:var(--steel);color:white;border:none;border-radius:6px;padding:10px;cursor:pointer;font-weight:700;">Unlock</button>
+  </form>
+</body></html>`;
+}
+
+// Shared by both GET (unprotected links) and POST (password submission)
+// below -- looks up the link, checks enabled/expiry, and either serves
+// the file or (if a password is required and wasn't supplied/matched)
+// returns the password prompt. Centralized so the two routes can't
+// diverge on validation logic.
+async function resolveAndServeShareLink(req, res, { suppliedPassword }) {
+    const { token } = req.params;
+    const linkRes = await db.query(
+        `SELECT sl.*, d.id as doc_id, d.filename, d.drive_attachment_id
+         FROM document_share_links sl JOIN documents d ON d.id = sl.document_id
+         WHERE sl.token = $1`,
+        [token]
+    );
+    if (linkRes.rows.length === 0) return res.status(404).send('This link does not exist or has been removed.');
+    const link = linkRes.rows[0];
+
+    if (!link.is_enabled) return res.status(410).send('This link has been disabled.');
+    if (link.expires_at && new Date(link.expires_at) < new Date()) return res.status(410).send('This link has expired.');
+
+    if (link.password_hash) {
+        if (!suppliedPassword) return res.status(401).send(sharePasswordFormHtml(token, null));
+        if (!verifySharePassword(suppliedPassword, link.password_hash, link.password_salt)) {
+            return res.status(401).send(sharePasswordFormHtml(token, 'Incorrect password. Please try again.'));
+        }
+    }
+
+    await db.query(
+        'UPDATE document_share_links SET access_count = access_count + 1, last_accessed_at = CURRENT_TIMESTAMP WHERE id = $1',
+        [link.id]
+    );
+
+    try {
+        await streamDocumentFile({ filename: link.filename, drive_attachment_id: link.drive_attachment_id }, res);
+    } catch (streamErr) {
+        console.error('Share link stream error:', streamErr);
+        res.status(502).send('Could not retrieve this file.');
+    }
+}
+
+// Public, unauthenticated -- that's the entire point of a share link.
+app.get('/share/:token', async (req, res) => {
+    try {
+        await resolveAndServeShareLink(req, res, { suppliedPassword: null });
+    } catch (err) {
+        console.error('Share Link Access Error:', err);
+        res.status(500).send('Something went wrong.');
+    }
+});
+
+app.post('/share/:token', async (req, res) => {
+    try {
+        await resolveAndServeShareLink(req, res, { suppliedPassword: req.body.password });
+    } catch (err) {
+        console.error('Share Link Access Error:', err);
+        res.status(500).send('Something went wrong.');
+    }
+});
+
+// Management routes (authenticated, checkDocumentAccess-gated -- same
+// "if you can see it, you can act on it" rule as tags/custom properties.
+// Worth being explicit about what this means here specifically: a share
+// link bypasses login and RBAC entirely for anyone holding the URL, so
+// this is a more consequential action than annotating a document with a
+// tag. Kept consistent with the existing access model rather than adding
+// a new, narrower permission tier for this one feature -- flagged in
+// BACKLOG.md as a deliberate call worth knowing about, not an oversight.)
+
+app.get('/documents/:id/share-links', ensureAuthenticated, async (req, res) => {
+    const { id } = req.params;
+    try {
+        const docRes = await db.query('SELECT id, department_id, sender_id, recipient_id, project_id FROM documents WHERE id = $1', [id]);
+        if (docRes.rows.length === 0) return res.status(404).json({ message: 'Document not found.' });
+        const canAccess = await checkDocumentAccess(docRes.rows[0], req.user.id, req.user.role, req.user.department_id);
+        if (!canAccess) return res.status(403).json({ message: 'Unauthorized: You do not have access to this document.' });
+
+        const result = await db.query(
+            `SELECT id, token, expires_at, is_enabled, access_count, last_accessed_at, created_at,
+                    (password_hash IS NOT NULL) as has_password
+             FROM document_share_links WHERE document_id = $1 ORDER BY created_at DESC`,
+            [id]
+        );
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+app.post('/documents/:id/share-links', ensureAuthenticated, async (req, res) => {
+    const { id } = req.params;
+    const { expiresInDays, password } = req.body;
+    try {
+        const docRes = await db.query('SELECT id, department_id, sender_id, recipient_id, project_id FROM documents WHERE id = $1', [id]);
+        if (docRes.rows.length === 0) return res.status(404).json({ message: 'Document not found.' });
+        const canAccess = await checkDocumentAccess(docRes.rows[0], req.user.id, req.user.role, req.user.department_id);
+        if (!canAccess) return res.status(403).json({ message: 'Unauthorized: You do not have access to this document.' });
+
+        const token = crypto.randomBytes(24).toString('hex');
+        let passwordHash = null, passwordSalt = null;
+        if (password) {
+            const { hash, salt } = hashSharePassword(password);
+            passwordHash = hash; passwordSalt = salt;
+        }
+        let expiresAt = null;
+        if (expiresInDays) {
+            const days = Number(expiresInDays);
+            if (Number.isFinite(days) && days > 0) {
+                expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+            }
+        }
+
+        const result = await db.query(
+            `INSERT INTO document_share_links (document_id, token, password_hash, password_salt, expires_at, created_by)
+             VALUES ($1, $2, $3, $4, $5, $6)
+             RETURNING id, token, expires_at, is_enabled, access_count, last_accessed_at, created_at, (password_hash IS NOT NULL) as has_password`,
+            [id, token, passwordHash, passwordSalt, expiresAt, req.user.id]
+        );
+        res.status(201).json(result.rows[0]);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+app.delete('/documents/:id/share-links/:linkId', ensureAuthenticated, async (req, res) => {
+    const { id, linkId } = req.params;
+    try {
+        const docRes = await db.query('SELECT id, department_id, sender_id, recipient_id, project_id FROM documents WHERE id = $1', [id]);
+        if (docRes.rows.length === 0) return res.status(404).json({ message: 'Document not found.' });
+        const canAccess = await checkDocumentAccess(docRes.rows[0], req.user.id, req.user.role, req.user.department_id);
+        if (!canAccess) return res.status(403).json({ message: 'Unauthorized: You do not have access to this document.' });
+
+        const result = await db.query('DELETE FROM document_share_links WHERE id = $1 AND document_id = $2 RETURNING id', [linkId, id]);
+        if (result.rows.length === 0) return res.status(404).json({ message: 'Share link not found.' });
+        res.json({ message: 'Share link revoked.' });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
 app.get('/documents/:id/download', async (req, res) => {
     // Accept token from Authorization header OR ?token= query param
     // (download uses an <a> tag which can't set headers, so we need the query param path)
@@ -657,25 +847,12 @@ app.get('/documents/:id/download', async (req, res) => {
         // app's access control above is what actually gates the download,
         // not whatever sharing permissions happen to exist on the
         // connected Drive account.
-        if (doc.drive_attachment_id) {
-            try {
-                const meta = await driveService.getFileMetadata(doc.drive_attachment_id);
-                const stream = await driveService.getFileStream(doc.drive_attachment_id);
-                res.setHeader('Content-Disposition', `attachment; filename="${doc.filename}"`);
-                if (meta.mimeType) res.setHeader('Content-Type', meta.mimeType);
-                stream.pipe(res);
-            } catch (driveErr) {
-                console.error('Drive download error:', driveErr);
-                res.status(502).json({ message: 'Could not fetch this file from Google Drive.' });
-            }
-            return;
+        try {
+            await streamDocumentFile(doc, res);
+        } catch (streamErr) {
+            console.error('Document download/stream error:', streamErr);
+            res.status(502).json({ message: 'Could not retrieve this file.' });
         }
-
-        const filePath = path.join(__dirname, 'uploads', doc.filename);
-        if (!fs.existsSync(filePath)) return res.status(404).json({ message: 'Physical file missing from server.' });
-
-        res.setHeader('Content-Disposition', `attachment; filename="${doc.filename}"`);
-        fs.createReadStream(filePath).pipe(res);
 
     } catch (err) {
         console.error('Download Error:', err);

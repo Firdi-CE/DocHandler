@@ -265,6 +265,32 @@
   </div>
 </div>
 
+<div class="modal-overlay" id="shareLinksModal">
+  <div class="modal" style="max-width:480px;">
+    <h3 id="shareLinksModalTitle">Share Links</h3>
+    <p style="font-size:0.8rem;color:var(--text-muted);margin-bottom:0.75rem;">
+      Anyone with an active link can download this file without logging in — treat these like the file itself.
+    </p>
+    <div id="shareLinksList" style="max-height:220px;overflow-y:auto;margin-bottom:1rem;"></div>
+
+    <h4 style="margin-bottom:0.5rem;">Create a new link</h4>
+    <div style="display:flex;gap:0.5rem;margin-bottom:0.5rem;">
+      <select id="shareLinkExpiry" style="flex:1;">
+        <option value="">Never expires</option>
+        <option value="1">Expires in 1 day</option>
+        <option value="7">Expires in 7 days</option>
+        <option value="30">Expires in 30 days</option>
+      </select>
+      <input type="password" id="shareLinkPassword" placeholder="Password (optional)" style="flex:1;">
+    </div>
+    <button type="button" onclick="createShareLink()" style="width:100%;margin-bottom:1rem;">Create Link</button>
+
+    <div class="btn-group">
+      <button class="btn-cancel" onclick="closeShareLinksModal()">Close</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="driveBrowseModal">
   <div class="modal" style="max-width:480px;">
     <h3>Attach from Google Drive</h3>
@@ -883,6 +909,100 @@
     }
   }
 
+  // --- Document Share Links (PAPRA_FEATURE_ROADMAP.md item #6) ---
+
+  let currentShareLinksDocId = null;
+
+  function shareLinkUrl(token) {
+    return `${window.location.origin}/share/${token}`;
+  }
+
+  function shareLinkRowHtml(link) {
+    const url = shareLinkUrl(link.token);
+    const expiry = link.expires_at ? 'Expires ' + new Date(link.expires_at).toLocaleDateString() : 'Never expires';
+    const status = !link.is_enabled ? '<span style="color:var(--red-text);">Revoked</span>'
+      : (link.expires_at && new Date(link.expires_at) < new Date()) ? '<span style="color:var(--red-text);">Expired</span>'
+      : `<span style="color:var(--green-text);">${expiry}</span>`;
+    return `
+      <div style="border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:8px;">
+        <div style="display:flex;gap:6px;align-items:center;margin-bottom:4px;">
+          <input type="text" readonly value="${url}" style="flex:1;font-size:0.78rem;padding:4px 6px;" onclick="this.select();">
+          <button type="button" onclick="navigator.clipboard.writeText('${url}')" style="white-space:nowrap;">Copy</button>
+        </div>
+        <div style="font-size:0.75rem;color:var(--text-muted);display:flex;justify-content:space-between;align-items:center;">
+          <span>${status}${link.has_password ? ' · 🔒 Password' : ''} · ${link.access_count} view${link.access_count === 1 ? '' : 's'}</span>
+          <button type="button" class="btn-delete" style="padding:2px 8px;font-size:0.75rem;" onclick="revokeShareLink(${link.id})">Revoke</button>
+        </div>
+      </div>`;
+  }
+
+  async function loadShareLinksList() {
+    const container = document.getElementById('shareLinksList');
+    container.innerHTML = '<p style="color:var(--text-muted);">Loading...</p>';
+    try {
+      const res = await fetch(API_BASE + '/documents/' + currentShareLinksDocId + '/share-links', {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      const links = await res.json();
+      if (!res.ok) { container.innerHTML = `<p style="color:var(--red-text);">${escapeHtml(links.message || 'Failed to load.')}</p>`; return; }
+      container.innerHTML = links.length === 0
+        ? '<p style="color:var(--text-muted);font-size:0.85rem;">No share links yet.</p>'
+        : links.map(shareLinkRowHtml).join('');
+    } catch (e) {
+      container.innerHTML = '<p style="color:var(--red-text);">Network error while loading links.</p>';
+    }
+  }
+
+  function openShareLinksModal(docId, filename) {
+    currentShareLinksDocId = docId;
+    document.getElementById('shareLinksModalTitle').textContent = 'Share Links — ' + filename;
+    document.getElementById('shareLinkExpiry').value = '';
+    document.getElementById('shareLinkPassword').value = '';
+    document.getElementById('shareLinksModal').classList.add('open');
+    loadShareLinksList();
+  }
+
+  function closeShareLinksModal() {
+    document.getElementById('shareLinksModal').classList.remove('open');
+    currentShareLinksDocId = null;
+  }
+
+  async function createShareLink() {
+    const expiresInDays = document.getElementById('shareLinkExpiry').value || null;
+    const password = document.getElementById('shareLinkPassword').value || null;
+    try {
+      const res = await fetch(API_BASE + '/documents/' + currentShareLinksDocId + '/share-links', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ expiresInDays, password })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        document.getElementById('shareLinkPassword').value = '';
+        loadShareLinksList();
+      } else {
+        alert(data.message || 'Failed to create share link.');
+      }
+    } catch (e) {
+      alert('Network error while creating share link.');
+    }
+  }
+
+  async function revokeShareLink(linkId) {
+    if (!confirm('Revoke this link? Anyone still holding the URL will no longer be able to use it.')) return;
+    try {
+      const res = await fetch(API_BASE + '/documents/' + currentShareLinksDocId + '/share-links/' + linkId, {
+        method: 'DELETE',
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      const data = await res.json();
+      if (res.ok) loadShareLinksList();
+      else alert(data.message || 'Failed to revoke link.');
+    } catch (e) {
+      alert('Network error while revoking link.');
+    }
+  }
+
   function showUploadStatus(msg, type) {
     const el = document.getElementById('uploadStatusMessage');
     el.textContent = msg;
@@ -1293,6 +1413,7 @@
     btns += ` <button class="btn btn-rename" style="background:var(--steel);color:white;" onclick="downloadDocument(${d.id})">Download</button>`;
     btns += ` <button class="btn btn-rename" onclick="openCustomPropsModal(${d.id}, '${d.filename.replace(/'/g, "\\'")}')">Properties</button>`;
     btns += ` <button class="btn btn-rename" onclick="openTagsModal(${d.id}, '${d.filename.replace(/'/g, "\\'")}')">Tags</button>`;
+    btns += ` <button class="btn btn-rename" onclick="openShareLinksModal(${d.id}, '${d.filename.replace(/'/g, "\\'")}')">Share</button>`;
 
     if (canRename() && currentTab === 'inbox') {
       btns += ` <button class="btn btn-rename" onclick="openRename(${d.id},'${baseName.replace(/'/g, "\\'")}')">Rename</button>`;
