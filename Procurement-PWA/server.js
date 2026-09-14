@@ -544,6 +544,107 @@ async function resolveResubmission(resubmitOfId, requesterId, requesterRole) {
     return { version_group_id: groupId, version_number: nextVersion };
 }
 
+// Shared post-upload pipeline pieces, extracted so both the HTTP /upload
+// route and the ingestion-folder watcher (item #7) can use identical
+// logic instead of it silently diverging between "a person uploaded a
+// file" and "a file showed up in a watched folder." Each function is a
+// direct lift of what was previously inline in /upload -- same behavior,
+// just parameterized instead of reading req.body/req.user/req.file
+// directly, since the watcher has none of those.
+
+// Phase 2 of engine generalization: if the document type has a default
+// approval chain configured, auto-create it. Best-effort -- a type with
+// no defaults, or a role nobody currently holds, just means fewer (or
+// zero) levels get created; created levels are renumbered contiguously
+// from 1 so current_level never points at a level that doesn't exist.
+// Never throws -- callers don't need their own try/catch around this.
+async function autoCreateApprovalChainForDocumentType({ documentId, documentTypeId, uploadedBy }) {
+    if (!documentTypeId) return;
+    try {
+        const typeRes = await db.query('SELECT department_id, is_active FROM document_types WHERE id = $1', [documentTypeId]);
+        if (typeRes.rows.length === 0 || !typeRes.rows[0].is_active) return;
+        const typeDeptId = typeRes.rows[0].department_id;
+
+        const defaultsRes = await db.query(
+            `SELECT level, approver_role, approver_user_id FROM document_type_default_approvers
+             WHERE document_type_id = $1 ORDER BY level ASC`,
+            [documentTypeId]
+        );
+
+        let sequentialLevel = 0;
+        for (const step of defaultsRes.rows) {
+            let approverId = step.approver_user_id;
+            if (!approverId && step.approver_role) {
+                const roleRes = await db.query(
+                    `SELECT id FROM users WHERE department_id = $1 AND role = $2 AND is_approved = true ORDER BY id LIMIT 1`,
+                    [typeDeptId, step.approver_role]
+                );
+                approverId = roleRes.rows[0]?.id || null;
+            }
+            if (!approverId) {
+                console.warn(`Skipping default chain level ${step.level} for document ${documentId}: no user resolves for role "${step.approver_role}" in department ${typeDeptId}.`);
+                continue;
+            }
+            sequentialLevel++;
+            await db.query(
+                `INSERT INTO approval_chain_steps (document_id, level, approver_id, status) VALUES ($1, $2, $3, $4)`,
+                [documentId, sequentialLevel, approverId, sequentialLevel === 1 ? 'pending' : 'waiting']
+            );
+        }
+
+        if (sequentialLevel > 0) {
+            await db.query(`UPDATE documents SET current_level = 1, status = 'pending' WHERE id = $1`, [documentId]);
+            await auditLog(uploadedBy, 'APPROVAL_CHAIN_SET', documentId);
+        }
+    } catch (chainErr) {
+        console.error(`Auto-chain creation failed for document ${documentId} (upload still succeeded):`, chainErr.message);
+    }
+}
+
+// Urgent bypasses the digest and emails immediately; everything else
+// queues for the next digest run.
+async function notifyRecipientOfNewDocument({ recipientId, isUrgent, filename, documentId, senderDisplayName }) {
+    if (!recipientId) return;
+    try {
+        if (isUrgent) {
+            const userRes = await db.query('SELECT email, display_name FROM users WHERE id = $1', [recipientId]);
+            if (userRes.rows.length > 0) {
+                const targetEmail = userRes.rows[0].email;
+                const targetName = userRes.rows[0].display_name;
+                const subject = `🔴 URGENT Document: ${filename}`;
+                const text = `Hello ${targetName},\n\nAn URGENT document "${filename}" has been uploaded and routed to your inbox by ${senderDisplayName}. Please log into DocHandler to review it immediately.`;
+                const html = `
+                    <h3 style="color:#b91c1c;">🔴 Urgent Document</h3>
+                    <p>Hello ${targetName},</p>
+                    <p>An <strong style="color:#b91c1c;">URGENT</strong> document <strong>${filename}</strong> has been routed to your inbox by ${senderDisplayName}.</p>
+                    <p>Please log in to review it immediately.</p>
+                `;
+                sendMail(targetEmail, subject, text, html); // fire and forget
+            }
+        } else {
+            await db.query(`INSERT INTO public.notification_queue (document_id, recipient_id) VALUES ($1, $2)`, [documentId, recipientId]);
+        }
+    } catch (notifyErr) {
+        console.error(`Recipient notification failed for document ${documentId} (upload still succeeded):`, notifyErr.message);
+    }
+}
+
+// Fire-and-forget Drive backup -- runs after the response in the HTTP
+// path so a slow/unreachable Drive never delays or fails the upload
+// itself. The ingestion watcher has no "response" to run after, but
+// calling this without awaiting it achieves the same non-blocking effect.
+function backupDocumentToDrive({ documentId, filePath, filename, mimeType }) {
+    driveService.isConnected().then((connected) => {
+        if (!connected) return;
+        driveService.backupLocalFile({ filePath, displayName: filename, mimeType })
+            .then(({ id, webViewLink }) => db.query(
+                'UPDATE documents SET drive_backup_id = $1, drive_web_link = $2 WHERE id = $3',
+                [id, webViewLink, documentId]
+            ))
+            .catch((driveErr) => console.warn(`Drive backup failed for document ${documentId} (local copy is unaffected):`, driveErr.message));
+    }).catch(() => {}); // isConnected() failing just means "skip the backup"
+}
+
 // --- Req 4: OUTBOX ---
 app.get('/documents/my-outbox', ensureAuthenticated, async (req, res) => {
     try {
@@ -1065,60 +1166,7 @@ app.post('/upload', ensureAuthenticated, (req, res) => {
             // (or zero) levels get created; created levels are renumbered contiguously
             // from 1 so current_level never points at a level that doesn't exist. This
             // never fails the upload itself -- a chain can always be set manually after.
-            if (documentTypeId) {
-                try {
-                    const typeRes = await db.query(
-                        'SELECT department_id, is_active FROM document_types WHERE id = $1',
-                        [documentTypeId]
-                    );
-                    if (typeRes.rows.length > 0 && typeRes.rows[0].is_active) {
-                        const typeDeptId = typeRes.rows[0].department_id;
-                        const defaultsRes = await db.query(
-                            `SELECT level, approver_role, approver_user_id
-                             FROM document_type_default_approvers
-                             WHERE document_type_id = $1
-                             ORDER BY level ASC`,
-                            [documentTypeId]
-                        );
-
-                        let sequentialLevel = 0;
-                        for (const step of defaultsRes.rows) {
-                            let approverId = step.approver_user_id;
-                            if (!approverId && step.approver_role) {
-                                const roleRes = await db.query(
-                                    `SELECT id FROM users
-                                     WHERE department_id = $1 AND role = $2 AND is_approved = true
-                                     ORDER BY id LIMIT 1`,
-                                    [typeDeptId, step.approver_role]
-                                );
-                                approverId = roleRes.rows[0]?.id || null;
-                            }
-                            if (!approverId) {
-                                console.warn(`Skipping default chain level ${step.level} for document ${newDocId}: no user resolves for role "${step.approver_role}" in department ${typeDeptId}.`);
-                                continue;
-                            }
-                            sequentialLevel++;
-                            await db.query(
-                                `INSERT INTO approval_chain_steps (document_id, level, approver_id, status)
-                                 VALUES ($1, $2, $3, $4)`,
-                                [newDocId, sequentialLevel, approverId, sequentialLevel === 1 ? 'pending' : 'waiting']
-                            );
-                        }
-
-                        if (sequentialLevel > 0) {
-                            await db.query(
-                                `UPDATE documents SET current_level = 1, status = 'pending' WHERE id = $1`,
-                                [newDocId]
-                            );
-                            await auditLog(uploadedBy, 'APPROVAL_CHAIN_SET', newDocId);
-                        }
-                    }
-                } catch (chainErr) {
-                    // Never fail the upload over chain auto-creation -- the document
-                    // still exists and a chain can always be set manually afterward.
-                    console.error(`Auto-chain creation failed for document ${newDocId} (upload still succeeded):`, chainErr.message);
-                }
-            }
+            await autoCreateApprovalChainForDocumentType({ documentId: newDocId, documentTypeId, uploadedBy });
 
             // Custom property values -- best-effort, same reasoning as the
             // auto-chain block above: a bad value shouldn't fail an
@@ -1168,30 +1216,7 @@ app.post('/upload', ensureAuthenticated, (req, res) => {
 
             // --- NOTIFY RECIPIENT: urgent bypasses the digest and emails immediately;
             //     everything else queues for the next digest run. ---
-            if (recipientId) {
-                if (isUrgent) {
-                    const userRes = await db.query('SELECT email, display_name FROM users WHERE id = $1', [recipientId]);
-                    if (userRes.rows.length > 0) {
-                        const targetEmail = userRes.rows[0].email;
-                        const targetName = userRes.rows[0].display_name;
-                        const subject = `🔴 URGENT Document: ${filename}`;
-                        const text = `Hello ${targetName},\n\nAn URGENT document "${filename}" has been uploaded and routed to your inbox by ${req.user.display_name}. Please log into DocHandler to review it immediately.`;
-                        const html = `
-                            <h3 style="color:#b91c1c;">🔴 Urgent Document</h3>
-                            <p>Hello ${targetName},</p>
-                            <p>An <strong style="color:#b91c1c;">URGENT</strong> document <strong>${filename}</strong> has been routed to your inbox by ${req.user.display_name}.</p>
-                            <p>Please log in to review it immediately.</p>
-                        `;
-                        // Fire and forget
-                        sendMail(targetEmail, subject, text, html);
-                    }
-                } else {
-                    await db.query(
-                        `INSERT INTO public.notification_queue (document_id, recipient_id) VALUES ($1, $2)`,
-                        [newDocId, recipientId]
-                    );
-                }
-            }
+            await notifyRecipientOfNewDocument({ recipientId, isUrgent, filename, documentId: newDocId, senderDisplayName: req.user.display_name });
             // ---------------------------------------------
 
             res.status(200).json({ message: 'Document sent!' });
@@ -1200,15 +1225,7 @@ app.post('/upload', ensureAuthenticated, (req, res) => {
             // Runs after the response so a slow/unreachable Drive never
             // delays or fails the upload itself. See BACKLOG.md ("Google
             // Drive integration") and driveService.js.
-            driveService.isConnected().then((connected) => {
-                if (!connected) return;
-                driveService.backupLocalFile({ filePath, displayName: filename, mimeType: req.file.mimetype })
-                    .then(({ id, webViewLink }) => db.query(
-                        'UPDATE documents SET drive_backup_id = $1, drive_web_link = $2 WHERE id = $3',
-                        [id, webViewLink, newDocId]
-                    ))
-                    .catch((driveErr) => console.warn(`Drive backup failed for document ${newDocId} (local copy is unaffected):`, driveErr.message));
-            }).catch(() => {}); // isConnected() failing just means "skip the backup"
+            backupDocumentToDrive({ documentId: newDocId, filePath, filename, mimeType: req.file.mimetype });
             // ---------------------------------------------------------------
 
         } catch (dbErr) {
@@ -2181,6 +2198,145 @@ app.post('/admin/tagging-rules/:id/apply-retroactive', ensureAuthenticated, ensu
         res.json({ message: `Applied to ${matchedCount} of ${scannedCount} document(s).`, matchedCount, scannedCount });
     } catch (err) {
         console.error('Tagging Rule Retroactive Apply Error:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// --- INGESTION FOLDERS (item #7, migration 017) ---
+// Admin-gated CRUD for configuring watched folders -- see the
+// scanIngestionFolders/processIngestionFile functions near the bottom of
+// this file (with the cron job) for the actual polling/processing logic.
+
+app.get('/admin/ingestion-folders', ensureAuthenticated, ensureAdmin, async (req, res) => {
+    try {
+        const result = await db.query(`
+            SELECT f.*, u_recipient.display_name as recipient_name, u_sender.display_name as sender_name,
+                   p.name as project_name, dept.name as department_name, s.site_name as site_name,
+                   dt.name as document_type_name
+            FROM ingestion_folders f
+            LEFT JOIN users u_recipient ON f.recipient_id = u_recipient.id
+            LEFT JOIN users u_sender ON f.sender_id = u_sender.id
+            LEFT JOIN projects p ON f.project_id = p.id
+            LEFT JOIN departments dept ON f.department_id = dept.id
+            LEFT JOIN work_sites s ON f.site_id = s.id
+            LEFT JOIN document_types dt ON f.document_type_id = dt.id
+            ORDER BY f.name ASC
+        `);
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/admin/ingestion-folders', ensureAuthenticated, ensureAdmin, async (req, res) => {
+    const { name, watch_path, glob_pattern, sender_id, recipient_id, department_id, project_id, site_id, document_type_id } = req.body;
+    if (!name) return res.status(400).json({ error: 'Folder name is required.' });
+    if (!watch_path) return res.status(400).json({ error: 'A watch path is required.' });
+    if (!recipient_id) return res.status(400).json({ error: 'A recipient is required -- every document needs an inbox to land in.' });
+
+    try {
+        const result = await db.query(
+            `INSERT INTO ingestion_folders
+                (name, watch_path, glob_pattern, sender_id, recipient_id, department_id, project_id, site_id, document_type_id, created_by)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
+            [name, watch_path, glob_pattern || '*', sender_id || req.user.id, recipient_id,
+             department_id || null, project_id || null, site_id || null, document_type_id || null, req.user.id]
+        );
+        res.status(201).json(result.rows[0]);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.get('/admin/ingestion-folders/:id', ensureAuthenticated, ensureAdmin, async (req, res) => {
+    try {
+        const result = await db.query('SELECT * FROM ingestion_folders WHERE id = $1', [req.params.id]);
+        if (result.rows.length === 0) return res.status(404).json({ error: 'Ingestion folder not found.' });
+        res.json(result.rows[0]);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.patch('/admin/ingestion-folders/:id', ensureAuthenticated, ensureAdmin, async (req, res) => {
+    const { id } = req.params;
+    const { name, watch_path, glob_pattern, sender_id, recipient_id, department_id, project_id, site_id, document_type_id, is_active } = req.body;
+    try {
+        const result = await db.query(
+            `UPDATE ingestion_folders SET
+                name = COALESCE($1, name),
+                watch_path = COALESCE($2, watch_path),
+                glob_pattern = COALESCE($3, glob_pattern),
+                sender_id = COALESCE($4, sender_id),
+                recipient_id = COALESCE($5, recipient_id),
+                department_id = $6,
+                project_id = $7,
+                site_id = $8,
+                document_type_id = $9,
+                is_active = COALESCE($10, is_active)
+             WHERE id = $11 RETURNING *`,
+            [name || null, watch_path || null, glob_pattern || null, sender_id || null, recipient_id || null,
+             department_id !== undefined ? department_id : null, project_id !== undefined ? project_id : null,
+             site_id !== undefined ? site_id : null, document_type_id !== undefined ? document_type_id : null,
+             is_active, id]
+        );
+        if (result.rows.length === 0) return res.status(404).json({ error: 'Ingestion folder not found.' });
+        res.json(result.rows[0]);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.delete('/admin/ingestion-folders/:id', ensureAuthenticated, ensureAdmin, async (req, res) => {
+    try {
+        const result = await db.query('DELETE FROM ingestion_folders WHERE id = $1 RETURNING id', [req.params.id]);
+        if (result.rows.length === 0) return res.status(404).json({ error: 'Ingestion folder not found.' });
+        res.json({ message: 'Ingestion folder deleted.' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Manually trigger a scan of one folder right now, rather than waiting up
+// to a minute for the next cron tick -- mainly useful for testing/
+// confirming a newly-configured folder actually works.
+app.post('/admin/ingestion-folders/:id/scan-now', ensureAuthenticated, ensureAdmin, async (req, res) => {
+    try {
+        const folderRes = await db.query('SELECT * FROM ingestion_folders WHERE id = $1', [req.params.id]);
+        if (folderRes.rows.length === 0) return res.status(404).json({ error: 'Ingestion folder not found.' });
+        const folder = folderRes.rows[0];
+
+        if (!fs.existsSync(folder.watch_path)) {
+            return res.status(400).json({ error: `Watch path does not exist on the server: ${folder.watch_path}` });
+        }
+
+        const processedDir = path.join(folder.watch_path, '_processed');
+        const errorsDir = path.join(folder.watch_path, '_errors');
+        if (!fs.existsSync(processedDir)) fs.mkdirSync(processedDir, { recursive: true });
+        if (!fs.existsSync(errorsDir)) fs.mkdirSync(errorsDir, { recursive: true });
+
+        const entries = fs.readdirSync(folder.watch_path, { withFileTypes: true });
+        const pattern = globToRegExp(folder.glob_pattern || '*');
+        let processedCount = 0, errorCount = 0;
+
+        for (const entry of entries) {
+            if (!entry.isFile() || !pattern.test(entry.name)) continue;
+            const sourceFilePath = path.join(folder.watch_path, entry.name);
+            try {
+                await processIngestionFile(folder, sourceFilePath, entry.name);
+                fs.renameSync(sourceFilePath, path.join(processedDir, entry.name));
+                processedCount++;
+            } catch (fileErr) {
+                console.error(`Manual scan: ingestion failed for "${entry.name}":`, fileErr.message);
+                fs.renameSync(sourceFilePath, path.join(errorsDir, entry.name));
+                errorCount++;
+            }
+        }
+
+        await db.query('UPDATE ingestion_folders SET last_scanned_at = CURRENT_TIMESTAMP WHERE id = $1', [folder.id]);
+        res.json({ message: `Processed ${processedCount} file(s)${errorCount > 0 ? `, ${errorCount} failed` : ''}.`, processedCount, errorCount });
+    } catch (err) {
+        console.error('Manual Ingestion Scan Error:', err);
         res.status(500).json({ error: err.message });
     }
 });
@@ -3310,6 +3466,114 @@ cron.schedule('* * * * *', async () => {
         console.error('Digest scheduler error:', err);
     }
 });
+
+// --- INGESTION FOLDERS (item #7) ---
+// Simple * / ? wildcard matching, not a full glob library -- see
+// migration 017's header comment for why chokidar/picomatch weren't
+// used (chokidar's current version is ESM-only, confirmed by actually
+// installing and inspecting it, and would break require() here).
+function globToRegExp(pattern) {
+    const escaped = pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*').replace(/\?/g, '.');
+    return new RegExp(`^${escaped}$`, 'i');
+}
+
+// Copies the file into the same uploads/ directory multer uses (same
+// timestamp-prefixed naming convention, via getFormattedTimestamp, so
+// ingested documents look identical to normally-uploaded ones everywhere
+// else in the app), then runs the same shared pipeline pieces /upload
+// uses. Deliberately does NOT run tag/custom-property saving from a form
+// -- there's no interactive uploader to have picked any -- but tagging
+// rules still apply automatically, same as any other upload.
+async function processIngestionFile(folder, sourceFilePath, originalFilename) {
+    const timestamp = getFormattedTimestamp();
+    const safeOriginalName = originalFilename.replace(/[^a-zA-Z0-9. _-]/g, '');
+    const destFilename = `(${timestamp}) ${safeOriginalName}`;
+    const destPath = path.join(uploadDir, destFilename);
+
+    await fs.promises.copyFile(sourceFilePath, destPath);
+
+    const insertRes = await db.query(
+        `INSERT INTO public.documents (filename, sender_id, recipient_id, project_id, site_id, department_id, document_type_id, is_urgent, version_number)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, false, 1) RETURNING id`,
+        [destFilename, folder.sender_id, folder.recipient_id, folder.project_id, folder.site_id, folder.department_id, folder.document_type_id]
+    );
+    const newDocId = insertRes.rows[0].id;
+
+    await auditLog(folder.sender_id, 'DOCUMENT_INGESTED', newDocId);
+    await autoCreateApprovalChainForDocumentType({ documentId: newDocId, documentTypeId: folder.document_type_id, uploadedBy: folder.sender_id });
+
+    try {
+        await applyTaggingRulesToDocument(newDocId);
+    } catch (ruleErr) {
+        console.error(`Tagging rules failed for ingested document ${newDocId}:`, ruleErr.message);
+    }
+
+    extractDocumentContent(destPath, destFilename)
+        .then(({ text, method }) => db.query('UPDATE documents SET content_text = $1, content_extraction_status = $2 WHERE id = $3', [text, method, newDocId]))
+        .catch(err => console.error(`Content extraction failed for ingested document ${newDocId}:`, err.message));
+
+    const senderRes = await db.query('SELECT display_name FROM users WHERE id = $1', [folder.sender_id]);
+    const senderDisplayName = senderRes.rows[0]?.display_name || `Ingestion Folder "${folder.name}"`;
+    await notifyRecipientOfNewDocument({ recipientId: folder.recipient_id, isUrgent: false, filename: destFilename, documentId: newDocId, senderDisplayName });
+
+    backupDocumentToDrive({ documentId: newDocId, filePath: destPath, filename: destFilename, mimeType: null });
+
+    return newDocId;
+}
+
+// Polling-based scan (see migration 017 for why not filesystem events).
+// Files that fail processing get moved to _errors/ rather than left in
+// place, so a single bad file can't block every subsequent scan from
+// re-attempting it forever.
+async function scanIngestionFolders() {
+    try {
+        const foldersRes = await db.query('SELECT * FROM ingestion_folders WHERE is_active = true');
+        for (const folder of foldersRes.rows) {
+            try {
+                if (!fs.existsSync(folder.watch_path)) {
+                    console.warn(`Ingestion folder "${folder.name}" watch_path does not exist: ${folder.watch_path}`);
+                    continue;
+                }
+                const processedDir = path.join(folder.watch_path, '_processed');
+                const errorsDir = path.join(folder.watch_path, '_errors');
+                if (!fs.existsSync(processedDir)) fs.mkdirSync(processedDir, { recursive: true });
+                if (!fs.existsSync(errorsDir)) fs.mkdirSync(errorsDir, { recursive: true });
+
+                const entries = fs.readdirSync(folder.watch_path, { withFileTypes: true });
+                const pattern = globToRegExp(folder.glob_pattern || '*');
+
+                for (const entry of entries) {
+                    if (!entry.isFile()) continue; // skips _processed/_errors subdirectories automatically
+                    if (!pattern.test(entry.name)) continue;
+
+                    const sourceFilePath = path.join(folder.watch_path, entry.name);
+                    try {
+                        await processIngestionFile(folder, sourceFilePath, entry.name);
+                        fs.renameSync(sourceFilePath, path.join(processedDir, entry.name));
+                    } catch (fileErr) {
+                        console.error(`Ingestion failed for file "${entry.name}" in folder "${folder.name}":`, fileErr.message);
+                        try {
+                            fs.renameSync(sourceFilePath, path.join(errorsDir, entry.name));
+                        } catch (moveErr) {
+                            console.error('Could not move failed ingestion file out of the way:', moveErr.message);
+                        }
+                    }
+                }
+
+                await db.query('UPDATE ingestion_folders SET last_scanned_at = CURRENT_TIMESTAMP WHERE id = $1', [folder.id]);
+            } catch (folderErr) {
+                console.error(`Error scanning ingestion folder "${folder.name}":`, folderErr.message);
+            }
+        }
+    } catch (err) {
+        console.error('Ingestion folder scan error:', err.message);
+    }
+}
+
+// Runs every minute, same cadence as the digest job above -- an internal
+// office tool doesn't need sub-minute responsiveness for "someone dropped
+// a file in a folder."
+cron.schedule('* * * * *', scanIngestionFolders);
 
 // --- 8. START SERVER ENGINE ---
 app.listen(PORT, () => {

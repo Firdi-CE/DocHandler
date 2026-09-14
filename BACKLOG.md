@@ -244,6 +244,52 @@ Frontend: a "Share" button per document row opens a modal listing active
 links (copyable URL, status, view count, revoke) and a form to create a
 new one (optional expiry dropdown, optional password field).
 
+**#7 Ingestion Folders — done (2026-09-03).** Migration 017 adds
+`ingestion_folders` (watch path, glob pattern, pre-configured
+sender/recipient/department/project/site/document-type defaults, active
+flag). Watches a folder on the server; any file dropped there gets
+automatically turned into a document using the folder's configured
+defaults, no interactive upload form involved.
+
+**Deliberately does not use chokidar** (the pattern Papra uses, and what
+the roadmap originally suggested) — confirmed by actually installing it
+that its current major version is pure ESM (`"type": "module"`), which
+would break `require()` in this CommonJS codebase. Pinning to its last
+CJS-compatible major version means inheriting years-old bugs for a
+feature that doesn't need real-time responsiveness anyway. Used simple
+interval polling instead (every 1 minute, via the same `node-cron` job
+pattern already used for the digest scheduler) — zero new dependencies,
+verified end-to-end against real files on disk (directory scan, glob
+filtering, `_processed`/`_errors` subfolder handling, idempotency after a
+file is moved) rather than assumed correct.
+
+Glob matching is a small hand-rolled `*`/`?` → RegExp converter, not a
+full glob library (picomatch etc.) — smoke-tested against the common
+cases (`*`, `*.pdf`, `invoice_*.pdf`, case-insensitivity) before wiring
+in, since a subtly-wrong pattern here would mean either silently ignoring
+files that should ingest or ingesting files that shouldn't.
+
+**Meaningful refactor as part of this**: extracted three pieces that were
+previously inline-only in `/upload`
+(`autoCreateApprovalChainForDocumentType()`, `notifyRecipientOfNewDocument()`,
+`backupDocumentToDrive()`) into standalone functions, since the ingestion
+watcher needed the exact same logic and duplicating ~150 lines of
+approval-chain/notification/Drive-backup handling would have meant two
+places that could silently drift apart over time. `/upload` itself now
+calls these same functions instead of inline code — verified via
+`node --check` and a direct diff read that this was a pure lift with no
+behavior change, not a rewrite.
+
+Ingested documents get the same tagging-rules auto-apply and content
+extraction as normal uploads, but **not** custom property values or
+manually-picked tags — there's no interactive uploader to have set any.
+
+Admin UI at `public/admin/ingestion-folders.html` (list, create/edit
+modal with cascading project→site dropdown reusing the same pattern as
+the upload form, "Scan Now" button to test a folder immediately instead
+of waiting up to a minute for the next cron tick, delete), nav link
+across all 11 admin/dashboard pages.
+
 ---
 
 ## Work Sites & Maintenance Lifecycle

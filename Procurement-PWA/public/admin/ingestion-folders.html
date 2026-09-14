@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ingestion Folders — Admin</title>
+  <link rel="stylesheet" href="/theme.css">
+  <style>
+    body { padding: 2rem; }
+    .card { max-width: 900px; margin: auto; }
+    table { width: 100%; border-collapse: collapse; }
+    th { text-align: left; padding: 0.75rem 0.5rem; border-bottom: 1px solid var(--border); font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted); }
+    td { padding: 0.75rem 0.5rem; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
+    .status-msg { padding: 0.75rem; border-radius: 8px; margin-bottom: 1rem; display: none; }
+    .status-msg.success { display: block; background: var(--green-bg); border: 1px solid var(--green-border); color: var(--green-text); }
+    .status-msg.error { display: block; background: var(--red-bg); border: 1px solid var(--red-border); color: var(--red-text); }
+    .btn-edit { background: #854F0B; color: white; border: none; border-radius: 6px; padding: 4px 12px; cursor: pointer; font-weight: 600; font-size: 0.8rem; }
+    .btn-delete { background: #A32D2D; color: white; border: none; border-radius: 6px; padding: 4px 12px; cursor: pointer; font-weight: 600; font-size: 0.8rem; }
+    .btn-scan { background: var(--steel); color: white; border: none; border-radius: 6px; padding: 4px 12px; cursor: pointer; font-weight: 600; font-size: 0.8rem; }
+    .status-badge { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 0.75rem; font-weight: 700; }
+    .status-badge.active { background: var(--green-bg); color: var(--green-text); }
+    .status-badge.inactive { background: #E5E7EB; color: #374151; }
+    .btn-add-new { background: var(--steel); color: white; border: none; border-radius: 6px; padding: 10px 20px; cursor: pointer; font-weight: 700; margin-bottom: 1.5rem; }
+    .modal label { display: block; font-weight: 600; margin-top: 0.75rem; margin-bottom: 4px; font-size: 0.85rem; }
+    .modal input, .modal select { width: 100%; }
+  </style>
+</head>
+<body class="full-bleed">
+
+<div class="app-shell">
+  <aside class="app-sidebar">
+    <div class="sidebar-logo">
+      <img src="/assets/logo.png" alt="Pilar Energi">
+      <span>DocHandler</span>
+    </div>
+    <nav class="sidebar-nav">
+      <a class="sidebar-link" href="/dashboard.html">Documents</a>
+      <a class="sidebar-link" href="/dashboard.html?view=upload">Upload</a>
+      <a class="sidebar-link" href="/profile.html">Profile</a>
+
+      <div id="adminNavGroup">
+        <button class="sidebar-group-toggle open" id="adminGroupToggle" onclick="toggleSidebarGroup('adminSubmenu', this)">
+          Admin <span class="chevron">&#9660;</span>
+        </button>
+        <div class="sidebar-submenu open" id="adminSubmenu">
+          <a class="sidebar-link" href="/admin.html">Overview</a>
+          <a class="sidebar-link" href="/admin/users.html">Users</a>
+          <a class="sidebar-link" href="/admin/projects.html">Projects</a>
+          <a class="sidebar-link" href="/admin/document-types.html">Document Types</a>
+          <a class="sidebar-link" href="/admin/custom-properties.html">Custom Properties</a>
+          <a class="sidebar-link" href="/admin/tagging-rules.html">Tagging Rules</a>
+          <a class="sidebar-link active" href="/admin/ingestion-folders.html">Ingestion Folders</a>
+          <a class="sidebar-link" href="/admin/approvals.html">Approvals</a>
+          <a class="sidebar-link" href="/admin/integrations.html">Integrations</a>
+          <a class="sidebar-link" href="/admin/audit-log.html">Audit Log</a>
+        </div>
+      </div>
+    </nav>
+  </aside>
+
+  <div class="app-main">
+    <div class="app-header">
+      <h2 style="color:var(--navy);font-size:1.1rem;">Ingestion Folders</h2>
+      <div class="header-user">
+        <button onclick="logout()">Sign out</button>
+      </div>
+    </div>
+
+    <div class="app-content">
+      <div class="card">
+        <div id="statusMessage" class="status-msg"></div>
+
+        <p style="margin-bottom:1.5rem;color:var(--text-muted);font-size:0.85rem;">
+          Watch a folder on this server — any file dropped there gets automatically turned into a
+          document using the settings you configure, without anyone needing to fill out the upload
+          form. Checked once a minute.
+        </p>
+
+        <button class="btn-add-new" onclick="openCreateModal()">+ New Ingestion Folder</button>
+
+        <table>
+          <thead><tr><th>Name</th><th>Path</th><th>Recipient</th><th>Status</th><th>Last Scanned</th><th>Actions</th></tr></thead>
+          <tbody id="foldersBody">
+            <tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--text-muted);">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="editModal">
+  <div class="modal">
+    <h3 id="editModalTitle">New Ingestion Folder</h3>
+
+    <label for="fName">Name:</label>
+    <input type="text" id="fName" placeholder="e.g. Finance Scans Dropbox">
+
+    <label for="fPath">Watch path (on the server):</label>
+    <input type="text" id="fPath" placeholder="/srv/dochandler-intake/finance">
+
+    <label for="fPattern">File pattern:</label>
+    <input type="text" id="fPattern" placeholder="* (all files), or *.pdf, invoice_*.pdf, etc.">
+
+    <label for="fDepartment">Department:</label>
+    <select id="fDepartment"><option value="">— None —</option></select>
+
+    <label for="fRecipient">Recipient (required — whose inbox documents land in):</label>
+    <select id="fRecipient"><option value="">— Choose —</option></select>
+
+    <label for="fSender">Sender (defaults to you if left blank):</label>
+    <select id="fSender"><option value="">— Default (me) —</option></select>
+
+    <label for="fProject">Project:</label>
+    <select id="fProject" onchange="loadSitesForProject()"><option value="">— None —</option></select>
+
+    <label for="fSite">Site:</label>
+    <select id="fSite"><option value="">— None —</option></select>
+
+    <label for="fDocType">Document type:</label>
+    <select id="fDocType"><option value="">— None —</option></select>
+
+    <label for="fActive">Status:</label>
+    <select id="fActive">
+      <option value="true">Active</option>
+      <option value="false">Inactive</option>
+    </select>
+
+    <div class="btn-group" style="margin-top:1rem;">
+      <button class="btn-save" onclick="saveFolder()">Save</button>
+      <button class="btn-cancel" onclick="closeEditModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const API_BASE = '';
+  const token = localStorage.getItem('token');
+  if (!token) window.location.href = '/login.html?reason=expired';
+
+  (async () => {
+    try {
+      const res = await fetch('/auth/me', { headers: { 'Authorization': 'Bearer ' + token } });
+      if (res.status === 401) { window.location.href = '/login.html?reason=expired'; return; }
+      const user = await res.json();
+      if (user.role !== 'Executive' && user.role !== 'Admin') window.location.href = '/dashboard.html';
+    } catch (e) { /* non-fatal, backend enforces via 403 */ }
+  })();
+
+  let editFolderId = null;
+  let usersCache = [], departmentsCache = [], projectsCache = [], docTypesCache = [];
+
+  function showStatus(msg, type) {
+    const el = document.getElementById('statusMessage');
+    el.textContent = msg; el.className = 'status-msg ' + type;
+    el.style.display = 'block';
+    setTimeout(() => el.style.display = 'none', 3500);
+  }
+  function logout() { localStorage.removeItem('token'); localStorage.removeItem('user'); window.location.href = '/login.html'; }
+  function toggleSidebarGroup(submenuId, toggleBtn) {
+    const submenu = document.getElementById(submenuId);
+    const isOpen = submenu.classList.toggle('open');
+    toggleBtn.classList.toggle('open', isOpen);
+  }
+
+  async function loadDropdownData() {
+    const [usersRes, deptRes, projRes] = await Promise.all([
+      fetch(API_BASE + '/admin/users', { headers: { 'Authorization': 'Bearer ' + token } }),
+      fetch(API_BASE + '/departments', { headers: { 'Authorization': 'Bearer ' + token } }),
+      fetch(API_BASE + '/projects', { headers: { 'Authorization': 'Bearer ' + token } }),
+    ]);
+    usersCache = await usersRes.json();
+    departmentsCache = await deptRes.json();
+    projectsCache = await projRes.json();
+
+    let docTypesCacheRaw = [];
+    try {
+      const dtRes = await fetch(API_BASE + '/admin/document-types', { headers: { 'Authorization': 'Bearer ' + token } });
+      if (dtRes.ok) docTypesCacheRaw = await dtRes.json();
+    } catch (e) { /* document types admin route may not exist yet in older deployments -- non-fatal */ }
+    docTypesCache = docTypesCacheRaw;
+
+    const userOpts = usersCache.map(u => `<option value="${u.id}">${u.display_name || u.email}</option>`).join('');
+    document.getElementById('fRecipient').innerHTML = '<option value="">— Choose —</option>' + userOpts;
+    document.getElementById('fSender').innerHTML = '<option value="">— Default (me) —</option>' + userOpts;
+    document.getElementById('fDepartment').innerHTML = '<option value="">— None —</option>' +
+      departmentsCache.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+    document.getElementById('fProject').innerHTML = '<option value="">— None —</option>' +
+      projectsCache.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+    document.getElementById('fDocType').innerHTML = '<option value="">— None —</option>' +
+      docTypesCache.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
+  }
+
+  async function loadSitesForProject(preselectSiteId) {
+    const projectId = document.getElementById('fProject').value;
+    const siteSelect = document.getElementById('fSite');
+    if (!projectId) { siteSelect.innerHTML = '<option value="">— None —</option>'; return; }
+    try {
+      const res = await fetch(API_BASE + '/projects/' + projectId + '/sites', { headers: { 'Authorization': 'Bearer ' + token } });
+      const sites = await res.json();
+      siteSelect.innerHTML = '<option value="">— None —</option>' +
+        sites.map(s => `<option value="${s.id}" ${preselectSiteId == s.id ? 'selected' : ''}>${s.site_name}</option>`).join('');
+    } catch (e) { siteSelect.innerHTML = '<option value="">— None —</option>'; }
+  }
+
+  async function loadFolders() {
+    try {
+      const res = await fetch(API_BASE + '/admin/ingestion-folders', { headers: { 'Authorization': 'Bearer ' + token } });
+      if (res.status === 401) { logout(); return; }
+      if (res.status === 403) { window.location.href = '/dashboard.html'; return; }
+      const folders = await res.json();
+      const tbody = document.getElementById('foldersBody');
+      if (folders.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:2rem;color:#888;">No ingestion folders configured yet.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = folders.map(f => `
+        <tr>
+          <td><strong>${f.name}</strong></td>
+          <td style="font-size:0.78rem;color:var(--text-muted);">${f.watch_path}<br>${f.glob_pattern || '*'}</td>
+          <td>${f.recipient_name || '—'}</td>
+          <td><span class="status-badge ${f.is_active ? 'active' : 'inactive'}">${f.is_active ? 'Active' : 'Inactive'}</span></td>
+          <td style="font-size:0.78rem;color:var(--text-muted);">${f.last_scanned_at ? new Date(f.last_scanned_at).toLocaleString() : 'Never'}</td>
+          <td>
+            <button class="btn-scan" onclick="scanNow(${f.id}, '${f.name.replace(/'/g, "\\'")}')">Scan Now</button>
+            <button class="btn-edit" onclick="openEditModal(${f.id})">Edit</button>
+            <button class="btn-delete" onclick="deleteFolder(${f.id}, '${f.name.replace(/'/g, "\\'")}')">Delete</button>
+          </td>
+        </tr>
+      `).join('');
+    } catch (e) {
+      document.getElementById('foldersBody').innerHTML = '<tr><td colspan="6" style="text-align:center;padding:2rem;color:#888;">Failed to load.</td></tr>';
+    }
+  }
+
+  function resetForm() {
+    document.getElementById('fName').value = '';
+    document.getElementById('fPath').value = '';
+    document.getElementById('fPattern').value = '';
+    document.getElementById('fDepartment').value = '';
+    document.getElementById('fRecipient').value = '';
+    document.getElementById('fSender').value = '';
+    document.getElementById('fProject').value = '';
+    document.getElementById('fSite').innerHTML = '<option value="">— None —</option>';
+    document.getElementById('fDocType').value = '';
+    document.getElementById('fActive').value = 'true';
+  }
+
+  function openCreateModal() {
+    editFolderId = null;
+    document.getElementById('editModalTitle').textContent = 'New Ingestion Folder';
+    resetForm();
+    document.getElementById('editModal').classList.add('open');
+  }
+
+  async function openEditModal(id) {
+    editFolderId = id;
+    document.getElementById('editModalTitle').textContent = 'Edit Ingestion Folder';
+    try {
+      const res = await fetch(API_BASE + '/admin/ingestion-folders/' + id, { headers: { 'Authorization': 'Bearer ' + token } });
+      const f = await res.json();
+      if (!res.ok) { showStatus(f.error || 'Failed to load folder.', 'error'); return; }
+
+      document.getElementById('fName').value = f.name;
+      document.getElementById('fPath').value = f.watch_path;
+      document.getElementById('fPattern').value = f.glob_pattern || '';
+      document.getElementById('fDepartment').value = f.department_id || '';
+      document.getElementById('fRecipient').value = f.recipient_id || '';
+      document.getElementById('fSender').value = f.sender_id || '';
+      document.getElementById('fProject').value = f.project_id || '';
+      document.getElementById('fDocType').value = f.document_type_id || '';
+      document.getElementById('fActive').value = String(f.is_active);
+      if (f.project_id) await loadSitesForProject(f.site_id);
+
+      document.getElementById('editModal').classList.add('open');
+    } catch (e) {
+      showStatus('Network error while loading folder.', 'error');
+    }
+  }
+
+  function closeEditModal() {
+    document.getElementById('editModal').classList.remove('open');
+    editFolderId = null;
+  }
+
+  async function saveFolder() {
+    const body = {
+      name: document.getElementById('fName').value.trim(),
+      watch_path: document.getElementById('fPath').value.trim(),
+      glob_pattern: document.getElementById('fPattern').value.trim() || '*',
+      department_id: document.getElementById('fDepartment').value || null,
+      recipient_id: document.getElementById('fRecipient').value || null,
+      sender_id: document.getElementById('fSender').value || null,
+      project_id: document.getElementById('fProject').value || null,
+      site_id: document.getElementById('fSite').value || null,
+      document_type_id: document.getElementById('fDocType').value || null,
+      is_active: document.getElementById('fActive').value === 'true',
+    };
+    if (!body.name) { showStatus('Enter a folder name.', 'error'); return; }
+    if (!body.watch_path) { showStatus('Enter a watch path.', 'error'); return; }
+    if (!editFolderId && !body.recipient_id) { showStatus('Choose a recipient.', 'error'); return; }
+
+    try {
+      const url = editFolderId ? API_BASE + '/admin/ingestion-folders/' + editFolderId : API_BASE + '/admin/ingestion-folders';
+      const method = editFolderId ? 'PATCH' : 'POST';
+      const res = await fetch(url, {
+        method, headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showStatus('Ingestion folder saved!', 'success');
+        closeEditModal();
+        loadFolders();
+      } else {
+        showStatus(data.error || 'Failed to save folder.', 'error');
+      }
+    } catch (e) {
+      showStatus('Network error while saving folder.', 'error');
+    }
+  }
+
+  async function deleteFolder(id, name) {
+    if (!confirm(`Delete ingestion folder "${name}"? This stops watching the folder — files already turned into documents are unaffected.`)) return;
+    try {
+      const res = await fetch(API_BASE + '/admin/ingestion-folders/' + id, { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + token } });
+      const data = await res.json();
+      if (res.ok) { showStatus('Folder deleted.', 'success'); loadFolders(); }
+      else showStatus(data.error || 'Failed to delete folder.', 'error');
+    } catch (e) { showStatus('Network error while deleting folder.', 'error'); }
+  }
+
+  async function scanNow(id, name) {
+    showStatus(`Scanning "${name}"...`, 'success');
+    try {
+      const res = await fetch(API_BASE + '/admin/ingestion-folders/' + id + '/scan-now', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token } });
+      const data = await res.json();
+      if (res.ok) { showStatus(data.message, 'success'); loadFolders(); }
+      else showStatus(data.error || 'Scan failed.', 'error');
+    } catch (e) { showStatus('Network error while scanning.', 'error'); }
+  }
+
+  loadDropdownData().then(loadFolders);
+</script>
+
+</body>
+</html>
