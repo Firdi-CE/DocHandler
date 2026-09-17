@@ -1975,6 +1975,339 @@ app.put('/admin/custom-properties/:id/options', ensureAuthenticated, ensureAdmin
     }
 });
 
+// --- VENDORS / PURCHASE ORDERS / RFQs ---
+// Migration 018. Backs the "Purchase Order" and "Request for Quotation"
+// document types against the real PBE templates. Deliberately CRUD-only:
+// approval routing for POs (PMT + Cost Control gating the same level, in
+// parallel) isn't wired here -- that needs the approval_chain_steps
+// schema to support more than one approver per level first. These routes
+// just create/read/update the underlying data; a document still goes
+// through the existing generic approval flow once that engine work lands.
+
+// Vendors: read-only list for any authenticated user (populating the
+// vendor picker on a PO/RFQ form), same open-read/admin-write split as
+// custom properties above.
+app.get('/vendors', ensureAuthenticated, async (req, res) => {
+    const { search } = req.query;
+    try {
+        const result = await db.query(
+            `SELECT id, name, phone, fax, contact_attn, address, npwp
+             FROM vendors
+             WHERE is_active = true AND ($1::text IS NULL OR name ILIKE '%' || $1 || '%')
+             ORDER BY name ASC`,
+            [search || null]
+        );
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Price/date history for a vendor's item, keyed by matching material
+// description on past PO line items -- backs "last PO issued for this
+// item" from the vendor list requirement.
+app.get('/vendors/:id/item-history', ensureAuthenticated, async (req, res) => {
+    const { id } = req.params;
+    const { description } = req.query;
+    if (!description) return res.status(400).json({ error: 'description query param is required.' });
+    try {
+        const result = await db.query(
+            `SELECT pli.material_description, pli.unit, pli.unit_price, pli.qty, pli.extended_price,
+                    ph.order_date, ph.document_id
+             FROM po_line_items pli
+             JOIN po_headers ph ON ph.id = pli.po_header_id
+             WHERE ph.vendor_id = $1 AND pli.material_description ILIKE '%' || $2 || '%'
+             ORDER BY ph.order_date DESC NULLS LAST
+             LIMIT 20`,
+            [id, description]
+        );
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.get('/admin/vendors', ensureAuthenticated, ensureAdmin, async (req, res) => {
+    try {
+        const result = await db.query('SELECT * FROM vendors ORDER BY name ASC');
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/admin/vendors', ensureAuthenticated, ensureAdmin, async (req, res) => {
+    const { name, phone, fax, contact_attn, address, npwp } = req.body;
+    if (!name || !name.trim()) return res.status(400).json({ error: 'Vendor name is required.' });
+    try {
+        const result = await db.query(
+            `INSERT INTO vendors (name, phone, fax, contact_attn, address, npwp)
+             VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+            [name.trim(), phone || null, fax || null, contact_attn || null, address || null, npwp || null]
+        );
+        res.status(201).json(result.rows[0]);
+    } catch (err) {
+        if (err.code === '23505') return res.status(409).json({ error: 'A vendor with that name already exists.' });
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.patch('/admin/vendors/:id', ensureAuthenticated, ensureAdmin, async (req, res) => {
+    const { id } = req.params;
+    const { name, phone, fax, contact_attn, address, npwp, is_active } = req.body;
+    try {
+        const result = await db.query(
+            `UPDATE vendors
+             SET name = COALESCE($1, name), phone = COALESCE($2, phone), fax = COALESCE($3, fax),
+                 contact_attn = COALESCE($4, contact_attn), address = COALESCE($5, address),
+                 npwp = COALESCE($6, npwp), is_active = COALESCE($7, is_active)
+             WHERE id = $8 RETURNING *`,
+            [name || null, phone || null, fax || null, contact_attn || null, address || null,
+             npwp || null, is_active, id]
+        );
+        if (result.rows.length === 0) return res.status(404).json({ error: 'Vendor not found.' });
+        res.json(result.rows[0]);
+    } catch (err) {
+        if (err.code === '23505') return res.status(409).json({ error: 'A vendor with that name already exists.' });
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.delete('/admin/vendors/:id', ensureAuthenticated, ensureAdmin, async (req, res) => {
+    const { id } = req.params;
+    try {
+        const result = await db.query('DELETE FROM vendors WHERE id = $1 RETURNING id', [id]);
+        if (result.rows.length === 0) return res.status(404).json({ error: 'Vendor not found.' });
+        res.json({ message: 'Vendor deleted successfully.' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// PO header: one row per PO document, created/updated via upsert since a
+// PO's header is filled in over time as the document is drafted, same as
+// how custom property values are set independently of document creation.
+app.post('/documents/:id/po-header', ensureAuthenticated, async (req, res) => {
+    const { id } = req.params;
+    const { vendor_id, requisition_document_id, manufacturer, order_date, project_id,
+            client, job_no, cost_code, delivery_time, delivery_terms_incoterm, currency } = req.body;
+    try {
+        const result = await db.query(
+            `INSERT INTO po_headers (document_id, vendor_id, requisition_document_id, manufacturer,
+                order_date, project_id, client, job_no, cost_code, delivery_time,
+                delivery_terms_incoterm, currency)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, COALESCE($12, 'USD'))
+             ON CONFLICT (document_id) DO UPDATE SET
+                vendor_id = EXCLUDED.vendor_id,
+                requisition_document_id = EXCLUDED.requisition_document_id,
+                manufacturer = EXCLUDED.manufacturer,
+                order_date = EXCLUDED.order_date,
+                project_id = EXCLUDED.project_id,
+                client = EXCLUDED.client,
+                job_no = EXCLUDED.job_no,
+                cost_code = EXCLUDED.cost_code,
+                delivery_time = EXCLUDED.delivery_time,
+                delivery_terms_incoterm = EXCLUDED.delivery_terms_incoterm,
+                currency = EXCLUDED.currency
+             RETURNING *`,
+            [id, vendor_id || null, requisition_document_id || null, manufacturer || null,
+             order_date || null, project_id || null, client || null, job_no || null,
+             cost_code || null, delivery_time || null, delivery_terms_incoterm || null, currency || null]
+        );
+        res.status(201).json(result.rows[0]);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// PO header + line items + computed total, for the document detail view.
+app.get('/documents/:id/po-header', ensureAuthenticated, async (req, res) => {
+    const { id } = req.params;
+    try {
+        const headerRes = await db.query(
+            `SELECT ph.*, v.name AS vendor_name, v.phone AS vendor_phone, v.fax AS vendor_fax,
+                    v.contact_attn AS vendor_contact_attn
+             FROM po_headers ph LEFT JOIN vendors v ON v.id = ph.vendor_id
+             WHERE ph.document_id = $1`,
+            [id]
+        );
+        if (headerRes.rows.length === 0) return res.status(404).json({ error: 'No PO header for this document yet.' });
+
+        const itemsRes = await db.query(
+            'SELECT * FROM po_line_items WHERE po_header_id = $1 ORDER BY line_no ASC',
+            [headerRes.rows[0].id]
+        );
+        const total = itemsRes.rows.reduce((sum, item) => sum + Number(item.extended_price), 0);
+        res.json({ ...headerRes.rows[0], line_items: itemsRes.rows, total_amount: total });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Replace a PO's line items wholesale (delete + re-insert in a
+// transaction) -- same pattern as a select property's options list.
+// Body: { items: [{ material_description, qty, unit, unit_price }] }
+app.put('/documents/:id/po-header/line-items', ensureAuthenticated, async (req, res) => {
+    const { id } = req.params;
+    const { items } = req.body;
+    if (!Array.isArray(items) || items.length === 0) {
+        return res.status(400).json({ error: 'items must be a non-empty array.' });
+    }
+    for (const item of items) {
+        if (!item.material_description || !item.material_description.trim()) {
+            return res.status(400).json({ error: 'Every line item needs a material_description.' });
+        }
+        if (item.qty === undefined || item.unit_price === undefined) {
+            return res.status(400).json({ error: 'Every line item needs qty and unit_price.' });
+        }
+    }
+
+    try {
+        await db.query('BEGIN');
+        const headerRes = await db.query('SELECT id FROM po_headers WHERE document_id = $1', [id]);
+        if (headerRes.rows.length === 0) {
+            await db.query('ROLLBACK');
+            return res.status(404).json({ error: 'Create the PO header before adding line items.' });
+        }
+        const poHeaderId = headerRes.rows[0].id;
+
+        await db.query('DELETE FROM po_line_items WHERE po_header_id = $1', [poHeaderId]);
+        for (let i = 0; i < items.length; i++) {
+            const item = items[i];
+            await db.query(
+                `INSERT INTO po_line_items (po_header_id, line_no, material_description, qty, unit, unit_price)
+                 VALUES ($1, $2, $3, $4, $5, $6)`,
+                [poHeaderId, i + 1, item.material_description.trim(), item.qty, item.unit || null, item.unit_price]
+            );
+        }
+        await db.query('COMMIT');
+
+        const result = await db.query(
+            'SELECT * FROM po_line_items WHERE po_header_id = $1 ORDER BY line_no ASC',
+            [poHeaderId]
+        );
+        res.json(result.rows);
+    } catch (err) {
+        await db.query('ROLLBACK');
+        console.error('PO Line Items Update Error:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// RFQ header: same upsert-by-document pattern as the PO header.
+app.post('/documents/:id/rfq-header', ensureAuthenticated, async (req, res) => {
+    const { id } = req.params;
+    const { requisition_document_id, job_number, client, project_id, closing_date,
+            delivery_time_required, delivery_term_incoterm, description_of_goods } = req.body;
+    try {
+        const result = await db.query(
+            `INSERT INTO rfq_headers (document_id, requisition_document_id, job_number, client,
+                project_id, closing_date, delivery_time_required, delivery_term_incoterm, description_of_goods)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+             ON CONFLICT (document_id) DO UPDATE SET
+                requisition_document_id = EXCLUDED.requisition_document_id,
+                job_number = EXCLUDED.job_number,
+                client = EXCLUDED.client,
+                project_id = EXCLUDED.project_id,
+                closing_date = EXCLUDED.closing_date,
+                delivery_time_required = EXCLUDED.delivery_time_required,
+                delivery_term_incoterm = EXCLUDED.delivery_term_incoterm,
+                description_of_goods = EXCLUDED.description_of_goods
+             RETURNING *`,
+            [id, requisition_document_id || null, job_number || null, client || null,
+             project_id || null, closing_date || null, delivery_time_required || null,
+             delivery_term_incoterm || null, description_of_goods || null]
+        );
+        res.status(201).json(result.rows[0]);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// RFQ header + invited vendors and their acknowledgment responses.
+app.get('/documents/:id/rfq-header', ensureAuthenticated, async (req, res) => {
+    const { id } = req.params;
+    try {
+        const headerRes = await db.query('SELECT * FROM rfq_headers WHERE document_id = $1', [id]);
+        if (headerRes.rows.length === 0) return res.status(404).json({ error: 'No RFQ header for this document yet.' });
+
+        const inviteesRes = await db.query(
+            `SELECT ri.id, ri.vendor_id, v.name AS vendor_name, ri.response, ri.decline_reason, ri.responded_at
+             FROM rfq_invitees ri JOIN vendors v ON v.id = ri.vendor_id
+             WHERE ri.rfq_header_id = $1 ORDER BY v.name ASC`,
+            [headerRes.rows[0].id]
+        );
+        res.json({ ...headerRes.rows[0], invitees: inviteesRes.rows });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Replace the invited-vendor list wholesale. Body: { vendor_ids: [1, 2, 3] }
+// Existing responses for vendors that remain on the list are preserved
+// (ON CONFLICT DO NOTHING) rather than reset to 'pending'.
+app.put('/documents/:id/rfq-header/invitees', ensureAuthenticated, async (req, res) => {
+    const { id } = req.params;
+    const { vendor_ids } = req.body;
+    if (!Array.isArray(vendor_ids) || vendor_ids.length === 0) {
+        return res.status(400).json({ error: 'vendor_ids must be a non-empty array.' });
+    }
+    try {
+        await db.query('BEGIN');
+        const headerRes = await db.query('SELECT id FROM rfq_headers WHERE document_id = $1', [id]);
+        if (headerRes.rows.length === 0) {
+            await db.query('ROLLBACK');
+            return res.status(404).json({ error: 'Create the RFQ header before inviting vendors.' });
+        }
+        const rfqHeaderId = headerRes.rows[0].id;
+
+        await db.query('DELETE FROM rfq_invitees WHERE rfq_header_id = $1 AND NOT (vendor_id = ANY($2::int[]))', [rfqHeaderId, vendor_ids]);
+        for (const vendorId of vendor_ids) {
+            await db.query(
+                `INSERT INTO rfq_invitees (rfq_header_id, vendor_id) VALUES ($1, $2)
+                 ON CONFLICT (rfq_header_id, vendor_id) DO NOTHING`,
+                [rfqHeaderId, vendorId]
+            );
+        }
+        await db.query('COMMIT');
+
+        const result = await db.query(
+            `SELECT ri.id, ri.vendor_id, v.name AS vendor_name, ri.response, ri.decline_reason, ri.responded_at
+             FROM rfq_invitees ri JOIN vendors v ON v.id = ri.vendor_id
+             WHERE ri.rfq_header_id = $1 ORDER BY v.name ASC`,
+            [rfqHeaderId]
+        );
+        res.json(result.rows);
+    } catch (err) {
+        await db.query('ROLLBACK');
+        console.error('RFQ Invitees Update Error:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// A vendor's acknowledgment response -- will bid, or decline with a reason.
+app.patch('/documents/:id/rfq-header/invitees/:vendorId', ensureAuthenticated, async (req, res) => {
+    const { id, vendorId } = req.params;
+    const { response, decline_reason } = req.body;
+    if (!['will_bid', 'no_bid'].includes(response)) {
+        return res.status(400).json({ error: "response must be 'will_bid' or 'no_bid'." });
+    }
+    try {
+        const headerRes = await db.query('SELECT id FROM rfq_headers WHERE document_id = $1', [id]);
+        if (headerRes.rows.length === 0) return res.status(404).json({ error: 'RFQ header not found.' });
+
+        const result = await db.query(
+            `UPDATE rfq_invitees SET response = $1, decline_reason = $2, responded_at = CURRENT_TIMESTAMP
+             WHERE rfq_header_id = $3 AND vendor_id = $4 RETURNING *`,
+            [response, response === 'no_bid' ? (decline_reason || null) : null, headerRes.rows[0].id, vendorId]
+        );
+        if (result.rows.length === 0) return res.status(404).json({ error: 'That vendor was not invited to this RFQ.' });
+        res.json(result.rows[0]);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // --- TAGGING RULES ---
 // Item #3 of PAPRA_FEATURE_ROADMAP.md, migration 013. Depends on Tags.
 // Admin-gated (unlike tags themselves) since a rule affects every future
