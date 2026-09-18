@@ -93,4 +93,4 @@ This project is licensed under the ISC license.
 
 ## Status
 
-This repository appears to be an active internal workflow application with an implemented backlog of document-management features, including content extraction, tagging, search, share links, and folder ingestion. It is structured as a working application rather than a simple starter template.
+This repository is an active internal workflow application with an implemented backlog of document-management features, including content extraction, tagging, search, share links, and folder ingestion. It is structured as a working application rather than a simple starter template.
