@@ -141,6 +141,10 @@
 </div>
 
 <script>
+  // Escape untrusted text before it goes into innerHTML or an attribute value.
+  function escapeHtml(str) {
+    return String(str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
   const API_BASE = '';
   const token = localStorage.getItem('token');
   if (!token) window.location.href = '/login.html?reason=expired';
@@ -187,7 +191,7 @@
     try {
       const res = await fetch(API_BASE + '/departments', { headers: { 'Authorization': 'Bearer ' + token } });
       departmentsCache = await res.json();
-      const opts = departmentsCache.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+      const opts = departmentsCache.map(d => `<option value="${d.id}">${escapeHtml(d.name)}</option>`).join('');
       document.getElementById('typeDepartment').innerHTML = '<option value="">No department (global)</option>' + opts;
       document.getElementById('editDepartment').innerHTML = '<option value="">No department (global)</option>' + opts;
     } catch (e) { /* non-fatal, department dropdown just stays empty */ }
@@ -215,14 +219,14 @@
       }
       tbody.innerHTML = types.map(t => `
         <tr>
-          <td><strong>${t.name}</strong>${t.description ? '<br><span style="color:var(--text-muted);font-size:0.8rem;">' + t.description + '</span>' : ''}</td>
-          <td>${t.department_name || '—'}</td>
+          <td><strong>${escapeHtml(t.name)}</strong>${t.description ? '<br><span style="color:var(--text-muted);font-size:0.8rem;">' + escapeHtml(t.description) + '</span>' : ''}</td>
+          <td>${escapeHtml(t.department_name || '—')}</td>
           <td><span class="status-badge ${t.is_active ? 'active' : 'inactive'}">${t.is_active ? 'Active' : 'Inactive'}</span></td>
           <td>${t.default_approver_count} level${t.default_approver_count === 1 ? '' : 's'}</td>
           <td>
-            <button class="btn-chain" onclick="openChainModal(${t.id}, '${t.name.replace(/'/g, "\\'")}')">Chain</button>
+            <button class="btn-chain" onclick="openChainModal(${t.id}, ${escapeHtml(JSON.stringify(t.name))})">Chain</button>
             <button class="btn-edit" onclick="openEditModal(${t.id})">Edit</button>
-            <button class="btn-delete" onclick="deleteType(${t.id}, '${t.name.replace(/'/g, "\\'")}')">Delete</button>
+            <button class="btn-delete" onclick="deleteType(${t.id}, ${escapeHtml(JSON.stringify(t.name))})">Delete</button>
           </td>
         </tr>
       `).join('');
@@ -334,7 +338,7 @@
     step = step || {};
     const isUser = !!step.approver_user_id;
     const roleOpts = APPROVER_ROLES.map(r => `<option value="${r}" ${!isUser && step.approver_role === r ? 'selected' : ''}>${r}</option>`).join('');
-    const userOpts = usersCache.map(u => `<option value="${u.id}" ${isUser && step.approver_user_id === u.id ? 'selected' : ''}>${u.email}</option>`).join('');
+    const userOpts = usersCache.map(u => `<option value="${u.id}" ${isUser && step.approver_user_id === u.id ? 'selected' : ''}>${escapeHtml(u.email)}</option>`).join('');
     return `
       <div class="chain-row" data-level="${level}">
         <span class="level-label">Level ${level}</span>

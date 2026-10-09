@@ -133,6 +133,10 @@
 </div>
 
 <script>
+  // Escape untrusted text before it goes into innerHTML or an attribute value.
+  function escapeHtml(str) {
+    return String(str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
   const API_BASE = '';
   const token = localStorage.getItem('token');
   if (!token) window.location.href = '/login.html?reason=expired';
@@ -185,14 +189,14 @@
       }
       tbody.innerHTML = vendors.map(v => `
         <tr>
-          <td><strong>${v.name}</strong>${v.address ? '<br><span style="color:var(--text-muted);font-size:0.8rem;">' + v.address + '</span>' : ''}</td>
-          <td>${v.phone || '—'}${v.fax ? ' / ' + v.fax : ''}</td>
-          <td>${v.contact_attn || '—'}</td>
-          <td>${v.npwp || '—'}</td>
+          <td><strong>${escapeHtml(v.name)}</strong>${v.address ? '<br><span style="color:var(--text-muted);font-size:0.8rem;">' + escapeHtml(v.address) + '</span>' : ''}</td>
+          <td>${escapeHtml(v.phone || '—')}${v.fax ? ' / ' + escapeHtml(v.fax) : ''}</td>
+          <td>${escapeHtml(v.contact_attn || '—')}</td>
+          <td>${escapeHtml(v.npwp || '—')}</td>
           <td><span class="status-badge ${v.is_active ? 'active' : 'inactive'}">${v.is_active ? 'Active' : 'Inactive'}</span></td>
           <td>
             <button class="btn-edit" onclick="openEditModal(${v.id})">Edit</button>
-            <button class="btn-delete" onclick="deleteVendor(${v.id}, '${v.name.replace(/'/g, "\\'")}')">Delete</button>
+            <button class="btn-delete" onclick="deleteVendor(${v.id}, ${escapeHtml(JSON.stringify(v.name))})">Delete</button>
           </td>
         </tr>
       `).join('');

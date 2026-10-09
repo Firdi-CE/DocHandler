@@ -109,6 +109,10 @@
 </div>
 
 <script>
+  // Escape untrusted text before it goes into innerHTML or an attribute value.
+  function escapeHtml(str) {
+    return String(str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
   const API_BASE = '';
   const token = localStorage.getItem('token');
   if (!token) window.location.href = '/login.html?reason=expired';
@@ -161,11 +165,11 @@
       }
       tbody.innerHTML = users.map(u => `
         <tr>
-          <td>${u.email}</td>
-          <td>${u.display_name || '—'}</td>
-          <td>${u.role}</td>
-          <td>${u.department_name || '—'}</td>
-          <td><button class="btn-assign" onclick="openAssignModal(${u.id}, '${u.email.replace(/'/g, "\\'")}')">Assign Project</button></td>
+          <td>${escapeHtml(u.email)}</td>
+          <td>${escapeHtml(u.display_name || '—')}</td>
+          <td>${escapeHtml(u.role)}</td>
+          <td>${escapeHtml(u.department_name || '—')}</td>
+          <td><button class="btn-assign" onclick="openAssignModal(${u.id}, ${escapeHtml(JSON.stringify(u.email))})">Assign Project</button></td>
         </tr>
       `).join('');
     } catch (e) {
@@ -207,7 +211,7 @@
       } catch(e) { /* non-fatal, just won't pre-select */ }
 
       projectSelect.innerHTML = allProjects
-        .map(p => `<option value="${p.id}" ${existingIds.has(p.id) ? 'selected' : ''}>${p.name}</option>`)
+        .map(p => `<option value="${p.id}" ${existingIds.has(p.id) ? 'selected' : ''}>${escapeHtml(p.name)}</option>`)
         .join('');
     } catch (error) {
       console.error('Error loading projects:', error);

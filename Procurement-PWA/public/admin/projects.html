@@ -129,6 +129,10 @@
 </div>
 
 <script>
+  // Escape untrusted text before it goes into innerHTML or an attribute value.
+  function escapeHtml(str) {
+    return String(str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
   const API_BASE = '';
   const token = localStorage.getItem('token');
   if (!token) window.location.href = '/login.html?reason=expired';
@@ -170,12 +174,12 @@
       tbody.innerHTML = projects.map(p => `
         <tr>
           <td style="color:#888;">${p.id}</td>
-          <td><strong>${p.name}</strong></td>
-          <td><span class="status-badge ${p.status || 'active'}">${p.status || 'active'}</span></td>
+          <td><strong>${escapeHtml(p.name)}</strong></td>
+          <td><span class="status-badge ${escapeHtml(p.status || 'active')}">${escapeHtml(p.status || 'active')}</span></td>
           <td>
-            <button class="btn-sites" onclick="openSitesModal(${p.id}, '${p.name.replace(/'/g, "\\'")}')">Sites</button>
-            <button class="btn-rename" onclick="openRenameModal(${p.id}, '${p.name.replace(/'/g, "\\'")}')">Rename</button>
-            <button class="btn-delete" onclick="deleteProject(${p.id}, '${p.name.replace(/'/g, "\\'")}')">Delete</button>
+            <button class="btn-sites" onclick="openSitesModal(${p.id}, ${escapeHtml(JSON.stringify(p.name))})">Sites</button>
+            <button class="btn-rename" onclick="openRenameModal(${p.id}, ${escapeHtml(JSON.stringify(p.name))})">Rename</button>
+            <button class="btn-delete" onclick="deleteProject(${p.id}, ${escapeHtml(JSON.stringify(p.name))})">Delete</button>
           </td>
         </tr>
       `).join('');
@@ -287,10 +291,10 @@
       }
       tbody.innerHTML = sites.map(s => `
         <tr>
-          <td>${s.site_name}</td>
+          <td>${escapeHtml(s.site_name)}</td>
           <td>
-            <button class="btn-rename" onclick="renameSite(${s.id}, '${s.site_name.replace(/'/g, "\\'")}')">Rename</button>
-            <button class="btn-delete" onclick="deleteSite(${s.id}, '${s.site_name.replace(/'/g, "\\'")}')">Delete</button>
+            <button class="btn-rename" onclick="renameSite(${s.id}, ${escapeHtml(JSON.stringify(s.site_name))})">Rename</button>
+            <button class="btn-delete" onclick="deleteSite(${s.id}, ${escapeHtml(JSON.stringify(s.site_name))})">Delete</button>
           </td>
         </tr>
       `).join('');

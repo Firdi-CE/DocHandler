@@ -81,6 +81,10 @@
 </div>
 
 <script>
+  // Escape untrusted text before it goes into innerHTML or an attribute value.
+  function escapeHtml(str) {
+    return String(str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
   const API_BASE = '';
   const token = localStorage.getItem('token');
   if (!token) window.location.href = '/login.html?reason=expired';
@@ -128,14 +132,14 @@
 
       tbody.innerHTML = requests.map(r => `
         <tr>
-          <td>${r.email}</td>
-          <td>${r.display_name || '—'}</td>
+          <td>${escapeHtml(r.email)}</td>
+          <td>${escapeHtml(r.display_name || '—')}</td>
           <td style="font-size:0.8rem;color:#666;">${new Date(r.created_at).toLocaleDateString()}</td>
           <td>
             <div class="approve-form">
               <select id="dept-${r.id}" required>
                 <option value="">Dept...</option>
-                ${departments.map(d => `<option value="${d.id}">${d.name}</option>`).join('')}
+                ${departments.map(d => `<option value="${d.id}">${escapeHtml(d.name)}</option>`).join('')}
               </select>
               <select id="role-${r.id}">
                 <option value="Staff">Staff</option>

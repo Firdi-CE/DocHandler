@@ -143,6 +143,10 @@
 </div>
 
 <script>
+  // Escape untrusted text before it goes into innerHTML or an attribute value.
+  function escapeHtml(str) {
+    return String(str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
   const API_BASE = '';
   const token = localStorage.getItem('token');
   if (!token) window.location.href = '/login.html?reason=expired';
@@ -203,15 +207,15 @@
       }
       tbody.innerHTML = rules.map(r => `
         <tr>
-          <td><strong>${r.name}</strong>${r.description ? '<br><span style="color:var(--text-muted);font-size:0.8rem;">' + r.description + '</span>' : ''}</td>
+          <td><strong>${escapeHtml(r.name)}</strong>${r.description ? '<br><span style="color:var(--text-muted);font-size:0.8rem;">' + escapeHtml(r.description) + '</span>' : ''}</td>
           <td>${r.match_mode === 'any' ? 'Any' : 'All'}</td>
           <td>${r.condition_count}</td>
           <td>${r.action_count}</td>
           <td><span class="status-badge ${r.is_active ? 'active' : 'inactive'}">${r.is_active ? 'Active' : 'Inactive'}</span></td>
           <td>
-            <button class="btn-apply" onclick="applyRetroactive(${r.id}, '${r.name.replace(/'/g, "\\'")}')">Apply Now</button>
+            <button class="btn-apply" onclick="applyRetroactive(${r.id}, ${escapeHtml(JSON.stringify(r.name))})">Apply Now</button>
             <button class="btn-edit" onclick="openEditModal(${r.id})">Edit</button>
-            <button class="btn-delete" onclick="deleteRule(${r.id}, '${r.name.replace(/'/g, "\\'")}')">Delete</button>
+            <button class="btn-delete" onclick="deleteRule(${r.id}, ${escapeHtml(JSON.stringify(r.name))})">Delete</button>
           </td>
         </tr>
       `).join('');
@@ -281,7 +285,7 @@
           <option value="contains" ${cond.operator === 'contains' ? 'selected' : ''}>contains</option>
           <option value="equals" ${cond.operator === 'equals' ? 'selected' : ''}>equals</option>
         </select>
-        <input type="text" class="cond-value" value="${(cond.value || '').replace(/"/g, '&quot;')}" placeholder="Value (department/project/site: use its ID)">
+        <input type="text" class="cond-value" value="${escapeHtml(cond.value || '')}" placeholder="Value (department/project/site: use its ID)">
         <button class="btn-remove-row" onclick="this.closest('.condition-row').remove()" title="Remove condition">&times;</button>
       </div>`;
   }
@@ -299,7 +303,7 @@
     container.innerHTML = allTagsCache.map(t => `
       <label style="display:inline-flex;align-items:center;gap:4px;margin-right:12px;margin-bottom:6px;font-weight:400;">
         <input type="checkbox" class="action-tag-checkbox" value="${t.id}" ${selectedTagIds.includes(t.id) ? 'checked' : ''} style="width:auto;">
-        ${t.name}
+        ${escapeHtml(t.name)}
       </label>
     `).join('');
   }

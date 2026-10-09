@@ -64,6 +64,10 @@
 </div>
 
 <script>
+  // Escape untrusted text before it goes into innerHTML or an attribute value.
+  function escapeHtml(str) {
+    return String(str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
   const API_BASE = '';
   const token = localStorage.getItem('token');
   if (!token) window.location.href = '/login.html?reason=expired';
@@ -79,8 +83,8 @@
   function renderRow(p) {
     return `
       <tr>
-        <td><strong>${p.name}</strong></td>
-        <td><span class="status-badge ${p.status}">${p.status}</span></td>
+        <td><strong>${escapeHtml(p.name)}</strong></td>
+        <td><span class="status-badge ${escapeHtml(p.status)}">${escapeHtml(p.status)}</span></td>
         <td>
           <select class="status-select" id="status-${p.id}">
             ${STATUS_OPTIONS.map(s => `<option value="${s}" ${s === p.status ? 'selected' : ''}>${s}</option>`).join('')}

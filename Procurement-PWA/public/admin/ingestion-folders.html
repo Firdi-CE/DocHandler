@@ -135,6 +135,10 @@
 </div>
 
 <script>
+  // Escape untrusted text before it goes into innerHTML or an attribute value.
+  function escapeHtml(str) {
+    return String(str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
   const API_BASE = '';
   const token = localStorage.getItem('token');
   if (!token) window.location.href = '/login.html?reason=expired';
@@ -181,15 +185,15 @@
     } catch (e) { /* document types admin route may not exist yet in older deployments -- non-fatal */ }
     docTypesCache = docTypesCacheRaw;
 
-    const userOpts = usersCache.map(u => `<option value="${u.id}">${u.display_name || u.email}</option>`).join('');
+    const userOpts = usersCache.map(u => `<option value="${u.id}">${escapeHtml(u.display_name || u.email)}</option>`).join('');
     document.getElementById('fRecipient').innerHTML = '<option value="">— Choose —</option>' + userOpts;
     document.getElementById('fSender').innerHTML = '<option value="">— Default (me) —</option>' + userOpts;
     document.getElementById('fDepartment').innerHTML = '<option value="">— None —</option>' +
-      departmentsCache.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+      departmentsCache.map(d => `<option value="${d.id}">${escapeHtml(d.name)}</option>`).join('');
     document.getElementById('fProject').innerHTML = '<option value="">— None —</option>' +
-      projectsCache.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+      projectsCache.map(p => `<option value="${p.id}">${escapeHtml(p.name)}</option>`).join('');
     document.getElementById('fDocType').innerHTML = '<option value="">— None —</option>' +
-      docTypesCache.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
+      docTypesCache.map(t => `<option value="${t.id}">${escapeHtml(t.name)}</option>`).join('');
   }
 
   async function loadSitesForProject(preselectSiteId) {
@@ -200,7 +204,7 @@
       const res = await fetch(API_BASE + '/projects/' + projectId + '/sites', { headers: { 'Authorization': 'Bearer ' + token } });
       const sites = await res.json();
       siteSelect.innerHTML = '<option value="">— None —</option>' +
-        sites.map(s => `<option value="${s.id}" ${preselectSiteId == s.id ? 'selected' : ''}>${s.site_name}</option>`).join('');
+        sites.map(s => `<option value="${s.id}" ${preselectSiteId == s.id ? 'selected' : ''}>${escapeHtml(s.site_name)}</option>`).join('');
     } catch (e) { siteSelect.innerHTML = '<option value="">— None —</option>'; }
   }
 
@@ -217,15 +221,15 @@
       }
       tbody.innerHTML = folders.map(f => `
         <tr>
-          <td><strong>${f.name}</strong></td>
-          <td style="font-size:0.78rem;color:var(--text-muted);">${f.watch_path}<br>${f.glob_pattern || '*'}</td>
-          <td>${f.recipient_name || '—'}</td>
+          <td><strong>${escapeHtml(f.name)}</strong></td>
+          <td style="font-size:0.78rem;color:var(--text-muted);">${escapeHtml(f.watch_path)}<br>${escapeHtml(f.glob_pattern || '*')}</td>
+          <td>${escapeHtml(f.recipient_name || '—')}</td>
           <td><span class="status-badge ${f.is_active ? 'active' : 'inactive'}">${f.is_active ? 'Active' : 'Inactive'}</span></td>
           <td style="font-size:0.78rem;color:var(--text-muted);">${f.last_scanned_at ? new Date(f.last_scanned_at).toLocaleString() : 'Never'}</td>
           <td>
-            <button class="btn-scan" onclick="scanNow(${f.id}, '${f.name.replace(/'/g, "\\'")}')">Scan Now</button>
+            <button class="btn-scan" onclick="scanNow(${f.id}, ${escapeHtml(JSON.stringify(f.name))})">Scan Now</button>
             <button class="btn-edit" onclick="openEditModal(${f.id})">Edit</button>
-            <button class="btn-delete" onclick="deleteFolder(${f.id}, '${f.name.replace(/'/g, "\\'")}')">Delete</button>
+            <button class="btn-delete" onclick="deleteFolder(${f.id}, ${escapeHtml(JSON.stringify(f.name))})">Delete</button>
           </td>
         </tr>
       `).join('');

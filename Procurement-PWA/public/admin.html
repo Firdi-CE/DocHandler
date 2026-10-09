@@ -84,6 +84,10 @@
 </div>
 
 <script>
+  // Escape untrusted text before it goes into innerHTML or an attribute value.
+  function escapeHtml(str) {
+    return String(str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
   function toggleSidebarGroup(submenuId, toggleBtn) {
     const submenu = document.getElementById(submenuId);
     const isOpen = submenu.classList.toggle('open');
@@ -168,8 +172,8 @@
     list.innerHTML = requests.map(req => `
       <li class="item-card">
         <div class="item-info">
-          <div class="name">${req.display_name}</div>
-          <div class="email">${req.email}</div>
+          <div class="name">${escapeHtml(req.display_name)}</div>
+          <div class="email">${escapeHtml(req.email)}</div>
         </div>
         <div class="item-actions">
           <select id="role-${req.id}">
@@ -179,7 +183,7 @@
             <option value="Executive">Executive</option>
           </select>
           <select id="dept-${req.id}">
-            ${departments.map(d => `<option value="${d.id}">${d.name}</option>`).join('')}
+            ${departments.map(d => `<option value="${d.id}">${escapeHtml(d.name)}</option>`).join('')}
           </select>
           <button class="btn-approve" onclick="approveRequest(${req.id})">Approve</button>
           <button class="btn-deny" onclick="denyRequest(${req.id})">Deny</button>
@@ -197,8 +201,8 @@
     list.innerHTML = users.map(user => `
       <li class="item-card">
         <div class="item-info">
-          <div class="name">${user.display_name} (${user.role})</div>
-          <div class="email">${user.email} - ${user.department_name || 'No Dept'}</div>
+          <div class="name">${escapeHtml(user.display_name)} (${escapeHtml(user.role)})</div>
+          <div class="email">${escapeHtml(user.email)} - ${escapeHtml(user.department_name || 'No Dept')}</div>
         </div>
         <div class="item-actions">
           <select id="role-user-${user.id}">
@@ -209,7 +213,7 @@
             <option value="Executive" ${user.role === 'Executive' ? 'selected' : ''}>Executive</option>
           </select>
           <select id="dept-user-${user.id}">
-            ${departments.map(d => `<option value="${d.id}" ${user.department_id === d.id ? 'selected' : ''}>${d.name}</option>`).join('')}
+            ${departments.map(d => `<option value="${d.id}" ${user.department_id === d.id ? 'selected' : ''}>${escapeHtml(d.name)}</option>`).join('')}
           </select>
           <button class="btn-update" onclick="updateUser(${user.id})">Update</button>
         </div>

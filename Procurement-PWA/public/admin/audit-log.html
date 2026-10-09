@@ -143,7 +143,7 @@
             <td style="white-space:nowrap;color:var(--text-muted);">${formatTimestamp(e.created_at)}</td>
             <td>${escapeHtml(e.user_name || e.user_email || 'Unknown')}</td>
             <td><span class="action-pill">${escapeHtml(e.action_type)}</span></td>
-            <td>${e.document_filename ? escapeHtml(e.document_filename) : (e.entity_id ? '#' + e.entity_id : '—')}</td>
+            <td>${e.document_filename ? escapeHtml(e.document_filename) : (e.entity_id ? '#' + escapeHtml(e.entity_id) : '—')}</td>
           </tr>
         `).join('');
       }

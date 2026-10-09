@@ -164,6 +164,10 @@
 </div>
 
 <script>
+  // Escape untrusted text before it goes into innerHTML or an attribute value.
+  function escapeHtml(str) {
+    return String(str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
   const API_BASE = '';
   const token = localStorage.getItem('token');
   if (!token) window.location.href = '/login.html?reason=expired';
@@ -218,7 +222,7 @@
     try {
       const res = await fetch(API_BASE + '/departments', { headers: { 'Authorization': 'Bearer ' + token } });
       departmentsCache = await res.json();
-      const opts = departmentsCache.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+      const opts = departmentsCache.map(d => `<option value="${d.id}">${escapeHtml(d.name)}</option>`).join('');
       document.getElementById('propDepartment').innerHTML = '<option value="">No department (global)</option>' + opts;
       document.getElementById('editDepartment').innerHTML = '<option value="">No department (global)</option>' + opts;
     } catch (e) { /* non-fatal, department dropdown just stays empty */ }
@@ -243,15 +247,15 @@
       }
       tbody.innerHTML = props.map(p => `
         <tr>
-          <td><strong>${p.name}</strong>${p.description ? '<br><span style="color:var(--text-muted);font-size:0.8rem;">' + p.description + '</span>' : ''}</td>
-          <td><code>${p.key}</code></td>
-          <td><span class="type-badge">${typeLabel(p.type)}</span>${p.type === 'select' ? ' <span style="color:var(--text-muted);font-size:0.8rem;">(' + p.option_count + ' option' + (p.option_count === 1 ? '' : 's') + ')</span>' : ''}</td>
-          <td>${p.department_name || '—'}</td>
+          <td><strong>${escapeHtml(p.name)}</strong>${p.description ? '<br><span style="color:var(--text-muted);font-size:0.8rem;">' + escapeHtml(p.description) + '</span>' : ''}</td>
+          <td><code>${escapeHtml(p.key)}</code></td>
+          <td><span class="type-badge">${escapeHtml(typeLabel(p.type))}</span>${p.type === 'select' ? ' <span style="color:var(--text-muted);font-size:0.8rem;">(' + p.option_count + ' option' + (p.option_count === 1 ? '' : 's') + ')</span>' : ''}</td>
+          <td>${escapeHtml(p.department_name || '—')}</td>
           <td><span class="status-badge ${p.is_active ? 'active' : 'inactive'}">${p.is_active ? 'Active' : 'Inactive'}</span></td>
           <td>
-            ${p.type === 'select' ? `<button class="btn-options" onclick="openOptionsModal(${p.id}, '${p.name.replace(/'/g, "\\'")}')">Options</button>` : ''}
+            ${p.type === 'select' ? `<button class="btn-options" onclick="openOptionsModal(${p.id}, ${escapeHtml(JSON.stringify(p.name))})">Options</button>` : ''}
             <button class="btn-edit" onclick="openEditModal(${p.id})">Edit</button>
-            <button class="btn-delete" onclick="deleteProperty(${p.id}, '${p.name.replace(/'/g, "\\'")}')">Delete</button>
+            <button class="btn-delete" onclick="deleteProperty(${p.id}, ${escapeHtml(JSON.stringify(p.name))})">Delete</button>
           </td>
         </tr>
       `).join('');
@@ -373,7 +377,7 @@
     value = value || '';
     return `
       <div class="option-row">
-        <input type="text" class="option-value" value="${value.replace(/"/g, '&quot;')}" placeholder="Option value">
+        <input type="text" class="option-value" value="${escapeHtml(value)}" placeholder="Option value">
         <button class="btn-remove-option" onclick="this.closest('.option-row').remove()" title="Remove option">&times;</button>
       </div>`;
   }
