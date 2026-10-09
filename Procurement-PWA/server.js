@@ -2080,6 +2080,13 @@ app.delete('/admin/vendors/:id', ensureAuthenticated, ensureAdmin, async (req, r
         if (result.rows.length === 0) return res.status(404).json({ error: 'Vendor not found.' });
         res.json({ message: 'Vendor deleted successfully.' });
     } catch (err) {
+        // 23503 = foreign_key_violation. Since migration 019, po_headers.vendor_id
+        // is ON DELETE RESTRICT, so this is what fires when the vendor has PO
+        // history -- surface a message that tells the admin what to do instead,
+        // rather than Postgres's raw constraint-name text.
+        if (err.code === '23503') {
+            return res.status(409).json({ error: 'This vendor has existing purchase orders on file and can\'t be deleted. Deactivate it instead (Edit → Status → Inactive) to keep that history intact.' });
+        }
         res.status(500).json({ error: err.message });
     }
 });
