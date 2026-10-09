@@ -69,8 +69,8 @@
         <div class="filter-bar" style="margin-bottom:0.75rem;">
           <input type="text" id="searchInput" placeholder="Search documents (filenames, content, notes)..."
                  style="flex:2;min-width:240px;" onkeydown="if(event.key==='Enter'){event.preventDefault();performSearch();}">
-          <button onclick="performSearch()">Search</button>
-          <button id="clearSearchBtn" onclick="clearSearch()" style="display:none;">Back to Inbox/Sent</button>
+          <button class="btn-search" onclick="performSearch()">Search</button>
+          <button id="clearSearchBtn" class="btn-clear-filters" onclick="clearSearch()" style="display:none;">Back to Inbox/Sent</button>
         </div>
 
         <div class="filter-bar" id="filterBar">
@@ -95,7 +95,7 @@
 
         <!-- Req 3: sticky-header data table -->
         <div class="table-container">
-          <div class="table-scroll">
+          <div class="table-scroll hide-on-phone">
             <table class="data-grid" id="docTable">
               <thead id="docTableHead">
                 <tr>
@@ -112,6 +112,9 @@
               </tbody>
             </table>
           </div>
+
+          <!-- Phones: the same rows as stacked cards (table is hidden <768px) -->
+          <ul class="doc-list" id="docCardList"><li class="empty-state"><p>Loading...</p></li></ul>
 
           <!-- Req 4: pagination footer -->
           <div class="pagination-bar">
@@ -1239,8 +1242,7 @@
       renderAll();
       renderPagination();
     } catch (e) {
-      document.getElementById('docTableBody').innerHTML =
-        '<tr><td colspan="6" class="empty-state"><p>Failed to load.</p></td></tr>';
+      showListMessage('Failed to load.');
     }
   }
 
@@ -1259,8 +1261,7 @@
       if (res.status === 401) { window.location.href = '/login.html?reason=expired'; return; }
       const data = await res.json();
       if (!res.ok) {
-        document.getElementById('docTableBody').innerHTML =
-          `<tr><td colspan="6" class="empty-state"><p>${escapeHtml(data.message || 'Search failed.')}</p></td></tr>`;
+        showListMessage(data.message || 'Search failed.');
         return;
       }
       allDocs = data.documents || [];
@@ -1270,8 +1271,7 @@
       renderAll();
       renderPagination();
     } catch (e) {
-      document.getElementById('docTableBody').innerHTML =
-        '<tr><td colspan="6" class="empty-state"><p>Search failed.</p></td></tr>';
+      showListMessage('Search failed.');
     }
   }
 
@@ -1298,26 +1298,6 @@
     document.getElementById('pageTitle').textContent = currentTab === 'inbox' ? 'My Inbox' : 'Sent';
     document.getElementById('thFromTo').textContent = currentTab === 'inbox' ? 'Sender' : 'Recipient';
     loadDocs();
-  }
-
-  // Search results show both sender and recipient (unlike Inbox/Sent,
-  // which are direction-specific) since search spans everything visible
-  // to the user regardless of direction, plus a matched-text snippet
-  // (ts_headline from the backend) so the user can see *why* a result
-  // matched, not just that it did.
-  function renderSearchRow(d) {
-    const ext = d.filename.includes('.') ? '.' + d.filename.split('.').pop() : '';
-    const baseName = d.filename.replace(ext, '');
-    const fromTo = `<div style="font-size:0.8rem;">From: ${escapeHtml(d.sender_name || d.sender_email || '—')}</div><div style="font-size:0.8rem;">To: ${escapeHtml(d.recipient_name || d.recipient_email || '—')}</div>`;
-    const snippet = d.snippet ? `<div style="font-size:0.78rem;color:var(--text-muted);margin-top:4px;font-style:italic;">…${d.snippet}…</div>` : '';
-    return `<tr>
-      <td><strong style="font-size:0.8rem;word-break:break-all;">${d.is_urgent ? '🔴 ' : ''}${d.filename}</strong>${renderTagChips(d.tags)}${snippet}</td>
-      <td style="font-size:0.8rem;">${d.project_name || '—'}</td>
-      <td>${fromTo}</td>
-      <td style="font-size:0.75rem;color:var(--text-muted);">${formatTimestamp(d.created_at)}</td>
-      <td>${getStatusBadge(d.status)}</td>
-      <td>${buildActionButtons(d, baseName)}</td>
-    </tr>`;
   }
 
   // Req 4: pagination controls — rows-per-page, prev/next, and the summary text
@@ -1610,17 +1590,33 @@
     return `<span class="ts" title="${fullLabel}">${display}</span>`;
   }
 
+  // Loading / empty / error text, shown in both the desktop table and the
+  // phone card list so neither is left showing stale rows.
+  function showListMessage(text) {
+    document.getElementById('docTableBody').innerHTML =
+      `<tr><td colspan="6" class="empty-state"><p>${escapeHtml(text)}</p></td></tr>`;
+    document.getElementById('docCardList').innerHTML =
+      `<li class="empty-state"><p>${escapeHtml(text)}</p></li>`;
+  }
+
+  // Filenames are escaped, and a zero-width break opportunity is added after
+  // "_" and "-" so long names wrap between words instead of mid-word
+  // (the extension stays attached to the last word).
+  function formatFilename(name) {
+    return escapeHtml(name).replace(/([_-])/g, '$1<wbr>');
+  }
+
   function renderAll() {
-    if (searchMode) {
-      const tbody = document.getElementById('docTableBody');
-      if (allDocs.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" class="empty-state"><p>No documents match "${escapeHtml(searchQuery)}".</p></td></tr>`;
-        return;
-      }
-      tbody.innerHTML = allDocs.map(renderSearchRow).join('');
+    if (searchMode && allDocs.length === 0) {
+      showListMessage(`No documents match "${searchQuery}".`);
+      return;
+    }
+    if (!searchMode && allDocs.length === 0) {
+      showListMessage('No documents found.');
       return;
     }
     renderTable(allDocs);
+    renderCards(allDocs);
   }
 
   // Small colored chips under the filename, from the `tags` array the
@@ -1633,28 +1629,62 @@
     ).join('') + '</div>';
   }
 
-  function renderTable(docs) {
-    const tbody = document.getElementById('docTableBody');
-    if (docs.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6" class="empty-state"><p>No documents found.</p></td></tr>';
-      return;
-    }
-    tbody.innerHTML = docs.map(d => {
-      const ext = d.filename.includes('.') ? '.' + d.filename.split('.').pop() : '';
-      const baseName = d.filename.replace(ext, '');
-      const actionBtns = buildActionButtons(d, baseName);
+  // Everything a row/card needs, computed once so the desktop table and the
+  // phone cards can never drift apart.
+  function buildRowParts(d) {
+    const ext = d.filename.includes('.') ? '.' + d.filename.split('.').pop() : '';
+    const baseName = d.filename.replace(ext, '');
+    const st = (d.status || '').toLowerCase();
+    const rejectNote = st === 'rejected' && d.notes ? escapeHtml(d.notes) : '';
+    // Search results span both directions, so show From + To; Inbox/Sent show one person.
+    let person;
+    if (searchMode) {
+      person = `<div>From: ${escapeHtml(d.sender_name || d.sender_email || '—')}</div><div>To: ${escapeHtml(d.recipient_name || d.recipient_email || '—')}</div>`;
+    } else {
       // Req 4: outbox shows recipient instead of sender
-      const personCol = currentTab === 'inbox'
+      person = escapeHtml(currentTab === 'inbox'
         ? (d.sender_name || d.sender_email || '—')
-        : (d.recipient_name || d.recipient_email || '—');
+        : (d.recipient_name || d.recipient_email || '—'));
+    }
+    return {
+      name: `${d.is_urgent ? '🔴 ' : ''}${formatFilename(d.filename)}`,
+      tags: renderTagChips(d.tags),
+      snippet: searchMode && d.snippet ? `<div style="font-size:0.78rem;color:var(--text-muted);margin-top:4px;font-style:italic;">…${d.snippet}…</div>` : '',
+      project: escapeHtml(d.project_name || '—'),
+      person,
+      date: formatTimestamp(d.created_at),
+      badge: getStatusBadge(d.status),
+      rejectNote,
+      actions: buildActionButtons(d, baseName)
+    };
+  }
+
+  function renderTable(docs) {
+    document.getElementById('docTableBody').innerHTML = docs.map(d => {
+      const r = buildRowParts(d);
       return `<tr>
-        <td><strong style="font-size:0.8rem;word-break:break-all;">${d.is_urgent ? '🔴 ' : ''}${d.filename}</strong>${renderTagChips(d.tags)}</td>
-        <td style="font-size:0.8rem;">${d.project_name || '—'}</td>
-        <td style="font-size:0.8rem;">${personCol}</td>
-        <td style="font-size:0.75rem;color:var(--text-muted);">${formatTimestamp(d.created_at)}</td>
-        <td>${getStatusBadge(d.status)}${(d.status || '').toLowerCase() === 'rejected' && d.notes ? `<div style="font-size:0.72rem;color:var(--text-muted);margin-top:3px;font-style:italic;max-width:180px;">"${escapeHtml(d.notes)}"</div>` : ''}</td>
-        <td>${actionBtns}</td>
+        <td><div class="doc-name">${r.name}</div>${r.tags}${r.snippet}</td>
+        <td style="font-size:0.8rem;">${r.project}</td>
+        <td style="font-size:0.8rem;">${r.person}</td>
+        <td style="font-size:0.75rem;color:var(--text-muted);">${r.date}</td>
+        <td>${r.badge}${r.rejectNote ? `<div style="font-size:0.72rem;color:var(--text-muted);margin-top:3px;font-style:italic;max-width:180px;">"${r.rejectNote}"</div>` : ''}</td>
+        <td><div class="row-actions">${r.actions}</div></td>
       </tr>`;
+    }).join('');
+  }
+
+  // Phones (<768px): same rows as stacked cards, reusing .doc-card styles.
+  function renderCards(docs) {
+    document.getElementById('docCardList').innerHTML = docs.map(d => {
+      const r = buildRowParts(d);
+      return `<li class="doc-card">
+        <div class="doc-title">${r.name}</div>
+        ${r.tags ? `<div class="doc-tags">${r.tags}</div>` : ''}
+        <div class="doc-meta">${r.project}<br>${r.person}<br>${r.date}</div>
+        <div class="doc-status">${r.badge}${r.rejectNote ? `<div class="doc-note">"${r.rejectNote}"</div>` : ''}</div>
+        ${r.snippet}
+        <div class="doc-actions">${r.actions}</div>
+      </li>`;
     }).join('');
   }
 
