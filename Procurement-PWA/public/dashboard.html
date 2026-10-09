@@ -598,6 +598,24 @@
     return String(str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   }
 
+  // Document names are looked up by id when a button is clicked, instead of
+  // being written into onclick="..." attributes. A filename containing a
+  // quote or backslash used to break out of the attribute and run as script.
+  const docNames = new Map(); // id -> { filename, baseName }
+  function rememberDoc(id, filename, baseName) {
+    const name = String(filename);
+    docNames.set(Number(id), { filename: name, baseName: baseName === undefined ? name : String(baseName) });
+  }
+  function docFilename(id) { return (docNames.get(Number(id)) || {}).filename || ''; }
+  function docBaseName(id) { return (docNames.get(Number(id)) || {}).baseName || ''; }
+
+  // The server's ts_headline() snippet is raw document text with <b>...</b>
+  // around the matched words. Escape all of it, then allow back only those
+  // two tags, so text inside an uploaded PDF can't inject markup.
+  function renderSnippet(text) {
+    return escapeHtml(text).replace(/&lt;b&gt;/g, '<b>').replace(/&lt;\/b&gt;/g, '</b>');
+  }
+
   async function searchDriveFiles() {
     const listEl = document.getElementById('driveFileList');
     const q = document.getElementById('driveSearchInput').value.trim();
@@ -1389,31 +1407,35 @@
   }
 
   function buildActionButtons(d, baseName) {
+    // Only the numeric id goes into the markup; names are resolved by id at
+    // click time (see rememberDoc above).
+    const id = Number(d.id);
+    rememberDoc(id, d.filename, baseName);
+
     // Req 4: Download button added alongside View
-    let btns = `<button class="btn btn-view" onclick="viewDocument(${d.id}, '${d.filename.replace(/'/g, "\\'")}')">View</button>`;
-    btns += ` <button class="btn btn-rename" style="background:var(--steel);color:white;" onclick="downloadDocument(${d.id})">Download</button>`;
-    btns += ` <button class="btn btn-rename" onclick="openCustomPropsModal(${d.id}, '${d.filename.replace(/'/g, "\\'")}')">Properties</button>`;
-    btns += ` <button class="btn btn-rename" onclick="openTagsModal(${d.id}, '${d.filename.replace(/'/g, "\\'")}')">Tags</button>`;
-    btns += ` <button class="btn btn-rename" onclick="openShareLinksModal(${d.id}, '${d.filename.replace(/'/g, "\\'")}')">Share</button>`;
+    let btns = `<button class="btn btn-view" onclick="viewDocument(${id}, docFilename(${id}))">View</button>`;
+    btns += ` <button class="btn btn-rename" style="background:var(--steel);color:white;" onclick="downloadDocument(${id})">Download</button>`;
+    btns += ` <button class="btn btn-rename" onclick="openCustomPropsModal(${id}, docFilename(${id}))">Properties</button>`;
+    btns += ` <button class="btn btn-rename" onclick="openTagsModal(${id}, docFilename(${id}))">Tags</button>`;
+    btns += ` <button class="btn btn-rename" onclick="openShareLinksModal(${id}, docFilename(${id}))">Share</button>`;
 
     if (canRename() && currentTab === 'inbox') {
-      btns += ` <button class="btn btn-rename" onclick="openRename(${d.id},'${baseName.replace(/'/g, "\\'")}')">Rename</button>`;
+      btns += ` <button class="btn btn-rename" onclick="openRename(${id}, docBaseName(${id}))">Rename</button>`;
     }
 
     const hasChain = (d.chain_total_levels || 0) > 0;
-    const safeName = d.filename.replace(/'/g, "\\'");
 
     // Document versioning: version_number > 1 on a row means older
     // versions exist (list views only ever show the latest version of a
     // chain — see LATEST_VERSION_ONLY_CLAUSE server-side).
     if (d.version_number > 1) {
-      btns += ` <button class="btn btn-rename" onclick="openVersionsModal(${d.id}, '${safeName}')">Versions (v${d.version_number})</button>`;
+      btns += ` <button class="btn btn-rename" onclick="openVersionsModal(${id}, docFilename(${id}))">Versions (v${Number(d.version_number)})</button>`;
     }
     // Resubmit: only the original sender, only once it's actually rejected,
     // only from the Sent view (it's "your document to correct").
     const stForResubmit = (d.status || 'pending').toLowerCase();
     if (currentTab === 'sent' && stForResubmit === 'rejected' && currentUser && d.sender_id === currentUser.id) {
-      btns += ` <button class="btn btn-rename" style="background:#3B6D11;color:white;" onclick="startResubmit(${d.id})">Resubmit</button>`;
+      btns += ` <button class="btn btn-rename" style="background:#3B6D11;color:white;" onclick="startResubmit(${id})">Resubmit</button>`;
     }
 
     // Anyone who can set a chain (sender in outbox, Executive/Admin anywhere)
@@ -1421,10 +1443,10 @@
     const st = (d.status || 'pending').toLowerCase();
     const canManageChain = isApprover() || (currentTab === 'sent' && currentUser && d.sender_id === currentUser.id);
     if (canManageChain && st !== 'approved') {
-      btns += ` <button class="btn btn-rename" onclick="openChainModal(${d.id}, '${safeName}')">${hasChain ? 'Edit Chain' : 'Set Chain'}</button>`;
+      btns += ` <button class="btn btn-rename" onclick="openChainModal(${id}, docFilename(${id}))">${hasChain ? 'Edit Chain' : 'Set Chain'}</button>`;
     }
     if (hasChain) {
-      btns += ` <button class="btn btn-rename" onclick="openChainHistoryModal(${d.id}, '${safeName}')">Progress</button>`;
+      btns += ` <button class="btn btn-rename" onclick="openChainHistoryModal(${id}, docFilename(${id}))">Progress</button>`;
     }
 
     if (hasChain) {
@@ -1432,10 +1454,10 @@
       // and there's no single "Undo" once a chain is running (rejections
       // already bounce back to the previous level automatically).
       if (st === 'pending' && currentUser && d.chain_next_approver_id === currentUser.id) {
-        btns += ` <button class="btn btn-approve" onclick="openApprovalModal(${d.id}, '${safeName}', 'approved')">Approve (Lvl ${d.current_level})</button>`;
-        btns += ` <button class="btn btn-reject" onclick="openApprovalModal(${d.id}, '${safeName}', 'rejected')">Reject (Lvl ${d.current_level})</button>`;
+        btns += ` <button class="btn btn-approve" onclick="openApprovalModal(${id}, docFilename(${id}), 'approved')">Approve (Lvl ${Number(d.current_level)})</button>`;
+        btns += ` <button class="btn btn-reject" onclick="openApprovalModal(${id}, docFilename(${id}), 'rejected')">Reject (Lvl ${Number(d.current_level)})</button>`;
       } else if (st === 'pending') {
-        btns += ` <span class="badge badge-pending" title="Level ${d.current_level} of ${d.chain_total_levels}">Awaiting ${d.chain_next_approver_name || '—'}</span>`;
+        btns += ` <span class="badge badge-pending" title="Level ${Number(d.current_level)} of ${Number(d.chain_total_levels)}">Awaiting ${escapeHtml(d.chain_next_approver_name || '—')}</span>`;
       }
       return btns;
     }
@@ -1443,11 +1465,11 @@
     // Req 2+7: single-step approval (legacy path, no chain defined)
     if (isApprover() && currentTab === 'inbox') {
       if (st !== 'approved')
-        btns += ` <button class="btn btn-approve" onclick="openApprovalModal(${d.id}, '${safeName}', 'approved')">Approve</button>`;
+        btns += ` <button class="btn btn-approve" onclick="openApprovalModal(${id}, docFilename(${id}), 'approved')">Approve</button>`;
       if (st !== 'rejected')
-        btns += ` <button class="btn btn-reject" onclick="openApprovalModal(${d.id}, '${safeName}', 'rejected')">Reject</button>`;
+        btns += ` <button class="btn btn-reject" onclick="openApprovalModal(${id}, docFilename(${id}), 'rejected')">Reject</button>`;
       if (st !== 'pending')
-        btns += ` <button class="btn btn-undo" onclick="openApprovalModal(${d.id}, '${safeName}', 'pending')">Undo</button>`;
+        btns += ` <button class="btn btn-undo" onclick="openApprovalModal(${id}, docFilename(${id}), 'pending')">Undo</button>`;
     }
     return btns;
   }
@@ -1542,7 +1564,7 @@
         listEl.innerHTML = '<p style="color:var(--text-muted);font-size:0.85rem;text-align:center;padding:1rem;">No version history.</p>';
         return;
       }
-      listEl.innerHTML = versions.map(v => `
+      listEl.innerHTML = versions.map(v => { rememberDoc(v.id, v.filename); return `
         <div style="padding:10px;border-bottom:1px solid var(--border);">
           <div style="display:flex;justify-content:space-between;align-items:center;">
             <strong style="font-size:0.85rem;">v${v.version_number} — ${escapeHtml(v.filename)}</strong>
@@ -1553,11 +1575,11 @@
           </div>
           ${v.notes ? `<div style="font-size:0.8rem;margin-top:4px;font-style:italic;">"${escapeHtml(v.notes)}"</div>` : ''}
           <div style="margin-top:6px;">
-            <button class="btn btn-view" onclick="viewDocument(${v.id}, '${String(v.filename).replace(/'/g, "\\'")}')">View</button>
-            <button class="btn btn-rename" style="background:var(--steel);color:white;" onclick="downloadDocument(${v.id})">Download</button>
+            <button class="btn btn-view" onclick="viewDocument(${Number(v.id)}, docFilename(${Number(v.id)}))">View</button>
+            <button class="btn btn-rename" style="background:var(--steel);color:white;" onclick="downloadDocument(${Number(v.id)})">Download</button>
           </div>
         </div>
-      `).join('');
+      `; }).join('');
     } catch (e) {
       listEl.innerHTML = '<p style="color:var(--text-muted);font-size:0.85rem;text-align:center;padding:1rem;">Failed to load version history.</p>';
     }
@@ -1649,7 +1671,7 @@
     return {
       name: `${d.is_urgent ? '🔴 ' : ''}${formatFilename(d.filename)}`,
       tags: renderTagChips(d.tags),
-      snippet: searchMode && d.snippet ? `<div style="font-size:0.78rem;color:var(--text-muted);margin-top:4px;font-style:italic;">…${d.snippet}…</div>` : '',
+      snippet: searchMode && d.snippet ? `<div style="font-size:0.78rem;color:var(--text-muted);margin-top:4px;font-style:italic;">…${renderSnippet(d.snippet)}…</div>` : '',
       project: escapeHtml(d.project_name || '—'),
       person,
       date: formatTimestamp(d.created_at),
@@ -1789,17 +1811,20 @@
     const chosenIds = new Set(chainOrder.map(a => a.id));
     const remaining = (approversCache || []).filter(a => !chosenIds.has(a.id));
     list.innerHTML = remaining.length
-      ? remaining.map(a => `<div style="padding:4px;cursor:pointer;" onclick="addToChain(${a.id}, '${(a.display_name || a.email).replace(/'/g, "\\'")}')">➕ ${a.display_name || a.email} <span style="color:#888;font-size:0.75em;">(${a.role})</span></div>`).join('')
+      ? remaining.map(a => `<div style="padding:4px;cursor:pointer;" onclick="addToChain(${Number(a.id)})">➕ ${escapeHtml(a.display_name || a.email)} <span style="color:#888;font-size:0.75em;">(${escapeHtml(a.role)})</span></div>`).join('')
       : '<div style="color:#888;padding:4px;">No more eligible approvers</div>';
   }
   function renderChainOrdered() {
     const ol = document.getElementById('chainOrderedList');
     ol.innerHTML = chainOrder.length
-      ? chainOrder.map((a, i) => `<li>${a.display_name} <button onclick="removeFromChain(${i})" style="border:none;background:none;color:#A32D2D;cursor:pointer;">✕</button></li>`).join('')
+      ? chainOrder.map((a, i) => `<li>${escapeHtml(a.display_name)} <button onclick="removeFromChain(${i})" style="border:none;background:none;color:#A32D2D;cursor:pointer;">✕</button></li>`).join('')
       : '<li style="color:#888;list-style:none;margin-left:-1.2rem;">No approvers selected yet</li>';
   }
-  function addToChain(id, displayName) {
-    chainOrder.push({ id, display_name: displayName });
+  function addToChain(id) {
+    // Resolve the name from the approver list rather than from the markup.
+    const approver = (approversCache || []).find(a => Number(a.id) === Number(id));
+    if (!approver) return;
+    chainOrder.push({ id: approver.id, display_name: approver.display_name || approver.email });
     renderChainAvailable();
     renderChainOrdered();
   }
@@ -1835,11 +1860,11 @@
       if (!res.ok) { document.getElementById('chainHistoryBody').textContent = data.message || 'Failed to load.'; return; }
       const stepRows = data.steps.map(s => {
         const icon = s.status === 'approved' ? '✅' : s.status === 'rejected' ? '❌' : s.status === 'pending' ? '🕓' : '⏳';
-        return `<div style="padding:4px 0;border-bottom:1px solid #f0f0f0;">${icon} <strong>Level ${s.level}:</strong> ${s.approver_name} — ${s.status}${s.decided_at ? ' · ' + new Date(s.decided_at).toLocaleString() : ''}${s.comments ? `<br><span style="color:#666;font-size:0.85em;">"${s.comments}"</span>` : ''}</div>`;
+        return `<div style="padding:4px 0;border-bottom:1px solid #f0f0f0;">${icon} <strong>Level ${Number(s.level)}:</strong> ${escapeHtml(s.approver_name)} — ${escapeHtml(s.status)}${s.decided_at ? ' · ' + new Date(s.decided_at).toLocaleString() : ''}${s.comments ? `<br><span style="color:#666;font-size:0.85em;">"${escapeHtml(s.comments)}"</span>` : ''}</div>`;
       }).join('');
       const historyRows = data.history.length
         ? '<h4 style="margin-top:10px;">Full History</h4>' + data.history.map(h =>
-            `<div style="padding:3px 0;font-size:0.8em;color:#666;">L${h.level} — ${h.approver_name} ${h.action} on ${new Date(h.created_at).toLocaleString()}</div>`
+            `<div style="padding:3px 0;font-size:0.8em;color:#666;">L${Number(h.level)} — ${escapeHtml(h.approver_name)} ${escapeHtml(h.action)} on ${new Date(h.created_at).toLocaleString()}</div>`
           ).join('')
         : '';
       document.getElementById('chainHistoryBody').innerHTML = (stepRows || 'No chain steps.') + historyRows;
