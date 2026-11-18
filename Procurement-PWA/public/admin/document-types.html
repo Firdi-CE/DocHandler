@@ -31,6 +31,7 @@
     .chain-row { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem; }
     .chain-row .level-label { width: 60px; font-weight: 600; color: var(--text-muted); font-size: 0.85rem; }
     .chain-row select, .chain-row input { flex: 1; }
+    .chain-row input.chain-join-box { flex: 0 0 auto; }
     .chain-row .btn-remove-step { background: none; border: none; color: #A32D2D; cursor: pointer; font-weight: 700; font-size: 1.1rem; padding: 0 6px; }
     .btn-add-step { background: var(--bg-muted); border: 1px solid var(--border-strong); border-radius: 6px; padding: 6px 14px; cursor: pointer; font-weight: 600; font-size: 0.85rem; margin-bottom: 1rem; }
   </style>
@@ -125,14 +126,16 @@
 
 <!-- Default Approval Chain Modal -->
 <div class="modal-overlay" id="chainModal">
-  <div class="modal" style="max-width:600px;">
+  <div class="modal" style="max-width:720px;">
     <h3 id="chainModalTitle">Default Approval Chain</h3>
     <p style="margin-bottom:1rem;color:var(--text-muted);font-size:0.85rem;">
-      Each level is either a fixed role (resolved to whoever holds it at chain-creation time) or a specific person.
+      Each row is either a fixed role (resolved to whoever holds it at chain-creation time) or a specific person.
+      Tick "parallel with above" to put a row on the same level as the one above it: everyone on a level
+      approves at the same time, in any order, and one rejection sends the document back to the sender.
       This chain is copied onto new uploads of this type — editing it here does not change chains already in flight.
     </p>
     <div id="chainSteps"></div>
-    <button class="btn-add-step" onclick="addChainStep()">+ Add Level</button>
+    <button class="btn-add-step" onclick="addChainStep()">+ Add Approver</button>
     <div class="btn-group">
       <button class="btn-save" onclick="saveChain()">Save Chain</button>
       <button class="btn-cancel" onclick="closeChainModal()">Close</button>
@@ -334,7 +337,10 @@
 
   // --- Default Approval Chain ---
 
-  function chainStepHtml(level, step) {
+  // `level` is the row's gate number; `joinsPrevious` marks a row that sits on the
+  // same level as the row above it (a parallel gate -- every approver on a level
+  // must approve, in any order). Level numbers are recomputed by renumberChain().
+  function chainStepHtml(level, step, joinsPrevious) {
     step = step || {};
     const isUser = !!step.approver_user_id;
     const roleOpts = APPROVER_ROLES.map(r => `<option value="${r}" ${!isUser && step.approver_role === r ? 'selected' : ''}>${r}</option>`).join('');
@@ -348,8 +354,25 @@
         </select>
         <select class="chain-role" style="${isUser ? 'display:none;' : ''}">${roleOpts}</select>
         <select class="chain-user" style="${isUser ? '' : 'display:none;'}">${userOpts}</select>
-        <button class="btn-remove-step" onclick="this.closest('.chain-row').remove()" title="Remove level">&times;</button>
+        <label class="chain-join" title="Approves at the same time as the row above; both must approve, in any order" style="font-size:0.8rem;color:var(--text-muted);white-space:nowrap;">
+          <input type="checkbox" class="chain-join-box" onchange="renumberChain()" ${joinsPrevious ? 'checked' : ''}> parallel with above
+        </label>
+        <button class="btn-remove-step" onclick="this.closest('.chain-row').remove(); renumberChain();" title="Remove approver">&times;</button>
       </div>`;
+  }
+
+  // Recompute each row's level from the "parallel with above" boxes: a ticked
+  // row shares the previous row's level, an unticked row starts a new level.
+  // The first row can never be parallel (nothing above it).
+  function renumberChain() {
+    let level = 0;
+    document.querySelectorAll('#chainSteps .chain-row').forEach((row, i) => {
+      const box = row.querySelector('.chain-join-box');
+      if (i === 0) { box.checked = false; box.disabled = true; } else { box.disabled = false; }
+      if (!box.checked) level++;
+      row.dataset.level = level;
+      row.querySelector('.level-label').textContent = 'Level ' + level;
+    });
   }
 
   function toggleChainKind(select) {
@@ -361,8 +384,8 @@
 
   function addChainStep() {
     const container = document.getElementById('chainSteps');
-    const nextLevel = container.children.length + 1;
-    container.insertAdjacentHTML('beforeend', chainStepHtml(nextLevel, null));
+    container.insertAdjacentHTML('beforeend', chainStepHtml(0, null, false));
+    renumberChain();
   }
 
   async function openChainModal(typeId, typeName) {
@@ -381,7 +404,11 @@
       if (steps.length === 0) {
         addChainStep();
       } else {
-        steps.forEach((s, i) => container.insertAdjacentHTML('beforeend', chainStepHtml(i + 1, s)));
+        // Rows come back ordered by level; a row whose level equals the previous
+        // row's level is part of a parallel gate.
+        steps.forEach((s, i) => container.insertAdjacentHTML('beforeend',
+          chainStepHtml(s.level, s, i > 0 && steps[i - 1].level === s.level)));
+        renumberChain();
       }
     } catch (e) {
       container.innerHTML = '<p style="color:var(--red-text);">Failed to load chain.</p>';
@@ -395,9 +422,9 @@
 
   async function saveChain() {
     const rows = [...document.getElementById('chainSteps').querySelectorAll('.chain-row')];
-    const steps = rows.map((row, i) => {
+    const steps = rows.map((row) => {
       const kind = row.querySelector('.chain-kind').value;
-      const step = { level: i + 1 };
+      const step = { level: parseInt(row.dataset.level) };
       if (kind === 'user') {
         step.approver_user_id = parseInt(row.querySelector('.chain-user').value);
       } else {

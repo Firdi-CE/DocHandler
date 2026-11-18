@@ -571,25 +571,43 @@ async function autoCreateApprovalChainForDocumentType({ documentId, documentType
             [documentTypeId]
         );
 
-        let sequentialLevel = 0;
+        // Group the default rows by level: a level with several rows is a
+        // parallel gate (migration 020). Levels come back in ascending order.
+        const rowsByLevel = new Map();
         for (const step of defaultsRes.rows) {
-            let approverId = step.approver_user_id;
-            if (!approverId && step.approver_role) {
-                const roleRes = await db.query(
-                    `SELECT id FROM users WHERE department_id = $1 AND role = $2 AND is_approved = true ORDER BY id LIMIT 1`,
-                    [typeDeptId, step.approver_role]
-                );
-                approverId = roleRes.rows[0]?.id || null;
+            if (!rowsByLevel.has(step.level)) rowsByLevel.set(step.level, []);
+            rowsByLevel.get(step.level).push(step);
+        }
+
+        let sequentialLevel = 0;
+        for (const [defaultLevel, levelRows] of rowsByLevel) {
+            const approverIds = [];
+            for (const step of levelRows) {
+                let approverId = step.approver_user_id;
+                if (!approverId && step.approver_role) {
+                    const roleRes = await db.query(
+                        `SELECT id FROM users WHERE department_id = $1 AND role = $2 AND is_approved = true ORDER BY id LIMIT 1`,
+                        [typeDeptId, step.approver_role]
+                    );
+                    approverId = roleRes.rows[0]?.id || null;
+                }
+                if (!approverId) {
+                    console.warn(`Default chain level ${defaultLevel} for document ${documentId}: no user resolves for role "${step.approver_role}" in department ${typeDeptId}${levelRows.length > 1 ? ' -- this parallel gate will run with fewer approvers than configured' : ''}.`);
+                    continue;
+                }
+                if (!approverIds.includes(approverId)) approverIds.push(approverId);
             }
-            if (!approverId) {
-                console.warn(`Skipping default chain level ${step.level} for document ${documentId}: no user resolves for role "${step.approver_role}" in department ${typeDeptId}.`);
+            if (approverIds.length === 0) {
+                console.warn(`Skipping default chain level ${defaultLevel} for document ${documentId}: nobody resolved.`);
                 continue;
             }
             sequentialLevel++;
-            await db.query(
-                `INSERT INTO approval_chain_steps (document_id, level, approver_id, status) VALUES ($1, $2, $3, $4)`,
-                [documentId, sequentialLevel, approverId, sequentialLevel === 1 ? 'pending' : 'waiting']
-            );
+            for (const approverId of approverIds) {
+                await db.query(
+                    `INSERT INTO approval_chain_steps (document_id, level, approver_id, status) VALUES ($1, $2, $3, $4)`,
+                    [documentId, sequentialLevel, approverId, sequentialLevel === 1 ? 'pending' : 'waiting']
+                );
+            }
         }
 
         if (sequentialLevel > 0) {
@@ -696,11 +714,12 @@ app.get('/documents/my-outbox', ensureAuthenticated, async (req, res) => {
             SELECT d.*, p.name as project_name,
                    recipient.email as recipient_email, recipient.display_name as recipient_name,
                    dept.name as department_name,
-                   (SELECT COUNT(*)::int FROM approval_chain_steps s WHERE s.document_id = d.id) as chain_total_levels,
-                   (SELECT u2.display_name FROM approval_chain_steps s2 JOIN users u2 ON u2.id = s2.approver_id
-                      WHERE s2.document_id = d.id AND s2.level = d.current_level) as chain_next_approver_name,
-                   (SELECT s3.approver_id FROM approval_chain_steps s3
-                      WHERE s3.document_id = d.id AND s3.level = d.current_level) as chain_next_approver_id,
+                   (SELECT COUNT(DISTINCT s.level)::int FROM approval_chain_steps s WHERE s.document_id = d.id) as chain_total_levels,
+                   (SELECT string_agg(COALESCE(u2.display_name, u2.email), ', ' ORDER BY u2.display_name)
+                      FROM approval_chain_steps s2 JOIN users u2 ON u2.id = s2.approver_id
+                      WHERE s2.document_id = d.id AND s2.level = d.current_level AND s2.status = 'pending') as chain_next_approver_name,
+                   ARRAY(SELECT s3.approver_id FROM approval_chain_steps s3
+                      WHERE s3.document_id = d.id AND s3.level = d.current_level AND s3.status = 'pending') as chain_pending_approver_ids,
                    (SELECT COALESCE(json_agg(json_build_object('id', t.id, 'name', t.name, 'color', t.color) ORDER BY t.name), '[]')
                       FROM document_tags dt JOIN tags t ON t.id = dt.tag_id WHERE dt.document_id = d.id) as tags
             FROM documents d
@@ -1395,11 +1414,12 @@ app.get('/documents/my-inbox', ensureAuthenticated, async (req, res) => {
         const dataQuery = `
             SELECT d.*, p.name as project_name, u_sender.email as sender_email,
                    u_sender.display_name as sender_name, dept.name as department_name,
-                   (SELECT COUNT(*)::int FROM approval_chain_steps s WHERE s.document_id = d.id) as chain_total_levels,
-                   (SELECT u2.display_name FROM approval_chain_steps s2 JOIN users u2 ON u2.id = s2.approver_id
-                      WHERE s2.document_id = d.id AND s2.level = d.current_level) as chain_next_approver_name,
-                   (SELECT s3.approver_id FROM approval_chain_steps s3
-                      WHERE s3.document_id = d.id AND s3.level = d.current_level) as chain_next_approver_id,
+                   (SELECT COUNT(DISTINCT s.level)::int FROM approval_chain_steps s WHERE s.document_id = d.id) as chain_total_levels,
+                   (SELECT string_agg(COALESCE(u2.display_name, u2.email), ', ' ORDER BY u2.display_name)
+                      FROM approval_chain_steps s2 JOIN users u2 ON u2.id = s2.approver_id
+                      WHERE s2.document_id = d.id AND s2.level = d.current_level AND s2.status = 'pending') as chain_next_approver_name,
+                   ARRAY(SELECT s3.approver_id FROM approval_chain_steps s3
+                      WHERE s3.document_id = d.id AND s3.level = d.current_level AND s3.status = 'pending') as chain_pending_approver_ids,
                    (SELECT COALESCE(json_agg(json_build_object('id', t.id, 'name', t.name, 'color', t.color) ORDER BY t.name), '[]')
                       FROM document_tags dt JOIN tags t ON t.id = dt.tag_id WHERE dt.document_id = d.id) as tags
             FROM documents d
@@ -1653,7 +1673,7 @@ app.get('/admin/document-types', ensureAuthenticated, ensureAdmin, async (req, r
         const result = await db.query(`
             SELECT dt.id, dt.name, dt.department_id, dt.description, dt.is_active, dt.created_at,
                    d.name AS department_name,
-                   COUNT(dta.id)::int AS default_approver_count
+                   COUNT(DISTINCT dta.level)::int AS default_approver_count
             FROM document_types dt
             LEFT JOIN departments d ON dt.department_id = d.id
             LEFT JOIN document_type_default_approvers dta ON dta.document_type_id = dt.id
@@ -1766,12 +1786,22 @@ app.put('/admin/document-types/:id/default-approvers', ensureAuthenticated, ensu
     const { steps } = req.body;
     if (!Array.isArray(steps)) return res.status(400).json({ error: 'steps must be an array.' });
 
+    // Several steps may share a level -- that is a parallel gate (migration 020).
+    const seenMembers = new Set();
     for (const step of steps) {
         const hasRole = !!step.approver_role;
         const hasUser = !!step.approver_user_id;
         if (hasRole === hasUser) {
             return res.status(400).json({ error: 'Each step needs exactly one of approver_role or approver_user_id.' });
         }
+        if (!Number.isInteger(step.level) || step.level < 1) {
+            return res.status(400).json({ error: 'Each step needs a positive integer level.' });
+        }
+        const memberKey = `${step.level}|${step.approver_user_id || ''}|${step.approver_role || ''}`;
+        if (seenMembers.has(memberKey)) {
+            return res.status(400).json({ error: 'The same approver is listed twice on one level.' });
+        }
+        seenMembers.add(memberKey);
     }
 
     try {
@@ -3529,8 +3559,19 @@ app.post('/documents/:id/approval-chain', ensureAuthenticated, async (req, res) 
     const { approver_ids } = req.body;
     try {
         if (!Array.isArray(approver_ids) || approver_ids.length === 0) {
-            return res.status(400).json({ message: 'approver_ids must be a non-empty ordered array of user ids.' });
+            return res.status(400).json({ message: 'approver_ids must be a non-empty ordered array. Each element is a user id, or an array of user ids for a parallel gate.' });
         }
+
+        // Normalize to levels: [[id], [idA, idB], ...]. A plain id is a
+        // single-approver level (unchanged behavior); an array is a parallel gate.
+        const levels = approver_ids.map(entry => {
+            const ids = Array.isArray(entry) ? entry : [entry];
+            return [...new Set(ids.map(Number))];
+        });
+        if (levels.some(ids => ids.length === 0 || ids.some(n => !Number.isInteger(n) || n <= 0))) {
+            return res.status(400).json({ message: 'Every level needs at least one valid user id.' });
+        }
+        const allIds = [...new Set(levels.flat())];
 
         const docRes = await db.query('SELECT * FROM documents WHERE id = $1', [documentId]);
         if (docRes.rows.length === 0) return res.status(404).json({ message: 'Document not found.' });
@@ -3542,19 +3583,21 @@ app.post('/documents/:id/approval-chain', ensureAuthenticated, async (req, res) 
         if (!canDefine) return res.status(403).json({ message: 'Only the sender, an Executive, or an Admin can set the approval chain.' });
 
         // Confirm every id is a real user before wiping the old chain.
-        const usersRes = await db.query('SELECT id FROM users WHERE id = ANY($1::int[])', [approver_ids]);
-        if (usersRes.rows.length !== approver_ids.length) {
+        const usersRes = await db.query('SELECT id FROM users WHERE id = ANY($1::int[])', [allIds]);
+        if (usersRes.rows.length !== allIds.length) {
             return res.status(400).json({ message: 'One or more approver_ids do not match a real user.' });
         }
 
         await db.query('DELETE FROM approval_chain_steps WHERE document_id = $1', [documentId]);
-        for (let i = 0; i < approver_ids.length; i++) {
+        for (let i = 0; i < levels.length; i++) {
             const level = i + 1;
-            await db.query(
-                `INSERT INTO approval_chain_steps (document_id, level, approver_id, status)
-                 VALUES ($1, $2, $3, $4)`,
-                [documentId, level, approver_ids[i], level === 1 ? 'pending' : 'waiting']
-            );
+            for (const approverId of levels[i]) {
+                await db.query(
+                    `INSERT INTO approval_chain_steps (document_id, level, approver_id, status)
+                     VALUES ($1, $2, $3, $4)`,
+                    [documentId, level, approverId, level === 1 ? 'pending' : 'waiting']
+                );
+            }
         }
         await db.query(
             `UPDATE documents SET current_level = 1, status = 'pending' WHERE id = $1`,
@@ -3562,7 +3605,7 @@ app.post('/documents/:id/approval-chain', ensureAuthenticated, async (req, res) 
         );
         await auditLog(req.user.id, 'APPROVAL_CHAIN_SET', documentId);
 
-        res.status(201).json({ message: `Approval chain set with ${approver_ids.length} level(s).` });
+        res.status(201).json({ message: `Approval chain set with ${levels.length} level(s).` });
     } catch (err) {
         console.error('Approval Chain Set Error:', err);
         res.status(500).json({ message: 'Database error setting approval chain.' });
@@ -3576,7 +3619,7 @@ app.get('/documents/:id/approval-chain', ensureAuthenticated, async (req, res) =
         const steps = await db.query(
             `SELECT s.level, s.status, s.comments, s.decided_at, u.id as approver_id, u.display_name as approver_name
              FROM approval_chain_steps s JOIN users u ON u.id = s.approver_id
-             WHERE s.document_id = $1 ORDER BY s.level ASC`,
+             WHERE s.document_id = $1 ORDER BY s.level ASC, u.display_name ASC`,
             [documentId]
         );
         const history = await db.query(
@@ -3593,9 +3636,16 @@ app.get('/documents/:id/approval-chain', ensureAuthenticated, async (req, res) =
 });
 
 // Act on the CURRENT level of a document's chain (approve or reject).
-// Approve: activates the next level, or finalizes the document if this was the last level.
-// Reject:  level 1 has no prior step, so the document is finalized as rejected;
-//          any later level bounces the document back to the previous level for revision.
+// A level holds one approver (the original behavior) or several (a parallel
+// gate, migration 020). On a gate every approver is pending at once and they
+// can decide in any order.
+// Approve: the level is done once ALL of its approvers have approved; then the
+//          next level is activated, or the document is finalized if this was the last.
+// Reject:  on a single-approver level, level 1 finalizes the document as rejected and any
+//          later level bounces the document back to the previous level for revision.
+//          On a parallel gate, ONE rejection finalizes the document as rejected (back to
+//          the requester, who resubmits a revised version); the gate's other pending
+//          approvers are un-activated.
 app.patch('/documents/:id/approval-step', ensureAuthenticated, async (req, res) => {
     const documentId = req.params.id;
     const { status, notes } = req.body;
@@ -3607,23 +3657,26 @@ app.patch('/documents/:id/approval-step', ensureAuthenticated, async (req, res) 
         if (docRes.rows.length === 0) return res.status(404).json({ message: 'Document not found.' });
         const doc = docRes.rows[0];
 
-        const curStepRes = await db.query(
-            `SELECT * FROM approval_chain_steps WHERE document_id = $1 AND level = $2`,
+        const levelRowsRes = await db.query(
+            `SELECT * FROM approval_chain_steps WHERE document_id = $1 AND level = $2 ORDER BY id`,
             [documentId, doc.current_level]
         );
-        if (curStepRes.rows.length === 0) return res.status(404).json({ message: 'No approval chain is set for this document.' });
-        const curStep = curStepRes.rows[0];
+        if (levelRowsRes.rows.length === 0) return res.status(404).json({ message: 'No approval chain is set for this document.' });
+        const levelRows = levelRowsRes.rows;
+        const isGate = levelRows.length > 1;
 
         const liveRoleRes = await db.query('SELECT role FROM users WHERE id = $1', [req.user.id]);
         const liveRole = liveRoleRes.rows[0]?.role;
         // See ALLOW_ADMIN_APPROVAL_OVERRIDE above — off by default, so only
-        // the exact assigned approver for this level can act.
+        // an assigned approver for this level can act.
         const isAdminOverride = ALLOW_ADMIN_APPROVAL_OVERRIDE && liveRole === 'Admin';
-        if (curStep.approver_id !== req.user.id && !isAdminOverride) {
-            return res.status(403).json({ message: 'You are not the assigned approver for the current level.' });
+        let curStep = levelRows.find(r => r.approver_id === req.user.id);
+        if (!curStep && isAdminOverride) curStep = levelRows.find(r => r.status === 'pending');
+        if (!curStep) {
+            return res.status(403).json({ message: 'You are not an assigned approver for the current level.' });
         }
         if (curStep.status !== 'pending') {
-            return res.status(409).json({ message: 'This level is not currently awaiting a decision.' });
+            return res.status(409).json({ message: 'This level is not currently awaiting your decision.' });
         }
 
         // Append-only history entry, in order, regardless of what happens next.
@@ -3634,38 +3687,61 @@ app.patch('/documents/:id/approval-step', ensureAuthenticated, async (req, res) 
         );
         await auditLog(req.user.id, `APPROVAL_STEP_${status.toUpperCase()}:L${doc.current_level}`, documentId);
 
-        const totalLevelsRes = await db.query(
-            `SELECT COUNT(*)::int as total FROM approval_chain_steps WHERE document_id = $1`,
-            [documentId]
-        );
-        const totalLevels = totalLevelsRes.rows[0].total;
         let newDocStatus = doc.status;
         let newCurrentLevel = doc.current_level;
+        let documentMoves = false;   // does documents.status / current_level change?
+        let waitingOn = 0;           // approvers still to decide on this gate
 
         if (status === 'approved') {
             await db.query(
-                `UPDATE approval_chain_steps SET status = 'approved', comments = $1, decided_at = NOW() WHERE document_id = $2 AND level = $3`,
-                [notes || null, documentId, doc.current_level]
+                `UPDATE approval_chain_steps SET status = 'approved', comments = $1, decided_at = NOW() WHERE id = $2`,
+                [notes || null, curStep.id]
             );
-            if (doc.current_level >= totalLevels) {
-                newDocStatus = 'approved';
-            } else {
-                newCurrentLevel = doc.current_level + 1;
-                await db.query(
-                    `UPDATE approval_chain_steps SET status = 'pending' WHERE document_id = $1 AND level = $2`,
-                    [documentId, newCurrentLevel]
+            // Counted AFTER our own update, so when two approvers decide at the
+            // same moment at least one of them sees the gate as complete.
+            const openRes = await db.query(
+                `SELECT COUNT(*)::int AS open FROM approval_chain_steps
+                 WHERE document_id = $1 AND level = $2 AND status <> 'approved'`,
+                [documentId, doc.current_level]
+            );
+            waitingOn = openRes.rows[0].open;
+            if (waitingOn === 0) {
+                const totalLevelsRes = await db.query(
+                    `SELECT COALESCE(MAX(level), 0)::int AS total FROM approval_chain_steps WHERE document_id = $1`,
+                    [documentId]
                 );
+                documentMoves = true;
+                if (doc.current_level >= totalLevelsRes.rows[0].total) {
+                    newDocStatus = 'approved';
+                } else {
+                    newCurrentLevel = doc.current_level + 1;
+                    await db.query(
+                        `UPDATE approval_chain_steps SET status = 'pending' WHERE document_id = $1 AND level = $2`,
+                        [documentId, newCurrentLevel]
+                    );
+                }
             }
         } else {
             // rejected
             await db.query(
-                `UPDATE approval_chain_steps SET status = 'rejected', comments = $1, decided_at = NOW() WHERE document_id = $2 AND level = $3`,
-                [notes || null, documentId, doc.current_level]
+                `UPDATE approval_chain_steps SET status = 'rejected', comments = $1, decided_at = NOW() WHERE id = $2`,
+                [notes || null, curStep.id]
             );
-            if (doc.current_level <= 1) {
+            documentMoves = true;
+            if (isGate || doc.current_level <= 1) {
                 newDocStatus = 'rejected';
+                if (isGate) {
+                    // Un-activate the rest of the gate so nobody is left "awaiting"
+                    // a document that has already been sent back.
+                    await db.query(
+                        `UPDATE approval_chain_steps SET status = 'waiting', comments = NULL, decided_at = NULL
+                         WHERE document_id = $1 AND level = $2 AND id <> $3 AND status = 'pending'`,
+                        [documentId, doc.current_level, curStep.id]
+                    );
+                }
             } else {
-                // Bounce back: previous level re-opens for revision, current level resets to unreached.
+                // Bounce back: previous level re-opens for revision (every approver on it, if it is
+                // a gate), current level resets to unreached.
                 newCurrentLevel = doc.current_level - 1;
                 await db.query(
                     `UPDATE approval_chain_steps SET status = 'pending', comments = NULL, decided_at = NULL WHERE document_id = $1 AND level = $2`,
@@ -3679,12 +3755,26 @@ app.patch('/documents/:id/approval-step', ensureAuthenticated, async (req, res) 
             }
         }
 
-        const updated = await db.query(
-            `UPDATE documents SET status = $1, current_level = $2, notes = $3 WHERE id = $4 RETURNING *`,
-            [newDocStatus, newCurrentLevel, notes || doc.notes, documentId]
-        );
+        let updatedDoc;
+        if (documentMoves) {
+            // Guarded on current_level so a concurrent decision that already moved the
+            // document can never be overwritten with this request's stale view of it.
+            const upd = await db.query(
+                `UPDATE documents SET status = $1, current_level = $2, notes = $3
+                 WHERE id = $4 AND current_level = $5 RETURNING *`,
+                [newDocStatus, newCurrentLevel, notes || doc.notes, documentId, doc.current_level]
+            );
+            updatedDoc = upd.rows[0];
+        }
+        if (!updatedDoc) {
+            if (notes) await db.query(`UPDATE documents SET notes = $1 WHERE id = $2`, [notes, documentId]);
+            updatedDoc = (await db.query('SELECT * FROM documents WHERE id = $1', [documentId])).rows[0];
+        }
 
-        res.json({ message: `Level ${doc.current_level} ${status}.`, document: updated.rows[0] });
+        const message = (status === 'approved' && waitingOn > 0)
+            ? `Level ${doc.current_level} approval recorded. Waiting on ${waitingOn} more approver${waitingOn === 1 ? '' : 's'} at this level.`
+            : `Level ${doc.current_level} ${status}.`;
+        res.json({ message, document: updatedDoc });
     } catch (err) {
         console.error('Approval Step Error:', err);
         res.status(500).json({ message: 'Database error processing approval step.' });

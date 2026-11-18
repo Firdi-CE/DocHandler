@@ -1450,10 +1450,11 @@
     }
 
     if (hasChain) {
-      // Multi-level: only the assigned approver for the CURRENT level can act,
-      // and there's no single "Undo" once a chain is running (rejections
-      // already bounce back to the previous level automatically).
-      if (st === 'pending' && currentUser && d.chain_next_approver_id === currentUser.id) {
+      // Multi-level: only an approver still pending on the CURRENT level can act
+      // (on a parallel gate several people are pending at once and each sees the
+      // buttons until they have decided), and there's no single "Undo" once a
+      // chain is running (rejections already bounce back automatically).
+      if (st === 'pending' && currentUser && (d.chain_pending_approver_ids || []).includes(currentUser.id)) {
         btns += ` <button class="btn btn-approve" onclick="openApprovalModal(${id}, docFilename(${id}), 'approved')">Approve (Lvl ${Number(d.current_level)})</button>`;
         btns += ` <button class="btn btn-reject" onclick="openApprovalModal(${id}, docFilename(${id}), 'rejected')">Reject (Lvl ${Number(d.current_level)})</button>`;
       } else if (st === 'pending') {
@@ -1860,7 +1861,7 @@
       if (!res.ok) { document.getElementById('chainHistoryBody').textContent = data.message || 'Failed to load.'; return; }
       const stepRows = data.steps.map(s => {
         const icon = s.status === 'approved' ? '✅' : s.status === 'rejected' ? '❌' : s.status === 'pending' ? '🕓' : '⏳';
-        return `<div style="padding:4px 0;border-bottom:1px solid #f0f0f0;">${icon} <strong>Level ${Number(s.level)}:</strong> ${escapeHtml(s.approver_name)} — ${escapeHtml(s.status)}${s.decided_at ? ' · ' + new Date(s.decided_at).toLocaleString() : ''}${s.comments ? `<br><span style="color:#666;font-size:0.85em;">"${escapeHtml(s.comments)}"</span>` : ''}</div>`;
+        return `<div style="padding:4px 0;border-bottom:1px solid #f0f0f0;">${icon} <strong>Level ${Number(s.level)}${data.steps.filter(x => x.level === s.level).length > 1 ? ' (parallel)' : ''}:</strong> ${escapeHtml(s.approver_name)} — ${escapeHtml(s.status)}${s.decided_at ? ' · ' + new Date(s.decided_at).toLocaleString() : ''}${s.comments ? `<br><span style="color:#666;font-size:0.85em;">"${escapeHtml(s.comments)}"</span>` : ''}</div>`;
       }).join('');
       const historyRows = data.history.length
         ? '<h4 style="margin-top:10px;">Full History</h4>' + data.history.map(h =>
