@@ -619,6 +619,62 @@ async function autoCreateApprovalChainForDocumentType({ documentId, documentType
     }
 }
 
+// --- Configurable document numbering (migration 021) ---
+// Renders a numbering pattern like '{PREFIX}-{YYYY}-{seq:04d}' for a given
+// sequence number and date. Placeholders: {PREFIX}, {YYYY}, {YY}, {MM},
+// {seq} (unpadded) or {seq:0Nd} (zero-padded to width N).
+function renderNumberPattern(pattern, { seq, prefix, date }) {
+    const yyyy = String(date.getFullYear());
+    const yy = yyyy.slice(-2);
+    const mm = String(date.getMonth() + 1).padStart(2, '0');
+    return pattern
+        .replace(/\{PREFIX\}/g, () => prefix || '')
+        .replace(/\{YYYY\}/g, yyyy)
+        .replace(/\{YY\}/g, yy)
+        .replace(/\{MM\}/g, mm)
+        .replace(/\{seq(?::0(\d+)d)?\}/g, (match, width) =>
+            width ? String(seq).padStart(parseInt(width, 10), '0') : String(seq));
+}
+
+// Renders and atomically advances the next number for a document type.
+// MUST run inside a transaction the caller has already BEGUN: the row lock
+// (FOR UPDATE) is what stops two concurrent submissions getting the same
+// number, and it only holds until that transaction ends. Pass that
+// transaction's client as `conn` (defaults to the pool). Throws if no
+// pattern is configured (see PUT /admin/document-types/:id/numbering).
+async function getNextDocumentNumber(documentTypeId, conn = db) {
+    const res = await conn.query(
+        'SELECT * FROM document_number_sequences WHERE document_type_id = $1 FOR UPDATE',
+        [documentTypeId]
+    );
+    if (res.rows.length === 0) {
+        throw new Error('No numbering pattern configured for this document type.');
+    }
+    const row = res.rows[0];
+    const now = new Date();
+    const curYear = now.getFullYear();
+    const curMonth = now.getMonth() + 1;
+
+    let seq = row.next_seq;
+    const needsReset =
+        (row.reset_period === 'yearly' && row.last_reset_year !== curYear) ||
+        (row.reset_period === 'monthly' && (row.last_reset_year !== curYear || row.last_reset_month !== curMonth));
+    // First-ever use has last_reset_year NULL: for 'yearly'/'monthly' that
+    // counts as a reset, which is harmless (next_seq starts at 1 anyway)
+    // unless an admin deliberately raised next_seq -- guard against that.
+    if (needsReset && row.last_reset_year !== null) seq = 1;
+
+    const rendered = renderNumberPattern(row.pattern, { seq, prefix: row.prefix, date: now });
+
+    await conn.query(
+        `UPDATE document_number_sequences
+         SET next_seq = $1, last_reset_year = $2, last_reset_month = $3, updated_at = CURRENT_TIMESTAMP
+         WHERE id = $4`,
+        [seq + 1, curYear, curMonth, row.id]
+    );
+    return rendered;
+}
+
 // Urgent bypasses the digest and emails immediately; everything else
 // queues for the next digest run.
 async function notifyRecipientOfNewDocument({ recipientId, isUrgent, filename, documentId, senderDisplayName }) {
@@ -1839,6 +1895,54 @@ app.put('/admin/document-types/:id/default-approvers', ensureAuthenticated, ensu
     }
 });
 
+// Numbering pattern for a document type (migration 021). Any signed-in user
+// may read it; only an admin may change it.
+app.get('/document-types/:id/numbering', ensureAuthenticated, async (req, res) => {
+    try {
+        const result = await db.query('SELECT * FROM document_number_sequences WHERE document_type_id = $1', [req.params.id]);
+        if (result.rows.length === 0) return res.status(404).json({ error: 'No numbering pattern configured for this document type.' });
+        res.json(result.rows[0]);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Upsert a type's numbering pattern. Takes effect on the NEXT number
+// generated; next_seq and numbers already issued are untouched.
+// Body: { pattern, prefix, reset_period }
+app.put('/admin/document-types/:id/numbering', ensureAuthenticated, ensureAdmin, async (req, res) => {
+    const { id } = req.params;
+    const { pattern, prefix, reset_period } = req.body;
+    if (!pattern || !pattern.trim()) return res.status(400).json({ error: 'pattern is required.' });
+    if (pattern.length > 100) return res.status(400).json({ error: 'pattern must be 100 characters or fewer.' });
+    if (!/\{seq(?::0\d+d)?\}/.test(pattern)) {
+        return res.status(400).json({ error: 'pattern must contain {seq} or {seq:0Nd} (e.g. {seq:04d}), otherwise every number would be identical.' });
+    }
+    if (prefix && prefix.length > 20) return res.status(400).json({ error: 'prefix must be 20 characters or fewer.' });
+    if (reset_period && !['never', 'yearly', 'monthly'].includes(reset_period)) {
+        return res.status(400).json({ error: "reset_period must be 'never', 'yearly', or 'monthly'." });
+    }
+    try {
+        const typeCheck = await db.query('SELECT id FROM document_types WHERE id = $1', [id]);
+        if (typeCheck.rows.length === 0) return res.status(404).json({ error: 'Document type not found.' });
+
+        const result = await db.query(
+            `INSERT INTO document_number_sequences (document_type_id, pattern, prefix, reset_period)
+             VALUES ($1, $2, $3, COALESCE($4, 'yearly'))
+             ON CONFLICT (document_type_id) DO UPDATE SET
+                pattern = EXCLUDED.pattern, prefix = EXCLUDED.prefix,
+                reset_period = COALESCE($4, document_number_sequences.reset_period),
+                updated_at = CURRENT_TIMESTAMP
+             RETURNING *`,
+            [id, pattern.trim(), prefix || '', reset_period || null]
+        );
+        await auditLog(req.user.id, 'DOCUMENT_NUMBERING_UPDATE', Number(id));
+        res.json(result.rows[0]);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // --- CUSTOM PROPERTIES ---
 // Item #1 of PAPRA_FEATURE_ROADMAP.md. Schema + admin CRUD only (migration
 // 011) -- same shape/conventions as DOCUMENT TYPES above. Wiring values
@@ -2340,6 +2444,267 @@ app.patch('/documents/:id/rfq-header/invitees/:vendorId', ensureAuthenticated, a
         );
         if (result.rows.length === 0) return res.status(404).json({ error: 'That vendor was not invited to this RFQ.' });
         res.json(result.rows[0]);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// --- REQUISITIONS ---
+// Attachments get their OWN storage rather than reusing `upload`: that one
+// names files "(timestamp to the minute) <name>", so two same-named files
+// uploaded within a minute share a path -- the second overwrites the first,
+// and cleaning up a rejected upload would delete the first one's file.
+// Here every file gets a random name; the original is kept in the DB.
+const requisitionAttachmentUpload = multer({
+    storage: multer.diskStorage({
+        destination: (req, file, cb) => cb(null, uploadDir),
+        filename: (req, file, cb) => {
+            const ext = path.extname(file.originalname).replace(/[^a-zA-Z0-9.]/g, '').slice(0, 10);
+            cb(null, `req-attachment-${crypto.randomUUID()}${ext}`);
+        }
+    }),
+    limits: { files: 10 }
+});
+
+// multer decodes multipart filenames as latin1, which turns UTF-8 names
+// such as "spec ü.pdf" into "spec Ã¼.pdf". Re-decode; keep the raw name if
+// the bytes aren't valid UTF-8 (i.e. it was already decoded correctly).
+function decodeUploadedFilename(name) {
+    const redecoded = Buffer.from(name, 'latin1').toString('utf8');
+    return redecoded.includes('\uFFFD') ? name : redecoded;
+}
+
+// Migration 021. Engineering's requisition-data form -- the entry point of
+// the whiteboard workflow. Unlike PO/RFQ (which attach to an already-
+// uploaded document), a Requisition creates its own `documents` row in one
+// transaction: header + line items + a generated requisition_no. The
+// default approval chain is then wired best-effort, exactly like /upload.
+// No source file is required -- see the migration for why. Supporting
+// attachments are uploaded afterwards via the endpoints below.
+
+// Body: { projectId, siteId, departmentId, recipientId, client, jobNo, costCode,
+//         dSldSpecRef, mtoRef, needByDate, isUrgent,
+//         lineItems: [{ material_description, qty, unit }] }
+app.post('/requisitions', ensureAuthenticated, async (req, res) => {
+    const { projectId, siteId, departmentId, recipientId, client, jobNo, costCode,
+            dSldSpecRef, mtoRef, needByDate, isUrgent, lineItems } = req.body;
+
+    if (!Array.isArray(lineItems) || lineItems.length === 0) {
+        return res.status(400).json({ error: 'At least one line item is required.' });
+    }
+    if (lineItems.length > 200) {
+        return res.status(400).json({ error: 'A requisition can have at most 200 line items.' });
+    }
+    for (const item of lineItems) {
+        if (!item || typeof item.material_description !== 'string' || !item.material_description.trim()) {
+            return res.status(400).json({ error: 'Every line item needs a material_description.' });
+        }
+        const qty = Number(item.qty);
+        if (item.qty === undefined || item.qty === null || item.qty === '' || !Number.isFinite(qty) || qty <= 0) {
+            return res.status(400).json({ error: 'Every line item needs a quantity greater than zero.' });
+        }
+    }
+
+    // Same rule as /upload: Admin/Executive/HSE may file against any project;
+    // everyone else must be assigned to the project they're filing against.
+    if (projectId && !roles.isGlobalRole(req.user.role)) {
+        try {
+            const assignCheck = await db.query(
+                'SELECT 1 FROM project_assignments WHERE user_id = $1 AND project_id = $2',
+                [req.user.id, projectId]
+            );
+            if (assignCheck.rows.length === 0) {
+                return res.status(403).json({ error: 'Unauthorized: You are not assigned to this project.' });
+            }
+        } catch (assignErr) {
+            return res.status(500).json({ error: assignErr.message });
+        }
+    }
+
+    // A dedicated client so BEGIN/COMMIT/ROLLBACK all hit the same
+    // connection (and so a failed ROLLBACK can't mask the real error).
+    const conn_ = await db.connect();
+    let documentId, requisitionNo, requisitionHeaderId, documentTypeId, headerRow;
+    try {
+        await conn_.query('BEGIN');
+
+        const typeRes = await conn_.query(
+            `SELECT id FROM document_types WHERE name = 'Material Requisition' AND is_active = true ORDER BY id LIMIT 1`
+        );
+        if (typeRes.rows.length === 0) {
+            await conn_.query('ROLLBACK');
+            return res.status(500).json({ error: "The 'Material Requisition' document type is missing or inactive. Has migration 021 been applied?" });
+        }
+        documentTypeId = typeRes.rows[0].id;
+
+        requisitionNo = await getNextDocumentNumber(documentTypeId, conn_);
+
+        const docRes = await conn_.query(
+            `INSERT INTO public.documents (filename, sender_id, recipient_id, project_id, site_id, department_id, document_type_id, is_urgent)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+             RETURNING id`,
+            [`Material Requisition ${requisitionNo}`, req.user.id, recipientId || null, projectId || null,
+             siteId || null, departmentId || null, documentTypeId, !!isUrgent]
+        );
+        documentId = docRes.rows[0].id;
+
+        const headerRes = await conn_.query(
+            `INSERT INTO requisition_headers (document_id, requisition_no, requestor_id, project_id, client,
+                job_no, cost_code, d_sld_spec_ref, mto_ref, need_by_date)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+             RETURNING *`,
+            [documentId, requisitionNo, req.user.id, projectId || null, client || null,
+             jobNo || null, costCode || null, dSldSpecRef || null, mtoRef || null, needByDate || null]
+        );
+        headerRow = headerRes.rows[0];
+        requisitionHeaderId = headerRow.id;
+
+        for (let i = 0; i < lineItems.length; i++) {
+            const item = lineItems[i];
+            await conn_.query(
+                `INSERT INTO requisition_line_items (requisition_header_id, line_no, material_description, qty, unit)
+                 VALUES ($1, $2, $3, $4, $5)`,
+                [requisitionHeaderId, i + 1, item.material_description.trim(), Number(item.qty), (item.unit || '').trim() || null]
+            );
+        }
+
+        await conn_.query('COMMIT');
+    } catch (err) {
+        try { await conn_.query('ROLLBACK'); } catch (_) { /* connection already aborted */ }
+        console.error('Requisition Create Error:', err);
+        return res.status(500).json({ error: err.message });
+    } finally {
+        conn_.release();
+    }
+
+    // Post-commit and best-effort, like /upload: neither may fail the submit.
+    try {
+        await auditLog(req.user.id, 'REQUISITION_CREATE', documentId);
+        await autoCreateApprovalChainForDocumentType({ documentId, documentTypeId, uploadedBy: req.user.id });
+        // Urgent -> immediate email; otherwise queued for the next digest.
+        await notifyRecipientOfNewDocument({
+            recipientId: recipientId || null, isUrgent: !!isUrgent,
+            filename: `Material Requisition ${requisitionNo}`, documentId, senderDisplayName: req.user.display_name
+        });
+    } catch (postErr) {
+        console.error(`Post-create steps failed for requisition ${requisitionNo} (it was still created):`, postErr.message);
+    }
+
+    try {
+        const itemsRes = await db.query(
+            'SELECT * FROM requisition_line_items WHERE requisition_header_id = $1 ORDER BY line_no ASC',
+            [requisitionHeaderId]
+        );
+        res.status(201).json({ ...headerRow, document_id: documentId, line_items: itemsRes.rows });
+    } catch (err) {
+        // The requisition exists; only the echo failed.
+        res.status(201).json({ ...headerRow, document_id: documentId, line_items: [] });
+    }
+});
+
+// Requisition header + line items + attachment list, for the document
+// detail view -- same shape as GET /documents/:id/po-header. Gated by the
+// same document-access check as everything else that exposes a document.
+app.get('/documents/:id/requisition-header', ensureAuthenticated, async (req, res) => {
+    const { id } = req.params;
+    try {
+        const docRes = await db.query('SELECT * FROM documents WHERE id = $1', [id]);
+        if (docRes.rows.length === 0) return res.status(404).json({ error: 'Document not found.' });
+        const hasAccess = await checkDocumentAccess(docRes.rows[0], req.user.id, req.user.role, req.user.department_id);
+        if (!hasAccess) return res.status(403).json({ error: 'Access denied to this document.' });
+
+        const headerRes = await db.query('SELECT * FROM requisition_headers WHERE document_id = $1', [id]);
+        if (headerRes.rows.length === 0) return res.status(404).json({ error: 'No requisition header for this document.' });
+        const requisitionHeaderId = headerRes.rows[0].id;
+
+        const itemsRes = await db.query(
+            'SELECT * FROM requisition_line_items WHERE requisition_header_id = $1 ORDER BY line_no ASC',
+            [requisitionHeaderId]
+        );
+        const attachmentsRes = await db.query(
+            'SELECT id, filename, created_at FROM requisition_attachments WHERE requisition_header_id = $1 ORDER BY created_at ASC',
+            [requisitionHeaderId]
+        );
+        res.json({ ...headerRes.rows[0], line_items: itemsRes.rows, attachments: attachmentsRes.rows });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Add supporting attachments to an existing requisition (several files at
+// once, via the dedicated storage above). Only the requestor (or
+// a global-role user) may add files, so a visible requisition can't be
+// padded by anyone who merely has read access.
+app.post('/documents/:id/requisition-attachments', ensureAuthenticated, (req, res) => {
+    requisitionAttachmentUpload.array('attachments', 10)(req, res, async (err) => {
+        const discard = () => { for (const f of (req.files || [])) fs.unlink(f.path, () => {}); };
+        if (err) {
+            discard();
+            if (err.name === 'MulterError') return res.status(400).json({ error: `Upload rejected: ${err.message}` });
+            console.error('Requisition attachment upload error:', err);
+            return res.status(500).json({ error: 'Upload failed due to a server error.' });
+        }
+        if (!req.files || req.files.length === 0) {
+            return res.status(400).json({ error: 'At least one file is required.' });
+        }
+
+        const { id } = req.params;
+        try {
+            const headerRes = await db.query('SELECT id, requestor_id FROM requisition_headers WHERE document_id = $1', [id]);
+            if (headerRes.rows.length === 0) {
+                discard();
+                return res.status(404).json({ error: 'Requisition not found for this document.' });
+            }
+            const header = headerRes.rows[0];
+            if (header.requestor_id !== req.user.id && !roles.isGlobalRole(req.user.role)) {
+                discard();
+                return res.status(403).json({ error: 'Only the requestor can add attachments to this requisition.' });
+            }
+
+            const inserted = [];
+            for (const file of req.files) {
+                const result = await db.query(
+                    `INSERT INTO requisition_attachments (requisition_header_id, filename, stored_name, uploaded_by)
+                     VALUES ($1, $2, $3, $4) RETURNING id, filename, created_at`,
+                    [header.id, decodeUploadedFilename(file.originalname), file.filename, req.user.id]
+                );
+                inserted.push(result.rows[0]);
+            }
+            await auditLog(req.user.id, 'REQUISITION_ATTACHMENT_ADD', Number(id));
+            res.status(201).json(inserted);
+        } catch (dbErr) {
+            discard();
+            console.error('Requisition Attachment Save Error:', dbErr);
+            res.status(500).json({ error: dbErr.message });
+        }
+    });
+});
+
+// Stream one requisition attachment, gated by the same access check as
+// the parent document.
+app.get('/documents/:id/requisition-attachments/:attachmentId/download', ensureAuthenticated, async (req, res) => {
+    const { id, attachmentId } = req.params;
+    try {
+        const docRes = await db.query('SELECT * FROM documents WHERE id = $1', [id]);
+        if (docRes.rows.length === 0) return res.status(404).json({ error: 'Document not found.' });
+        const hasAccess = await checkDocumentAccess(docRes.rows[0], req.user.id, req.user.role, req.user.department_id);
+        if (!hasAccess) return res.status(403).json({ error: 'Access denied to this document.' });
+
+        const attRes = await db.query(
+            `SELECT ra.* FROM requisition_attachments ra
+             JOIN requisition_headers rh ON rh.id = ra.requisition_header_id
+             WHERE ra.id = $1 AND rh.document_id = $2`,
+            [attachmentId, id]
+        );
+        if (attRes.rows.length === 0) return res.status(404).json({ error: 'Attachment not found.' });
+        const attachment = attRes.rows[0];
+
+        const diskPath = path.join(uploadDir, path.basename(attachment.stored_name));
+        if (!fs.existsSync(diskPath)) {
+            return res.status(404).json({ error: 'Physical file missing from server.' });
+        }
+        res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(attachment.filename)}`);
+        fs.createReadStream(diskPath).pipe(res);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

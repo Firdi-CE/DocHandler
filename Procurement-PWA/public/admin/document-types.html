@@ -24,6 +24,10 @@
     .btn-delete:hover { background: #872424; }
     .btn-chain { background: var(--steel); color: white; border: none; border-radius: 6px; padding: 4px 12px; cursor: pointer; font-weight: 600; font-size: 0.8rem; }
     .btn-chain:hover { background: var(--steel-hover); }
+    .btn-numbering { background: var(--slate); color: white; border: none; border-radius: 6px; padding: 4px 12px; cursor: pointer; font-weight: 600; font-size: 0.8rem; }
+    .btn-numbering:hover { filter: brightness(1.15); }
+    .numbering-preview { background: var(--bg-muted); border: 1px solid var(--border-strong); border-radius: 8px; padding: 8px 12px; margin: 0.4rem 0 0.8rem; font-family: monospace; }
+    .numbering-help { color: var(--text-muted); font-size: 0.8rem; margin-bottom: 0.8rem; }
     .modal .btn-save { background: var(--steel); color: white; }
     .status-badge { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 0.75rem; font-weight: 700; }
     .status-badge.active { background: var(--green-bg); color: var(--green-text); }
@@ -47,6 +51,7 @@
     <nav class="sidebar-nav">
       <a class="sidebar-link" href="/dashboard.html">Documents</a>
       <a class="sidebar-link" href="/dashboard.html?view=upload">Upload</a>
+      <a class="sidebar-link" href="/requisition-new.html">New Requisition</a>
       <a class="sidebar-link" href="/profile.html">Profile</a>
 
       <div id="adminNavGroup">
@@ -143,6 +148,34 @@
   </div>
 </div>
 
+<!-- Document Numbering Modal -->
+<div class="modal-overlay" id="numberingModal">
+  <div class="modal" style="max-width:560px;">
+    <h3 id="numberingModalTitle">Document Numbering</h3>
+    <p class="numbering-help">
+      Placeholders: <code>{PREFIX}</code> <code>{YYYY}</code> <code>{YY}</code> <code>{MM}</code>
+      <code>{seq}</code> or zero-padded <code>{seq:04d}</code> (the pattern must contain a sequence).
+      A change applies to the next number issued; numbers already issued are not touched.
+    </p>
+    <label for="numberingPattern">Pattern:</label>
+    <input type="text" id="numberingPattern" maxlength="100" oninput="updateNumberingPreview()" placeholder="{PREFIX}-{YYYY}-{seq:04d}">
+    <label for="numberingPrefix">Prefix (used by {PREFIX}):</label>
+    <input type="text" id="numberingPrefix" maxlength="20" oninput="updateNumberingPreview()" placeholder="REQ">
+    <label for="numberingReset">Restart the sequence at 1:</label>
+    <select id="numberingReset">
+      <option value="yearly">Every year</option>
+      <option value="monthly">Every month</option>
+      <option value="never">Never</option>
+    </select>
+    <div class="numbering-help" style="margin-top:0.8rem;">Next number will look like:</div>
+    <div class="numbering-preview" id="numberingPreview">—</div>
+    <div class="btn-group">
+      <button class="btn-save" onclick="saveNumbering()">Save</button>
+      <button class="btn-cancel" onclick="closeNumberingModal()">Close</button>
+    </div>
+  </div>
+</div>
+
 <script>
   // Escape untrusted text before it goes into innerHTML or an attribute value.
   function escapeHtml(str) {
@@ -228,6 +261,7 @@
           <td>${t.default_approver_count} level${t.default_approver_count === 1 ? '' : 's'}</td>
           <td>
             <button class="btn-chain" onclick="openChainModal(${t.id}, ${escapeHtml(JSON.stringify(t.name))})">Chain</button>
+            <button class="btn-numbering" onclick="openNumberingModal(${t.id}, ${escapeHtml(JSON.stringify(t.name))})">Numbering</button>
             <button class="btn-edit" onclick="openEditModal(${t.id})">Edit</button>
             <button class="btn-delete" onclick="deleteType(${t.id}, ${escapeHtml(JSON.stringify(t.name))})">Delete</button>
           </td>
@@ -449,6 +483,85 @@
       }
     } catch (e) {
       showStatus('Network error while saving chain.', 'error');
+    }
+  }
+
+  // --- Document numbering (migration 021) ---
+  let currentNumberingTypeId = null;
+  let currentNextSeq = 1;
+
+  // Mirrors renderNumberPattern() in server.js; used only for the live preview.
+  function renderNumberPreview(pattern, prefix, seq) {
+    const now = new Date();
+    const yyyy = String(now.getFullYear());
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    return pattern
+      .replace(/\{PREFIX\}/g, () => prefix)
+      .replace(/\{YYYY\}/g, yyyy)
+      .replace(/\{YY\}/g, yyyy.slice(-2))
+      .replace(/\{MM\}/g, mm)
+      .replace(/\{seq(?::0(\d+)d)?\}/g, (m, w) => w ? String(seq).padStart(parseInt(w, 10), '0') : String(seq));
+  }
+
+  function updateNumberingPreview() {
+    const pattern = document.getElementById('numberingPattern').value;
+    const prefix = document.getElementById('numberingPrefix').value;
+    document.getElementById('numberingPreview').textContent =
+      pattern.trim() ? renderNumberPreview(pattern, prefix, currentNextSeq) : '—';
+  }
+
+  async function openNumberingModal(typeId, typeName) {
+    currentNumberingTypeId = typeId;
+    currentNextSeq = 1;
+    document.getElementById('numberingModalTitle').textContent = 'Document Numbering — ' + typeName;
+    document.getElementById('numberingPattern').value = '{PREFIX}-{YYYY}-{seq:04d}';
+    document.getElementById('numberingPrefix').value = '';
+    document.getElementById('numberingReset').value = 'yearly';
+    document.getElementById('numberingModal').classList.add('open');
+    try {
+      const res = await fetch(API_BASE + '/document-types/' + typeId + '/numbering', {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      if (res.ok) {
+        const row = await res.json();
+        currentNextSeq = row.next_seq;
+        document.getElementById('numberingPattern').value = row.pattern;
+        document.getElementById('numberingPrefix').value = row.prefix || '';
+        document.getElementById('numberingReset').value = row.reset_period;
+      }
+      // 404 just means no pattern yet: the defaults above are what Save will create.
+    } catch (e) {
+      showStatus('Could not load the current numbering pattern.', 'error');
+    }
+    updateNumberingPreview();
+  }
+
+  function closeNumberingModal() {
+    document.getElementById('numberingModal').classList.remove('open');
+    currentNumberingTypeId = null;
+  }
+
+  async function saveNumbering() {
+    const body = {
+      pattern: document.getElementById('numberingPattern').value.trim(),
+      prefix: document.getElementById('numberingPrefix').value.trim(),
+      reset_period: document.getElementById('numberingReset').value
+    };
+    try {
+      const res = await fetch(API_BASE + '/admin/document-types/' + currentNumberingTypeId + '/numbering', {
+        method: 'PUT',
+        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showStatus('Numbering pattern saved.', 'success');
+        closeNumberingModal();
+      } else {
+        showStatus(data.error || 'Failed to save numbering pattern.', 'error');
+      }
+    } catch (e) {
+      showStatus('Network error while saving numbering pattern.', 'error');
     }
   }
 

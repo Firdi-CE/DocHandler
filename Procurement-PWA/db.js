@@ -10,4 +10,8 @@ const pool = new Pool({
 
 module.exports = {
   query: (text, params) => pool.query(text, params),
+  // Dedicated connection for real transactions: BEGIN/COMMIT only mean
+  // anything when every statement runs on the SAME client. Callers must
+  // release() it in a finally block.
+  connect: () => pool.connect(),
 };

@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>New Requisition — DocHandler</title>
+  <link rel="stylesheet" href="/theme.css">
+  <style>
+    body { padding: 2rem; }
+    .card { max-width: 800px; margin: auto; }
+    /* theme.css only styles text-like inputs; match number and date to them */
+    input[type="number"], input[type="date"] { padding: 7px 10px; border: 1px solid var(--border-strong); border-radius: var(--radius); font-size: 0.85rem; font-family: inherit; color: var(--text-primary); background: var(--bg-surface); }
+    .field { margin-bottom: 1rem; }
+    .field label { display: block; font-weight: 600; margin-bottom: 4px; font-size: 0.9rem; }
+    .field input, .field select { width: 100%; }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 1rem; }
+    .form-grid .span-2 { grid-column: span 2; }
+    @media (max-width: 640px) { .form-grid { grid-template-columns: 1fr; } .form-grid .span-2 { grid-column: span 1; } }
+    h3.section { margin: 1.5rem 0 0.8rem; font-size: 1rem; color: var(--navy); }
+    table.line-items { width: 100%; border-collapse: collapse; margin-bottom: 0.8rem; }
+    table.line-items th { text-align: left; padding: 0.5rem; border-bottom: 1px solid var(--border); font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted); }
+    table.line-items td { padding: 0.4rem 0.5rem; border-bottom: 1px solid var(--border); }
+    table.line-items input { width: 100%; }
+    table.line-items td.qty-col { width: 110px; }
+    table.line-items td.unit-col { width: 110px; }
+    table.line-items td.remove-col { width: 36px; text-align: center; }
+    .btn-remove-row { background: none; border: none; color: var(--red-text); cursor: pointer; font-weight: 700; font-size: 1.1rem; }
+    .btn-add-row { background: var(--bg-muted); border: 1px solid var(--border-strong); border-radius: 6px; padding: 6px 14px; cursor: pointer; font-weight: 600; font-size: 0.85rem; margin-bottom: 1rem; }
+    .attachment-chip { display: inline-flex; align-items: center; gap: 6px; background: var(--bg-muted); border: 1px solid var(--border-strong); border-radius: 999px; padding: 4px 10px; font-size: 0.82rem; margin: 0 6px 6px 0; }
+    .attachment-chip button { background: none; border: none; color: var(--red-text); cursor: pointer; font-weight: 700; }
+    .req-no-banner { background: var(--bg-muted); border: 1px solid var(--border-strong); border-radius: 8px; padding: 10px 12px; margin-bottom: 1.1rem; font-size: 0.85rem; color: var(--text-secondary); }
+    #submitBtn { width: 100%; background: var(--steel); color: #fff; border: none; border-radius: 8px; padding: 10px 12px; font-weight: 700; cursor: pointer; }
+    #submitBtn:disabled { opacity: 0.6; cursor: default; }
+    .status-msg { padding: 0.75rem; border-radius: 8px; margin-bottom: 1rem; display: none; }
+    .status-msg.success { display: block; background: var(--green-bg); border: 1px solid var(--green-border); color: var(--green-text); }
+    .status-msg.error { display: block; background: var(--red-bg); border: 1px solid var(--red-border); color: var(--red-text); }
+  </style>
+</head>
+<body class="full-bleed">
+
+<div class="app-shell">
+  <aside class="app-sidebar">
+    <div class="sidebar-logo">
+      <img src="/assets/logo.png" alt="Pilar Energi">
+      <span>DocHandler</span>
+    </div>
+    <nav class="sidebar-nav">
+      <a class="sidebar-link" href="/dashboard.html">Documents</a>
+      <a class="sidebar-link" href="/dashboard.html?view=upload">Upload</a>
+      <a class="sidebar-link active" href="/requisition-new.html">New Requisition</a>
+      <a class="sidebar-link" href="/profile.html">Profile</a>
+      <a class="sidebar-link" href="/my-projects.html">My Projects</a>
+    </nav>
+  </aside>
+
+  <div class="app-main">
+    <div class="app-header">
+      <h2 style="color:var(--navy);font-size:1.1rem;">New Requisition</h2>
+      <div class="header-user">
+        <button onclick="logout()">Sign out</button>
+      </div>
+    </div>
+
+    <div class="app-content">
+      <div class="card">
+        <div id="statusMessage" class="status-msg"></div>
+        <div class="req-no-banner">The Requisition No. is generated automatically when you submit.</div>
+
+        <form id="requisitionForm" novalidate>
+          <h3 class="section" style="margin-top:0;">Header</h3>
+          <div class="form-grid">
+            <div class="field">
+              <label for="reqProject">Project:</label>
+              <select id="reqProject" onchange="loadSites()"><option value="">-- Loading Projects... --</option></select>
+            </div>
+            <div class="field">
+              <label for="reqSite">Site (optional):</label>
+              <select id="reqSite"><option value="">-- No site --</option></select>
+            </div>
+            <div class="field">
+              <label for="reqClient">Client:</label>
+              <input type="text" id="reqClient" maxlength="255" placeholder="Client name">
+            </div>
+            <div class="field">
+              <label for="reqJobNo">Job No.:</label>
+              <input type="text" id="reqJobNo" maxlength="100" placeholder="Job number">
+            </div>
+            <div class="field">
+              <label for="reqCostCode">Cost Code:</label>
+              <input type="text" id="reqCostCode" maxlength="100" placeholder="Cost code">
+            </div>
+            <div class="field">
+              <label for="reqNeedByDate">Need-by Date:</label>
+              <input type="date" id="reqNeedByDate">
+            </div>
+            <div class="field">
+              <label for="reqDSldRef">D/SLD Spec Ref:</label>
+              <input type="text" id="reqDSldRef" maxlength="255" placeholder="Design / Single Line Diagram reference">
+            </div>
+            <div class="field">
+              <label for="reqMtoRef">MTO Ref:</label>
+              <input type="text" id="reqMtoRef" maxlength="255" placeholder="Material Take Off reference">
+            </div>
+            <div class="field">
+              <label for="reqDepartment">Send to Department:</label>
+              <select id="reqDepartment" onchange="loadRecipients()"><option value="">-- Choose Dept --</option></select>
+            </div>
+            <div class="field">
+              <label for="reqRecipient">Send To (PIC):</label>
+              <select id="reqRecipient"><option value="">-- Choose Dept first --</option></select>
+            </div>
+            <div class="field span-2">
+              <label><input type="checkbox" id="reqUrgent" style="width:auto;margin-right:6px;">Mark as urgent (emails the recipient immediately)</label>
+            </div>
+          </div>
+
+          <h3 class="section">Line Items</h3>
+          <table class="line-items">
+            <thead>
+              <tr><th>Material Description</th><th>Qty</th><th>Unit</th><th></th></tr>
+            </thead>
+            <tbody id="lineItemsBody"></tbody>
+          </table>
+          <button type="button" class="btn-add-row" onclick="addLineItemRow()">+ Add Line Item</button>
+
+          <h3 class="section">Attachments (optional)</h3>
+          <div id="attachmentList"></div>
+          <input type="file" id="attachmentFileInput" multiple style="margin-bottom:0.4rem;">
+          <p style="color:var(--text-muted);font-size:0.8rem;margin-bottom:1rem;">Spec sheets, drawings or other supporting files (up to 10). They are uploaded right after the requisition is created.</p>
+
+          <div class="status-msg error" id="submitError"></div>
+          <button type="submit" id="submitBtn">Submit Requisition</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Escape untrusted text before it goes into innerHTML or an attribute value.
+  function escapeHtml(str) {
+    return String(str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+  const API_BASE = '';
+  const MAX_ATTACHMENTS = 10;
+  const token = localStorage.getItem('token');
+  if (!token) window.location.href = '/login.html?reason=expired';
+
+  function authHeaders(extra) { return Object.assign({ 'Authorization': 'Bearer ' + token }, extra || {}); }
+
+  function showStatus(msg, type) {
+    const el = document.getElementById('statusMessage');
+    el.textContent = msg; el.className = 'status-msg ' + type;
+  }
+  function showSubmitError(msg) {
+    const el = document.getElementById('submitError');
+    el.textContent = msg; el.style.display = 'block';
+  }
+  function clearSubmitError() { document.getElementById('submitError').style.display = 'none'; }
+
+  function logout() {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    window.location.href = '/login.html';
+  }
+
+  // --- Line items ---
+  let lineItemCounter = 0;
+  function addLineItemRow() {
+    lineItemCounter++;
+    const id = lineItemCounter;
+    document.getElementById('lineItemsBody').insertAdjacentHTML('beforeend', `
+      <tr data-row-id="${id}">
+        <td><input type="text" class="li-description" placeholder="Material description"></td>
+        <td class="qty-col"><input type="number" class="li-qty" step="0.001" min="0" placeholder="Qty"></td>
+        <td class="unit-col"><input type="text" class="li-unit" maxlength="50" placeholder="Unit"></td>
+        <td class="remove-col"><button type="button" class="btn-remove-row" title="Remove" onclick="removeLineItemRow(${id})">&times;</button></td>
+      </tr>`);
+  }
+  function removeLineItemRow(rowId) {
+    const body = document.getElementById('lineItemsBody');
+    const row = body.querySelector(`tr[data-row-id="${rowId}"]`);
+    if (row) row.remove();
+    if (body.children.length === 0) addLineItemRow();
+  }
+  // Rows left completely blank are ignored; a half-filled row is an error.
+  function collectLineItems() {
+    return [...document.getElementById('lineItemsBody').querySelectorAll('tr')].map(row => ({
+      material_description: row.querySelector('.li-description').value.trim(),
+      qty: row.querySelector('.li-qty').value,
+      unit: row.querySelector('.li-unit').value.trim()
+    })).filter(item => item.material_description || item.qty !== '' || item.unit);
+  }
+
+  // --- Attachments (queued in the browser, uploaded once the requisition exists) ---
+  let queuedAttachments = [];
+  document.getElementById('attachmentFileInput').addEventListener('change', (e) => {
+    queuedAttachments = queuedAttachments.concat([...e.target.files]).slice(0, MAX_ATTACHMENTS);
+    renderAttachmentList();
+    e.target.value = '';
+  });
+  function renderAttachmentList() {
+    document.getElementById('attachmentList').innerHTML = queuedAttachments.map((f, i) =>
+      `<span class="attachment-chip">${escapeHtml(f.name)}<button type="button" title="Remove" onclick="removeQueuedAttachment(${i})">&times;</button></span>`
+    ).join('');
+  }
+  function removeQueuedAttachment(i) {
+    queuedAttachments.splice(i, 1);
+    renderAttachmentList();
+  }
+
+  // --- Dropdowns ---
+  async function loadProjectsAndDepartments() {
+    try {
+      const [projRes, deptRes] = await Promise.all([
+        fetch(API_BASE + '/projects', { headers: authHeaders() }),
+        fetch(API_BASE + '/departments', { headers: authHeaders() })
+      ]);
+      if (projRes.status === 401 || deptRes.status === 401) { window.location.href = '/login.html?reason=expired'; return; }
+      const projects = await projRes.json();
+      const depts = await deptRes.json();
+      document.getElementById('reqProject').innerHTML = '<option value="">-- Select Project --</option>' +
+        projects.map(p => `<option value="${p.id}">${escapeHtml(p.name)}</option>`).join('');
+      document.getElementById('reqDepartment').innerHTML = '<option value="">-- Choose Dept --</option>' +
+        depts.map(d => `<option value="${d.id}">${escapeHtml(d.name)}</option>`).join('');
+    } catch (e) {
+      showStatus('Could not reach the server. Please check your connection.', 'error');
+    }
+  }
+
+  async function loadSites() {
+    const projectId = document.getElementById('reqProject').value;
+    const siteDropdown = document.getElementById('reqSite');
+    siteDropdown.innerHTML = '<option value="">-- No site --</option>';
+    if (!projectId) return;
+    try {
+      const res = await fetch(API_BASE + '/projects/' + projectId + '/sites', { headers: authHeaders() });
+      if (!res.ok) return;
+      const sites = await res.json();
+      siteDropdown.innerHTML = '<option value="">-- No site --</option>' +
+        sites.map(s => `<option value="${s.id}">${escapeHtml(s.site_name)}</option>`).join('');
+    } catch (e) { /* site is optional; leave the dropdown at "No site" */ }
+  }
+
+  async function loadRecipients() {
+    const deptId = document.getElementById('reqDepartment').value;
+    const picDropdown = document.getElementById('reqRecipient');
+    if (!deptId) { picDropdown.innerHTML = '<option value="">-- Choose Dept first --</option>'; return; }
+    picDropdown.innerHTML = '<option value="">-- Loading... --</option>';
+    try {
+      const res = await fetch(API_BASE + '/users/by-department/' + deptId, { headers: authHeaders() });
+      const users = await res.json();
+      picDropdown.innerHTML = '<option value="">-- Choose Person --</option>' +
+        users.map(u => `<option value="${u.id}">${escapeHtml(u.display_name || u.email)}</option>`).join('');
+    } catch (e) {
+      picDropdown.innerHTML = '<option value="">-- Failed to load --</option>';
+    }
+  }
+
+  // --- Submit ---
+  document.getElementById('requisitionForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    clearSubmitError();
+
+    if (!document.getElementById('reqProject').value) { showSubmitError('Choose a project.'); return; }
+    if (!document.getElementById('reqRecipient').value) { showSubmitError('Choose who this requisition is sent to.'); return; }
+
+    const lineItems = collectLineItems();
+    if (lineItems.length === 0) { showSubmitError('Add at least one line item.'); return; }
+    for (const item of lineItems) {
+      const qty = Number(item.qty);
+      if (!item.material_description || item.qty === '' || !Number.isFinite(qty) || qty <= 0) {
+        showSubmitError('Every line item needs a description and a quantity greater than zero.');
+        return;
+      }
+    }
+
+    const val = (id) => document.getElementById(id).value.trim() || null;
+    const body = {
+      projectId: document.getElementById('reqProject').value,
+      siteId: document.getElementById('reqSite').value || null,
+      departmentId: document.getElementById('reqDepartment').value || null,
+      recipientId: document.getElementById('reqRecipient').value,
+      client: val('reqClient'), jobNo: val('reqJobNo'), costCode: val('reqCostCode'),
+      dSldSpecRef: val('reqDSldRef'), mtoRef: val('reqMtoRef'),
+      needByDate: document.getElementById('reqNeedByDate').value || null,
+      isUrgent: document.getElementById('reqUrgent').checked,
+      lineItems
+    };
+
+    const submitBtn = document.getElementById('submitBtn');
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Submitting...';
+    const reset = () => { submitBtn.disabled = false; submitBtn.textContent = 'Submit Requisition'; };
+
+    let data;
+    try {
+      const res = await fetch(API_BASE + '/requisitions', {
+        method: 'POST',
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify(body)
+      });
+      if (res.status === 401) { window.location.href = '/login.html?reason=expired'; return; }
+      data = await res.json();
+      if (!res.ok) { showSubmitError(data.error || 'Failed to submit requisition.'); reset(); return; }
+    } catch (err) {
+      showSubmitError('Network error while submitting. Nothing was saved — please try again.');
+      reset();
+      return;
+    }
+
+    // The requisition now exists; from here on a failure must NOT invite a
+    // resubmit (that would create a duplicate with a new number).
+    let message = `Requisition ${data.requisition_no} submitted.`;
+    let isError = false;
+    if (queuedAttachments.length > 0) {
+      try {
+        const formData = new FormData();
+        queuedAttachments.forEach(f => formData.append('attachments', f));
+        const attRes = await fetch(API_BASE + '/documents/' + data.document_id + '/requisition-attachments', {
+          method: 'POST', headers: authHeaders(), body: formData
+        });
+        if (!attRes.ok) throw new Error('upload failed');
+      } catch (err) {
+        isError = true;
+        message = `Requisition ${data.requisition_no} was created, but its attachments could not be uploaded. Do not submit it again.`;
+      }
+    }
+    showStatus(message, isError ? 'error' : 'success');
+    submitBtn.textContent = 'Submitted';
+    setTimeout(() => { window.location.href = '/dashboard.html'; }, isError ? 5000 : 1500);
+  });
+
+  addLineItemRow();
+  loadProjectsAndDepartments();
+</script>
+
+</body>
+</html>
