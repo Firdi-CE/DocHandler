@@ -339,6 +339,17 @@ async function auditLog(userId, actionType, entityId) {
 // needs to be the sender, the recipient, or assigned to the project.
 async function checkDocumentAccess(doc, userId, userRole, deptId) {
     if (roles.isGlobalRole(userRole)) return true;
+    // Anyone named on the document's approval chain can always open it, whatever
+    // their department or project assignments -- otherwise a document could be
+    // routed to an approver who cannot see it (e.g. a Manager from another
+    // department, or Finance).
+    if (doc.id) {
+        const chainCheck = await db.query(
+            'SELECT 1 FROM approval_chain_steps WHERE document_id = $1 AND approver_id = $2 LIMIT 1',
+            [doc.id, userId]
+        );
+        if (chainCheck.rows.length > 0) return true;
+    }
     const projCheck = await db.query(
         'SELECT 1 FROM project_assignments WHERE user_id = $1 AND project_id = $2',
         [userId, doc.project_id]
@@ -1328,6 +1339,12 @@ const LATEST_VERSION_ONLY_CLAUSE = `NOT EXISTS (
       AND newer.version_number > d.version_number
 )`;
 
+// "The user is named on this document's approval chain" -- always grants
+// visibility (see checkDocumentAccess). `n` is the 1-based index of the
+// user-id parameter in the query being built.
+const CHAIN_APPROVER_CLAUSE = (n) =>
+    `d.id IN (SELECT document_id FROM approval_chain_steps WHERE approver_id = $${n})`;
+
 // Endpoint to capture inbox layout listings targeting single identity profile logs
 // Shared by /documents/my-inbox and /documents/inbox-filter-options so both
 // always agree on which documents a given user is allowed to see.
@@ -1339,10 +1356,10 @@ function buildInboxScopeClause(userRole, userId, deptId) {
     } else if (roles.isProjectScopedRole(userRole)) {
         // Supervisor and Manager: scoped to their department + assigned projects
         queryParams.push(deptId, userId);
-        conditions.push(`(d.department_id = $${queryParams.length - 1} OR d.project_id IN (SELECT project_id FROM project_assignments WHERE user_id = $${queryParams.length}))`);
+        conditions.push(`(d.department_id = $${queryParams.length - 1} OR d.project_id IN (SELECT project_id FROM project_assignments WHERE user_id = $${queryParams.length}) OR ${CHAIN_APPROVER_CLAUSE(queryParams.length)})`);
     } else {
         queryParams.push(userId);
-        conditions.push(`(d.recipient_id = $${queryParams.length} OR d.sender_id = $${queryParams.length} OR d.project_id IN (SELECT project_id FROM project_assignments WHERE user_id = $${queryParams.length}))`);
+        conditions.push(`(d.recipient_id = $${queryParams.length} OR d.sender_id = $${queryParams.length} OR d.project_id IN (SELECT project_id FROM project_assignments WHERE user_id = $${queryParams.length}) OR ${CHAIN_APPROVER_CLAUSE(queryParams.length)})`);
     }
     return { conditions, queryParams };
 }
